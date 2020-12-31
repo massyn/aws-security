@@ -1,0 +1,51 @@
+
+{
+    "AWSTemplateFormatVersion"  : "2010-09-09",
+    "Description"               : "AWS Security Info - CIS Benchmark template",
+    "Parameters" : {
+        "myLogGroup" : {
+            "Type"          : "String",
+            "Default"       : "CloudTrail/DefaultLogGroup",
+            "Description"   : "Specify the log group name (that has all the cloudtrail events in it)"
+        },
+        "mySNSArn" : {
+            "Type"          : "String",
+            "Description"   : "Specify the SNS topic where to send the alerts to"
+        }
+    },
+    "Resources" : {
+        "rootusagemetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ $.userIdentity.type = \"Root\" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != \"AwsServiceEvent\" }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "root_usage_metric"
+                    }
+                ]
+            }
+        },
+        "rootusagealarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "AlarmName"             : "root_usage_alarm",
+                "MetricName"            : { "Ref" : "rootusagemetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+                
+
+
+                   
+                  
+            }
+        }
+    }
+  }
