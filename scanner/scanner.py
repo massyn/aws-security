@@ -23,8 +23,6 @@ def main():
     parser.add_argument('--account',help='The AWS Account number you are trying to switch to')
     parser.add_argument('--externalid',help='The external ID required to complete the assume role')
     parser.add_argument('--json',help='The filename where the collected data file should be stored',required = True)
-
-    parser.add_argument("--cache", help="Do not overwrite the json file - instead, read it and continue where you left off", action="store_true")
     parser.add_argument('--oj',help='The filename of the output json findings')
     parser.add_argument('--oh',help='The filename of the output html findings')
 
@@ -46,18 +44,13 @@ def main():
             exit(1)
 
     c = collector(a,b,c)
-    
-    if args.cache:
-        # refresh the file with any new items
-        if os.path.isfile(args.json):
-            c.read_json(args.json)
-        c.collect_all()
-        c.write_json(args.json)
-    else:
-        # collect all fresh, and save a cache
-        c.collect_all()
-        c.write_json(args.json)
 
+    c.read_json(args.json)
+
+        
+    c.collect_all()
+    c.write_json()
+    
     account = c.cache['sts']['get_caller_identity']['Account']
     print('AWS Account is ' + str(account))
             

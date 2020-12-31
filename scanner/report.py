@@ -126,6 +126,8 @@ table {
                   print (policy + ' - WARNING - no references')
                 if self.data[policy]['links'] == []:
                   print (policy + ' - WARNING - no links')
+
+                non = self.data[policy][0]
                                 
                 f.write('''
                     <h3 id="{policy}">{policy}</h3>
@@ -146,7 +148,7 @@ table {
                     '''.format(
                             policy = policy,
                             pct     = pct,
-                            non     = json.dumps(self.data[policy][0],indent=4),
+                            non     = json.dumps(non,indent=4),
                             description = self.data[policy]['description'],
                             remediation = self.data[policy]['remediation'],
                             vulnerability = self.data[policy]['vulnerability'],

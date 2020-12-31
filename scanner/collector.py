@@ -4,6 +4,7 @@ import dateutil.parser
 import csv
 import time
 import json
+import os.path
 
 class collector:
     
@@ -22,10 +23,10 @@ class collector:
 
     def collect_all(self):
         self.iam_generate_credential_report()
+        self.ec2_describe_regions()             # this one must be at the top.. it is needed for all the others
         self.sts_get_caller_identity()
         self.s3_bucketpolicy()
         self.s3_bucket_acl()
-        self.ec2_describe_regions()
         self.ec2_describe_vpcs()
         self.ec2_describe_flow_logs()
         self.ec2_describe_instances()
@@ -36,6 +37,9 @@ class collector:
         self.ec2_describe_route_tables()
         self.lambda_list_functions()
         self.cloudtrail_describe_trails()
+        self.cloudwatch_describe_alarms()
+        self.logs_describe_metric_filters()
+        self.sns_list_topics()
         self.config_describe_configuration_recorders()
         self.config_describe_configuration_recorder_status()
         self.iam_policy()
@@ -50,45 +54,103 @@ class collector:
         self.iam_list_attached_role_policies()
         self.iam_list_attached_user_policies()
         self.iam_list_user_policies()
+        self.guardduty_list_detectors()
         self.dynamodb_list_tables()
         self.kms_list_keys()
         self.kms_get_key_rotation_status()
         self.iam_list_policies()
         self.iam_get_policy()
+        
 
-    def write_json(self,file):
-        with open(file,'wt') as f:
+    def write_json(self):
+        with open(self.data_file,'wt') as f:
             f.write(json.dumps(self.cache,indent = 4, default=self.convert_timestamp))
             f.close()
     
     def read_json(self,file):
-        with open(file,'rt') as f:
-            self.cache = json.load(f)
-            f.close()
+        self.data_file = file
+        if os.path.isfile(file):
+            with open(file,'rt') as f:
+                self.cache = json.load(f)
+                f.close()
 
+    def check_cache(self,p1,p2,p3 = None, dft = []):
+
+        timeout = 3600
+
+        # -- create the timestamp if it doesn't exist
+        if not 'timestamp' in self.cache:
+            self.cache['timestamp'] = {}
+        
+        if not p1 in self.cache['timestamp']:
+            self.cache['timestamp'][p1] = {}
+
+        if not p2 in self.cache['timestamp'][p1]:
+            if p3 == None:
+                self.cache['timestamp'][p1][p2] = 0
+            else:
+                self.cache['timestamp'][p1][p2] = {}
+
+        if p3 != None and p3 not in self.cache['timestamp'][p1][p2]:
+            self.cache['timestamp'][p1][p2][p3] = 0
+
+        # -- create the cache if it doesn't exist
+        if not p1 in self.cache:
+            self.cache[p1] = {}
+
+        if not p2 in self.cache[p1]:
+            if p3 == None:
+                self.cache[p1][p2] = dft
+                self.cache['timestamp'][p1][p2] = 0
+            else:
+                self.cache[p1][p2] = {}
+                self.cache[p1][p2][p3] = dft
+                self.cache['timestamp'][p1][p2][p3] = 0
+
+        if p3 != None and p3 not in self.cache[p1][p2]:
+            self.cache[p1][p2][p3] = dft
+    
+        epoch_time = int(time.time())
+
+        if p3 == None:
+            timestamp = self.cache['timestamp'][p1][p2]
+        else:
+            timestamp = self.cache['timestamp'][p1][p2][p3]
+
+        if (epoch_time - timestamp) > timeout:
+            if p3 == None:
+                print (p1 + ' - ' + p2)
+                self.cache['timestamp'][p1][p2] = epoch_time
+
+            else:
+                print (p1 + ' - ' + p2 + ' - ' + p3)
+                self.cache['timestamp'][p1][p2][p3] = epoch_time
+            
+            return True
+        else:
+            return False
+    
+    def age(self,dte):
+        if dte == 'not_supported' or dte == 'N/A' or dte == 'no_information':
+            return -1
+        else:
+            result = dt.date.today() - dateutil.parser.parse(dte).date()
+            return result.days
+
+
+    # =======================================
     def sts_get_caller_identity(self):
-
-        if not 'sts' in self.cache:
-            self.cache['sts'] = {}
-
-        if not 'get_caller_identity' in self.cache['sts']:
-            print ('sts - get_caller_identity')
+        if self.check_cache('sts','get_caller_identity',None,{}):
             self.cache['sts']['get_caller_identity'] = boto3.client('sts',
                 aws_access_key_id       = self.aws_access_key_id,
                 aws_secret_access_key   = self.aws_secret_access_key,
                 aws_session_token       = self.aws_session_token
             ).get_caller_identity()
+            self.write_json()
 
     def dynamodb_list_tables(self):
-        if not 'dynamodb' in self.cache:
-            self.cache['dynamodb'] = {}
-        if not 'list_tables' in self.cache['dynamodb']:
-            self.cache['dynamodb']['list_tables'] = {}
-
             for region in self.ec2_describe_regions():
-                if not region in self.cache['dynamodb']['list_tables']:
-                    self.cache['dynamodb']['list_tables'][region] = []
-                    print ('dynamodb - list_tables - ' + region)
+                if self.check_cache('dynamodb','list_tables',region,[]):
                     paginator = boto3.client('dynamodb',
                         region_name				= region,
                         aws_access_key_id		= self.aws_access_key_id,
@@ -99,76 +161,52 @@ class collector:
                         for t in r['TableNames']:
                             print(' - ' + t)                     
                             self.cache['dynamodb']['list_tables'][region].append(t)
+                            self.write_json()
 
     def ec2_describe_securitygroups(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_security_groups' in self.cache['ec2']:
-            self.cache['ec2']['describe_security_groups'] = {}
-            self.ec2_describe_regions()
-            for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
-                print ('ec2 - describe_security_groups - ' + region)
-                if not region in self.cache['ec2']['describe_security_groups']:
-                    self.cache['ec2']['describe_security_groups'][region] = boto3.client('ec2',
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            if self.check_cache('ec2','describe_security_groups',region,{}):
+                self.cache['ec2']['describe_security_groups'][region] = boto3.client('ec2',
+                region_name				= region,
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token
+            ).describe_security_groups().get('SecurityGroups')
+            self.write_json()
+
+    def ec2_describe_instances(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('ec2','describe_instances',region,[]):
+                for reservation in boto3.client('ec2',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
                     aws_secret_access_key	= self.aws_secret_access_key,
                     aws_session_token		= self.aws_session_token
-                ).describe_security_groups().get('SecurityGroups')
-
-    def ec2_describe_instances(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_instances' in self.cache['ec2']:
-            self.cache['ec2']['describe_instances'] = {}
-
-            for region in self.ec2_describe_regions():
-                if not region in self.cache['ec2']['describe_instances']:
-                    self.cache['ec2']['describe_instances'][region] = []
-                    print ('ec2 - describe_instances - ' + region)
-                    for reservation in boto3.client('ec2',
-                        region_name				= region,
-                        aws_access_key_id		= self.aws_access_key_id,
-                        aws_secret_access_key	= self.aws_secret_access_key,
-                        aws_session_token		= self.aws_session_token
-                    ).describe_instances().get('Reservations'):
-                        for ec2 in reservation['Instances']:
-                            print(' - ' + ec2['InstanceId'])
-                            self.cache['ec2']['describe_instances'][region].append(ec2)
+                ).describe_instances().get('Reservations'):
+                    for ec2 in reservation['Instances']:
+                        print(' - ' + ec2['InstanceId'])
+                        self.cache['ec2']['describe_instances'][region].append(ec2)
+                self.write_json()
 
     def ec2_describe_subnets(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_subnets' in self.cache['ec2']:
-            self.cache['ec2']['describe_subnets'] = {}
+        for region in self.ec2_describe_regions():
+            if self.check_cache('ec2','describe_subnets',region,[]):
+                paginator = boto3.client('ec2',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).get_paginator('describe_subnets')
 
-            for region in self.ec2_describe_regions():
-                if not region in self.cache['ec2']['describe_subnets']:
-                    self.cache['ec2']['describe_subnets'][region] = []
-                    print ('ec2 - describe_subnets - ' + region)
-                    paginator = boto3.client('ec2',
-                        region_name				= region,
-                        aws_access_key_id		= self.aws_access_key_id,
-                        aws_secret_access_key	= self.aws_secret_access_key,
-                        aws_session_token		= self.aws_session_token
-                    ).get_paginator('describe_subnets')
-
-                    for p in paginator.paginate():
-                        for s in p['Subnets']:
-                            print (' - ' + s['SubnetId'])
-                            self.cache['ec2']['describe_subnets'][region].append(s)
+                for p in paginator.paginate():
+                    for s in p['Subnets']:
+                        print (' - ' + s['SubnetId'])
+                        self.cache['ec2']['describe_subnets'][region].append(s)
+                self.write_json()
 
     def ec2_describe_vpcs(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_vpcs' in self.cache['ec2']:
-            self.cache['ec2']['describe_vpcs'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['ec2']['describe_vpcs']:
-                self.cache['ec2']['describe_vpcs'][region] = []
-                print('ec2 - describe_vpcs - ' + region)
-
+            if self.check_cache('ec2','describe_vpcs',region,[]):
                 for vpc in boto3.client('ec2',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -177,33 +215,22 @@ class collector:
                 ).describe_vpcs()['Vpcs']:
                     self.cache['ec2']['describe_vpcs'][region].append(vpc)
                     print(' - ' + vpc['VpcId'])
+            self.write_json()
 
     def ec2_describe_regions(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        
-        if not 'describe_regions' in self.cache['ec2']:
-            print ('ec2 - describe_regions')
-			
+        if self.check_cache('ec2','describe_regions',None,{}):
             self.cache['ec2']['describe_regions'] = boto3.client( 'ec2' ,
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token,
                 region_name             = 'us-east-1'
             ).describe_regions()['Regions']
+            self.write_json()
         return [region['RegionName'] for region in self.cache['ec2']['describe_regions']]
 
     def ec2_describe_flow_logs(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_flow_logs' in self.cache['ec2']:
-            self.cache['ec2']['describe_flow_logs'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['ec2']['describe_flow_logs']:
-                self.cache['ec2']['describe_flow_logs'][region] = []
-                print('ec2 - describe_flow_logs - ' + region)
-
+            if self.check_cache('ec2','describe_flow_logs',region,[]):
                 for fl in boto3.client('ec2',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -212,17 +239,11 @@ class collector:
                 ).describe_flow_logs()['FlowLogs']:
                     print(' - ' + fl['FlowLogId'])
                     self.cache['ec2']['describe_flow_logs'][region].append(fl)
+                self.write_json()
 
     def ec2_describe_iam_instance_profile_associations(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_iam_instance_profile_associations' in self.cache['ec2']:
-            self.cache['ec2']['describe_iam_instance_profile_associations'] = {}
         for region in self.ec2_describe_regions():
-            if not region in self.cache['ec2']['describe_iam_instance_profile_associations']:
-                self.cache['ec2']['describe_iam_instance_profile_associations'][region] = []
-                print('ec2 - describe_iam_instance_profile_associations - ' + region)
-            
+            if self.check_cache('ec2','describe_iam_instance_profile_associations',region,[]):
                 paginator = boto3.client('ec2',
                     region_name             = region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -233,17 +254,11 @@ class collector:
                 for p in paginator.paginate():
                     for i in p['IamInstanceProfileAssociations']:
                         self.cache['ec2']['describe_iam_instance_profile_associations'][region].append(i)
+                self.write_json()
 
     def ec2_describe_route_tables(self):
-        if not 'ec2' in self.cache:
-            self.cache['ec2'] = {}
-        if not 'describe_route_tables' in self.cache['ec2']:
-            self.cache['ec2']['describe_route_tables'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['ec2']['describe_route_tables']:
-                self.cache['ec2']['describe_route_tables'][region] = []
-
+            if self.check_cache('ec2','describe_route_tables',region,[]):
                 paginator = boto3.client('ec2',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -251,25 +266,20 @@ class collector:
                     aws_session_token		= self.aws_session_token
                 ).get_paginator('describe_route_tables')
 
-                print('ec2 - describe_route_tables - ' + region)
                 for p in paginator.paginate():
                     self.cache['ec2']['describe_route_tables'][region].append(p['RouteTables'])
+                self.write_json()
 
     def kms_list_keys(self):
-        if not 'kms' in self.cache:
-            self.cache['kms'] = {}
-        if not 'list_keys' in self.cache['kms']:
-            self.cache['kms']['list_keys'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['kms']['list_keys']:
-                print('kms - list_keys - ' + region)
+            if self.check_cache('kms','list_keys',region,{}):
                 self.cache['kms']['list_keys'][region] = boto3.client('kms',
                             region_name				= region,
                             aws_access_key_id		= self.aws_access_key_id,
                             aws_secret_access_key	= self.aws_secret_access_key,
                             aws_session_token		= self.aws_session_token
                 ).list_keys()['Keys']
+                self.write_json()
             
     def kms_get_key_rotation_status(self):
         self.kms_list_keys()
@@ -280,10 +290,8 @@ class collector:
             self.cache['kms']['get_key_rotation_status'] = {}
 
         for region in self.ec2_describe_regions():
-            if not region in self.cache['kms']['get_key_rotation_status']:
-                self.cache['kms']['get_key_rotation_status'][region] = {}
+            if self.check_cache('kms','get_key_rotation_status',region,{}):
                 for key in self.cache['kms']['list_keys'][region]:
-                    
                     print('kms - get_key_rotation_status - ' + region + ' - ' + key['KeyId'])
                     
                     try:
@@ -296,18 +304,11 @@ class collector:
                     except:
                         print('** ERROR getting get_key_rotation_status ** ')
                         self.cache['kms']['get_key_rotation_status'][region][key['KeyId']] = False
+                self.write_json()
 
     def config_describe_configuration_recorders(self):
-        if not 'config' in self.cache:
-            self.cache['config'] = {}
-        if not 'describe_configuration_recorders' in self.cache['config']:
-            self.cache['config']['describe_configuration_recorders'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['config']['describe_configuration_recorders']:
-                self.cache['config']['describe_configuration_recorders'][region] = []
-                print('config - describe_configuration_recorders - ' + region)
-
+            if self.check_cache('config','describe_configuration_recorders',region,[]):
                 for cr in boto3.client('config',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -316,18 +317,11 @@ class collector:
                 ).describe_configuration_recorders()['ConfigurationRecorders']:
                     print(' - ' + cr['name'])
                     self.cache['config']['describe_configuration_recorders'][region].append(cr)
+                self.write_json()
 
     def config_describe_configuration_recorder_status(self):
-        if not 'config' in self.cache:
-            self.cache['config'] = {}
-        if not 'describe_configuration_recorder_status' in self.cache['config']:
-            self.cache['config']['describe_configuration_recorder_status'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['config']['describe_configuration_recorder_status']:
-                self.cache['config']['describe_configuration_recorder_status'][region] = []
-                print('config - describe_configuration_recorder_status - ' + region)
-
+            if self.check_cache('config','describe_configuration_recorder_status',region,[]):
                 for cr in boto3.client('config',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -336,14 +330,10 @@ class collector:
                 ).describe_configuration_recorder_status()['ConfigurationRecordersStatus']:
                     print(' - ' + cr['name'])
                     self.cache['config']['describe_configuration_recorder_status'][region].append(cr)
+                self.write_json()
 
     def s3_bucket_acl(self):
-        if not 's3' in self.cache:
-            self.cache['s3'] = {}
-
-        if not 'bucketacl' in self.cache['s3']:
-            self.cache['s3']['bucketacl'] = {}
-
+        
             client = boto3.client('s3',
                     aws_access_key_id		= self.aws_access_key_id,
                     aws_secret_access_key	= self.aws_secret_access_key,
@@ -352,10 +342,8 @@ class collector:
         
             for bucket in client.list_buckets().get('Buckets'):
                 bucketname = bucket.get('Name')
-                if not bucketname in self.cache['s3']['bucketacl']:
-                    self.cache['s3']['bucketacl'][bucketname] = {}
 
-                    print ('s3 - bucketacl - ' + bucketname)
+                if self.check_cache('s3','bucketacl',bucketname,{}):
                     s3 = boto3.resource('s3',
                         aws_access_key_id		= self.aws_access_key_id,
                         aws_secret_access_key	= self.aws_secret_access_key,
@@ -364,42 +352,29 @@ class collector:
                     bucket_acl = s3.BucketAcl(bucketname)
                     self.cache['s3']['bucketacl'][bucketname]['grants'] = bucket_acl.grants
                     self.cache['s3']['bucketacl'][bucketname]['owner'] = bucket_acl.owner
+                    self.write_json()
            
     def s3_bucketpolicy(self):
-        if not 's3' in self.cache:
-            self.cache['s3'] = {}
-        
-        if not 'policy' in self.cache['s3']:
-            self.cache['s3']['policy'] = {}
-            
-            client = boto3.client('s3',
+        client = boto3.client('s3',
 		        aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
-	        )
+        )
 	
-            for bucket in client.list_buckets().get('Buckets'):
-                bucketname = bucket.get('Name')
-                
-                if not bucketname in self.cache['s3']['policy']:
-                    print ('s3 - policy - ' + bucketname)
-            
-                    try:
-                        policy = json.loads(client.get_bucket_policy(Bucket = bucketname).get('Policy'))
-                    except:
-                        policy = {}
+        for bucket in client.list_buckets().get('Buckets'):
+            bucketname = bucket.get('Name')
 
-                    self.cache['s3']['policy'][bucketname] = policy
+            if self.check_cache('s3','policy',bucketname,{}):
+                try:
+                    policy = json.loads(client.get_bucket_policy(Bucket = bucketname).get('Policy'))
+                except:
+                    policy = {}
+
+                self.cache['s3']['policy'][bucketname] = policy
+                self.write_json()
 
     def iam_policy(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        
-        if not 'policy' in self.cache['iam']:
-            self.cache['iam']['policy'] = {}
-
-            print ('iam - policy')
-
+        if self.check_cache('iam','policy',None,{}):
             response = boto3.resource('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
@@ -414,12 +389,10 @@ class collector:
             self.cache['iam']['policy']['require_numbers']                  = response.require_numbers
             self.cache['iam']['policy']['require_symbols']                  = response.require_symbols
             self.cache['iam']['policy']['require_uppercase_characters']     = response.require_uppercase_characters
+            self.write_json()
 
     def iam_generate_credential_report(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'credentials' in self.cache['iam']:
-            print ('iam - generate_credential_report')
+        if self.check_cache('iam','generate_credential_report',None,{}):
             boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
@@ -427,179 +400,119 @@ class collector:
             ).generate_credential_report()
 
     def iam_get_account_summary(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'get_account_summary' in self.cache['iam']:
-            self.cache['iam']['get_account_summary'] = []
-            print ('iam - get_account_summary')
+        if self.check_cache('iam','get_account_summary',None,[]):
             self.cache['iam']['get_account_summary'] = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
             ).get_account_summary().get('SummaryMap')
+            self.write_json()
 
     def iam_list_groups(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_groups' in self.cache['iam']:
-            self.cache['iam']['list_groups'] = []
-            print ('iam - list_groups')
+        if self.check_cache('iam','list_groups',None,[]):
             self.cache['iam']['list_groups'] = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
             ).list_groups().get('Groups')
+            self.write_json()
 
     def iam_list_roles(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_roles' in self.cache['iam']:
-            self.cache['iam']['list_roles'] = []
-            print ('iam - list_roles')
+        if self.check_cache('iam','list_roles',None,[]):
             self.cache['iam']['list_roles'] = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
             ).list_roles().get('Roles')
+            self.write_json()
 
     def iam_get_group(self):
         self.iam_list_groups()
-
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'get_group' in self.cache['iam']:
-            self.cache['iam']['get_group'] = {}
-            print('iam - get_group')
-            iam = boto3.client('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token)
-            
-            for g in self.cache['iam']['list_groups']:
-                GroupName = g['GroupName']
-                if not GroupName in self.cache['iam']['get_group']:
-                    self.cache['iam']['get_group'][GroupName] = {}
-                    print(' - ' + GroupName)
-                    self.cache['iam']['get_group'][GroupName] = iam.get_group(GroupName = GroupName)
+        
+        iam = boto3.client('iam',
+            aws_access_key_id		= self.aws_access_key_id,
+            aws_secret_access_key	= self.aws_secret_access_key,
+            aws_session_token		= self.aws_session_token)
+        
+        for g in self.cache['iam']['list_groups']:
+            GroupName = g['GroupName']
+            if self.check_cache('iam','get_group',GroupName,{}):
+                self.cache['iam']['get_group'][GroupName] = iam.get_group(GroupName = GroupName)
+                self.write_json()
     
     def iam_list_attached_role_policies(self):
         self.iam_list_roles()
-
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_attached_role_policies' in self.cache['iam']:
-            self.cache['iam']['list_attached_role_policies'] = {}
-            print('iam - list_attached_role_policies')
-            iam = boto3.client('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token)
-            
-            for g in self.cache['iam']['list_roles']:
-                RoleName = g['RoleName']
-                if not RoleName in self.cache['iam']['list_attached_role_policies']:
-                    self.cache['iam']['list_attached_role_policies'][RoleName] = []
-                    print(' - ' + RoleName)
-                    self.cache['iam']['list_attached_role_policies'][RoleName] = iam.list_attached_role_policies(RoleName = RoleName)['AttachedPolicies']
+        iam = boto3.client('iam',
+            aws_access_key_id		= self.aws_access_key_id,
+            aws_secret_access_key	= self.aws_secret_access_key,
+            aws_session_token		= self.aws_session_token)
+        
+        for g in self.cache['iam']['list_roles']:
+            RoleName = g['RoleName']
+            if self.check_cache('iam','list_attached_role_policies',RoleName,[]):
+                self.cache['iam']['list_attached_role_policies'][RoleName] = iam.list_attached_role_policies(RoleName = RoleName)['AttachedPolicies']
+                self.write_json()
 
     def iam_list_attached_user_policies(self):
         self.iam_list_users()
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_attached_user_policies' in self.cache['iam']:
-            self.cache['iam']['list_attached_user_policies'] = {}
-            print('iam - list_attached_user_policies')
-            iam = boto3.client('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token)
-            
-            for g in self.cache['iam']['list_users']:
-                UserName = g['UserName']
-                if not UserName in self.cache['iam']['list_attached_user_policies']:
-                    self.cache['iam']['list_attached_user_policies'][UserName] = []
-                    print(' - ' + UserName)
-                    self.cache['iam']['list_attached_user_policies'][UserName] = iam.list_attached_user_policies(UserName = UserName)['AttachedPolicies']
+        
+        iam = boto3.client('iam',
+            aws_access_key_id		= self.aws_access_key_id,
+            aws_secret_access_key	= self.aws_secret_access_key,
+            aws_session_token		= self.aws_session_token)
+        
+        for g in self.cache['iam']['list_users']:
+            UserName = g['UserName']
+            if self.check_cache('iam','list_attached_user_policies',UserName,[]):
+                self.cache['iam']['list_attached_user_policies'][UserName] = iam.list_attached_user_policies(UserName = UserName)['AttachedPolicies']
+                self.write_json()
 
     def iam_list_user_policies(self):
         self.iam_list_users()
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_user_policies' in self.cache['iam']:
-            self.cache['iam']['list_user_policies'] = {}
-            print('iam - list_user_policies')
-            iam = boto3.client('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token)
+        iam = boto3.client('iam',
+            aws_access_key_id		= self.aws_access_key_id,
+            aws_secret_access_key	= self.aws_secret_access_key,
+            aws_session_token		= self.aws_session_token)
+        
+        for g in self.cache['iam']['list_users']:
+            UserName = g['UserName']
             
-            for g in self.cache['iam']['list_users']:
-                UserName = g['UserName']
-                if not UserName in self.cache['iam']['list_user_policies']:
-                    self.cache['iam']['list_user_policies'][UserName] = []
-                    print(' - ' + UserName)
-                    self.cache['iam']['list_user_policies'][UserName] = iam.list_user_policies(UserName = UserName)['PolicyNames']
+            if self.check_cache('iam','list_user_policies',UserName,[]):
+                self.cache['iam']['list_user_policies'][UserName] = iam.list_user_policies(UserName = UserName)['PolicyNames']
 
     def iam_list_attached_group_policies(self):
         self.iam_list_groups()
 
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_attached_group_policies' in self.cache['iam']:
-            self.cache['iam']['list_attached_group_policies'] = {}
-            print('iam - list_attached_group_policies')
-            iam = boto3.client('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token)
-            
-            for g in self.cache['iam']['list_groups']:
-                GroupName = g['GroupName']
-                if not GroupName in self.cache['iam']['list_attached_group_policies']:
-                    self.cache['iam']['list_attached_group_policies'][GroupName] = []
-                    print(' - ' + GroupName)
-                    self.cache['iam']['list_attached_group_policies'][GroupName] = iam.list_attached_group_policies(GroupName = GroupName)['AttachedPolicies']
+        
+        iam = boto3.client('iam',
+            aws_access_key_id		= self.aws_access_key_id,
+            aws_secret_access_key	= self.aws_secret_access_key,
+            aws_session_token		= self.aws_session_token)
+        
+        for g in self.cache['iam']['list_groups']:
+            GroupName = g['GroupName']
+            if self.check_cache('iam','list_attached_group_policies',GroupName,[]):
+                self.cache['iam']['list_attached_group_policies'][GroupName] = iam.list_attached_group_policies(GroupName = GroupName)['AttachedPolicies']
+                self.write_json()
     
     def iam_list_users(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'list_users' in self.cache['iam']:
-            self.cache['iam']['list_users'] = []
-
-            print('iam - list_users')
+        if self.check_cache('iam','list_users',None,{}):
             self.cache['iam']['list_users'] = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token).list_users()['Users']
+            self.write_json()
 
     def iam_get_account_authorization_details(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        if not 'get_account_authorization_details' in self.cache['iam']:
-            self.cache['iam']['get_account_authorization_details'] = []
-
-            print('iam - get_account_authorization_details')
+        if self.check_cache('iam','get_account_authorization_details',None,[]):
             self.cache['iam']['get_account_authorization_details'] = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token).get_account_authorization_details() #['Users']         
-
-    def age(self,dte):
-        if dte == 'not_supported' or dte == 'N/A' or dte == 'no_information':
-            return -1
-        else:
-            result = dt.date.today() - dateutil.parser.parse(dte).date()
-            return result.days
-
+            self.write_json()
+ 
     def iam_credentials(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        
-        if not 'credentials' in self.cache['iam']:
-            self.cache['iam']['credentials'] = []
-
-            print ('iam - credentials')
-
+        if self.check_cache('iam','credentials',None,{}):
             # == extract the iam user details, one by one
             iam = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
@@ -626,37 +539,24 @@ class collector:
                 row['_user_creation_time_age']			= self.age(row['user_creation_time'])
                 print(' - ' + row['user'])
                 self.cache['iam']['credentials'].append(row)
+            self.write_json()
 
     def rds_describe_db_instances(self):
-        if not 'rds' in self.cache:
-            self.cache['rds'] = {}
-        if not 'describe_db_instances' in self.cache['rds']:
-            self.cache['rds']['describe_db_instances'] = {}
-
-            for region in self.ec2_describe_regions():
-                if not region in self.cache['rds']['describe_db_instances']:
-                    self.cache['rds']['describe_db_instances'][region] = []
-                    print ('rds - describe_db_instances - ' + region)
-                    for db in boto3.client('rds',
-                        region_name				= region,
-                        aws_access_key_id		= self.aws_access_key_id,
-                        aws_secret_access_key	= self.aws_secret_access_key,
-                        aws_session_token		= self.aws_session_token
-                    ).describe_db_instances().get('DBInstances'):
-                        print(' - ' + db['DbiResourceId'])
-                        self.cache['rds']['describe_db_instances'][region].append(db)
+        for region in self.ec2_describe_regions():
+            if self.check_cache('rds','describe_db_instances',region,{}):
+                for db in boto3.client('rds',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).describe_db_instances().get('DBInstances'):
+                    print(' - ' + db['DbiResourceId'])
+                    self.cache['rds']['describe_db_instances'][region].append(db)
+                self.write_json()
 
     def cloudtrail_describe_trails(self):
-        if not 'cloudtrail' in self.cache:
-            self.cache['cloudtrail'] = {}
-
-        if not 'describe_trails' in self.cache['cloudtrail']:
-            self.cache['cloudtrail']['describe_trails'] = {}
-
         for region in self.ec2_describe_regions():
-            if not region in self.cache['cloudtrail']['describe_trails']:
-                self.cache['cloudtrail']['describe_trails'][region] = []
-                print ('cloudtrail - ' + region)
+            if self.check_cache('cloudtrail','describe_trails',region,[]):
                 ct = boto3.client('cloudtrail',
                     region_name				= region,
                     aws_access_key_id		= self.aws_access_key_id,
@@ -669,65 +569,106 @@ class collector:
                     trail['get_trail_status'] = ct.get_trail_status(Name=trail['TrailARN'])
                     trail['get_event_selectors'] = ct.get_event_selectors(TrailName=trail['TrailARN'])
                     self.cache['cloudtrail']['describe_trails'][region].append(trail)
+                    self.write_json()
+
+    def cloudwatch_describe_alarms(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('cloudwatch','describe_alarms',region,[]):
+                paginator = boto3.client('cloudwatch',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token).get_paginator('describe_alarms')
+
+                for p in paginator.paginate():
+                    for m in p['MetricAlarms']:
+                        self.cache['cloudwatch']['describe_alarms'][region].append(m)
+                self.write_json()
+
+    def logs_describe_metric_filters(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('logs','describe_metric_filters',region,[]):
+                paginator = boto3.client('logs',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).get_paginator('describe_metric_filters')
+                
+                for p in paginator.paginate():
+                    for cl in p['metricFilters']:
+                        self.cache['logs']['describe_metric_filters'][region].append(cl)
+                self.write_json()
+
+                    
+    def sns_list_topics(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('sns','list_topics',region,[]):
+                for p in boto3.client('sns',
+                            region_name				= region,
+                            aws_access_key_id		= self.aws_access_key_id,
+                            aws_secret_access_key	= self.aws_secret_access_key,
+                            aws_session_token		= self.aws_session_token
+                        ).get_paginator('list_topics').paginate():
+                
+                    for t in p['Topics']:
+                        self.cache['sns']['list_topics'][region].append(t)
+                self.write_json()
 
     def lambda_list_functions(self):
-        if not 'lambda' in self.cache:
-            self.cache['lambda'] = {}
+        for region in self.ec2_describe_regions():
+            if self.check_cache('lambda','list_functions',region,[]):
+                paginator = boto3.client('lambda',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).get_paginator('list_functions')
 
-        if not 'list_functions' in self.cache['lambda']:
-            self.cache['lambda']['list_functions'] = {}
-
-            for region in self.ec2_describe_regions():
-                if not region in self.cache['lambda']['list_functions']:
-                    self.cache['lambda']['list_functions'][region] = []
-                    print ('lambda - list_functions - ' + region)
-
-                    paginator = boto3.client('lambda',
-                        region_name				= region,
-                        aws_access_key_id		= self.aws_access_key_id,
-                        aws_secret_access_key	= self.aws_secret_access_key,
-                        aws_session_token		= self.aws_session_token
-                    ).get_paginator('list_functions')
-
-                    for lf in paginator.paginate():
-                        for l in lf['Functions']:
-                            print(' - ' + l['FunctionName'])
-                            self.cache['lambda']['list_functions'][region].append(l)
+                for lf in paginator.paginate():
+                    for l in lf['Functions']:
+                        print(' - ' + l['FunctionName'])
+                        self.cache['lambda']['list_functions'][region].append(l)
+                self.write_json()
                         
     def iam_list_policies(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
-        
-        if not 'list_policies' in self.cache['iam']:
-            self.cache['iam']['list_policies'] = []
-
-            print ('iam - list_policies')
+        if self.check_cache('iam','list_policies',None,[]):
             self.cache['iam']['list_policies'] = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
             ).list_policies()['Policies']
+            self.write_json()
 
     def iam_get_policy(self):
-        if not 'iam' in self.cache:
-            self.cache['iam'] = {}
+        self.iam_list_policies()
         
-        if not 'get_policy_version' in self.cache['iam']:
-            self.cache['iam']['get_policy_version'] = {}
-
-            iam = boto3.client('iam',
-                    aws_access_key_id		= self.aws_access_key_id,
-                    aws_secret_access_key	= self.aws_secret_access_key,
-                    aws_session_token		= self.aws_session_token
-                )
-            
-            for p in self.cache['iam']['list_policies']:
+        iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token
+        )
+        
+        for p in self.cache['iam']['list_policies']:
+            PolicyName = p['PolicyName']    
+            if self.check_cache('iam','get_policy_version',PolicyName,[]):
+                # todo - confirm if this thing wants the policy name, or the policy arn
+                self.cache['iam']['get_policy_version'][p['PolicyName']] = iam.get_policy_version(PolicyArn = p['Arn'], VersionId = p['DefaultVersionId'])['PolicyVersion']
+            self.write_json()
                 
-                if not p['PolicyName'] in self.cache['iam']['get_policy_version']:
-                    print('iam - get_policy_version - ' + p['PolicyName'])
+    def guardduty_list_detectors(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('guardduty','list_detectors',region,[]):
 
-                    # todo - confirm if this thing wants the policy name, or the policy arn
-                    self.cache['iam']['get_policy_version'][p['PolicyName']] = iam.get_policy_version(PolicyArn = p['Arn'], VersionId = p['DefaultVersionId'])['PolicyVersion']
-                
+                for p in boto3.client('guardduty',
+                        region_name				= region,
+                        aws_access_key_id		= self.aws_access_key_id,
+                        aws_secret_access_key	= self.aws_secret_access_key,
+                        aws_session_token		= self.aws_session_token
+                ).get_paginator('list_detectors').paginate():
+                    for i in p['DetectorIds']:
+                        self.cache['guardduty']['list_detectors'][region].append(i)
+                        print(' - ' + i)
+                self.write_json()
 
         

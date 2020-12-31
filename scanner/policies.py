@@ -593,41 +593,7 @@ class policies:
                 
             self.finding(policy,compliance,evidence)
 
-        # --------------------------------------------------------
-        policy = {
-            'name' : 'S3 buckets are not publicly accessible',
-            'description' : 'Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
-            'vulnerability' : 'Misconfigured permissions on the S3 bucket can result in unauthorised data disclosure',
-            'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html">AWS Best Practices</a> to remediate the publically exposed bucket.',
-            'reference' : [
-                'ASI.DP.1',
-                'Trusted Advisor - Amazon S3 bucket permissions'
-            ],
-            'links' : [
-                'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html',
-                'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
-            ]
-        }
-        for bucket in self.cache['s3']['policy']:
-            evidence = []
-            compliance = 1
-            for s in self.cache['s3']['policy'][bucket].get('Statement',[]):
-                for Effect in self.lister(s['Effect']):
-                    for Principal in self.lister(s['Principal']):
-                        #for Action in self.lister(s['Action']):
-                            #for Resource in self.lister(s['Resource']):
-                                # 5 
-                        if Effect == 'Allow' and Principal == {'AWS' : '*'} or Principal == '*':
-                            evidence.append({bucket : self.cache['s3']['policy'][bucket].get('Statement',[]) })
-                            compliance = 0
-                                
-            for acl in self.cache['s3']['bucketacl'][bucket]:
-                for g in self.cache['s3']['bucketacl'][bucket]['grants']:
-                    if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
-                        compliance = 0
-                        evidence.append({bucket : g })
-                        
-            self.finding(policy,compliance,evidence)
+        
 
         # --------------------------------------------------------
         policy = {
@@ -659,7 +625,7 @@ class policies:
         policy = {
             'name' : 'Ensure rotation for customer created CMKs is enabled',
             'references' : [
-                'AWS CIS v.1.2.0 - 2.9'
+                'AWS CIS v.1.2.0 - 2.8'
             ],
             'description' : 'Rotating encryption keys helps reduce the potential impact of a compromised key as data encrypted with a new key cannot be accessed with a previous key that may have been exposed.',
             'vulnerability' : 'By not rotating encryption keys, there is a higher likelihood of data compromize due to improper management of secret keys.',
@@ -701,6 +667,47 @@ class policies:
                     if fl['ResourceId'] == v['VpcId']:
                         compliance = 1
                 self.finding(policy,compliance,evidence)
+
+        # --------------------------------------
+        policy = {
+            'name' : 'Ensure a log metric filter and alarm exist for usage of "root" account',
+            'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for root login attempts.',
+            'vulnerability' : 'Monitoring for root account logins will provide visibility into the use of a fully privileged account and an opportunity to reduce the use of it.',
+            'remediation' : 'Follow the steps in the CIS Benchmark paper',
+            'links' : [
+                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=96'
+            ],
+            'references' : [
+                'AWS CIS v.1.2.0 - 3.3'
+            ]
+        }
+
+        compliant = False   # 
+
+        # -- go through all the cloudtrail logs, and look for one that has IsMultiRegionTrail set to true
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            for trail in self.cache['cloudtrail']['describe_trails'][region]:
+                if compliant == False: 
+                    # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
+                    if trail['IsMultiRegionTrail'] == True:
+                        if trail['get_trail_status']['IsLogging'] == True:
+                            for e in trail['get_event_selectors']['EventSelectors']:
+                                if e['IncludeManagementEvents'] == True:
+                                    if e['ReadWriteType'] == 'All':
+                                        for f in self.cache['logs']['describe_metric_filters'][region]:
+                                            if f['logGroupName'] in trail['CloudWatchLogsLogGroupArn']:                 
+                                                if f['filterPattern'] == '{ $.userIdentity.type = "Root" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != "AwsServiceEvent" }':
+                                                    for m in self.cache['cloudwatch']['describe_alarms'][region]:
+                                                        if f['filterName'] == m['MetricName']:
+                                                            for a in m['AlarmActions']:
+                                                                for t in self.cache['sns']['list_topics'][region]:
+                                                                    if t['TopicArn'] == a:
+                                                                        compliant = True
+        self.finding(policy,compliant,None)
+                                                                        
+                                                                    
+                                                                
+
 
         # --------------------------------------
         policy = {
@@ -764,8 +771,65 @@ class policies:
                     compliance = 0
 
             self.finding(policy,compliance,region)
-                    
 
+        # --------------------------------------------------------
+        policy = {
+            'name' : 'S3 buckets are not publicly accessible',
+            'description' : 'Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
+            'vulnerability' : 'Misconfigured permissions on the S3 bucket can result in unauthorised data disclosure',
+            'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html">AWS Best Practices</a> to remediate the publically exposed bucket.',
+            'reference' : [
+                'ASI.DP.1',
+                'Trusted Advisor - Amazon S3 bucket permissions'
+            ],
+            'links' : [
+                'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html',
+                'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
+            ]
+        }
+        for bucket in self.cache['s3']['policy']:
+            evidence = []
+            compliance = 1
+            for s in self.cache['s3']['policy'][bucket].get('Statement',[]):
+                for Effect in self.lister(s['Effect']):
+                    for Principal in self.lister(s['Principal']):
+                        #for Action in self.lister(s['Action']):
+                            #for Resource in self.lister(s['Resource']):
+                                # 5 
+                        if Effect == 'Allow' and Principal == {'AWS' : '*'} or Principal == '*':
+                            evidence.append({bucket : self.cache['s3']['policy'][bucket].get('Statement',[]) })
+                            compliance = 0
+                                
+            for acl in self.cache['s3']['bucketacl'][bucket]:
+                for g in self.cache['s3']['bucketacl'][bucket]['grants']:
+                    if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
+                        compliance = 0
+                        evidence.append({bucket : g })
+                        
+            self.finding(policy,compliance,evidence)    
+        # --------------------------------------------------------
+        policy = {
+            'name' : 'GuardDuty must be enabled in all regions',
+            'description' : 'Amazon GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior to protect your AWS accounts, workloads, and data stored in Amazon S3.',
+            'vulnerability' : 'GuardDuty provides visibility on threats that may try to access your system.',
+            'remediation' : 'Follow <a href="https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html">AWS Best Practices</a> to enable GuardDuty on all regions.',
+            'reference' : [
+                'ASI.DP.2'
+            ],
+            'links' : [
+                'https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html'
+            ]
+        }
+        
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            compliance = 0
+            if len(self.cache['guardduty']['list_detectors'][region]) > 0:
+                compliance = 1
+            else:
+                compliance = 0
+                
+            self.finding(policy,compliance,region)
+            
     # ======================================================================================
 
     def comparer(self,data,value):
