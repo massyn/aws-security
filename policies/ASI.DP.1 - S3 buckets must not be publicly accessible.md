@@ -18,7 +18,10 @@ This check is also available through [AWS Trusted Advisor](https://aws.amazon.co
 
 ## What can you do about it?
 Limit the bucket policies to the least privileges required.  Refer to [secure-s3-resources](https://aws.amazon.com/premiumsupport/knowledge-center/secure-s3-resources/) for more details.
-
+## Remediation ##
+```
+aws s3 delete-bucket-policy --bucket <value>
+```
 ## Additional information
 * https://aws.amazon.com/premiumsupport/knowledge-center/secure-s3-resources/
 * https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html
