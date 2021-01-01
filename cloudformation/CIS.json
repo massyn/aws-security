@@ -31,7 +31,6 @@
         "rootusagealarm" : {
             "Type" : "AWS::CloudWatch::Alarm",
             "Properties" : {
-                "AlarmName"             : "root_usage_alarm",
                 "MetricName"            : { "Ref" : "rootusagemetric"},
                 "Statistic"             : "Sum",
                 "Period"                : 300,
@@ -40,11 +39,370 @@
                 "EvaluationPeriods"     : 1,
                 "Namespace"             : "CISBenchmark",
                 "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
-                
+            }
+        },
 
 
-                   
-                  
+        "unauthorizedapicallsmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.errorCode = \"*UnauthorizedOperation\") || ($.errorCode = \"AccessDenied*\") }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "unauthorized_api_calls_metric"
+                    }
+                ]
+            }
+        },
+        "unauthorizedapicallsalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "rootusagemetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+
+
+
+        "nomfaconsolesigninmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = \"ConsoleLogin\") && ($.additionalEventData.MFAUsed != \"Yes\") }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "no_mfa_console_signin_metric"
+                    }
+                ]
+            }
+        },
+        "nomfaconsolesigninalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "nomfaconsolesigninmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+
+
+
+        "iamchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName=DeleteGroupPolicy)||($.eventName=DeleteRolePolicy)||($.eventName=DeleteUserPolicy)||($.eventName=PutGroupPolicy)||($.eventName=PutRolePolicy)||($.eventName=PutUserPolicy)||($.eventName=CreatePolicy)||($.eventName=DeletePolicy)||($.eventName=CreatePolicyVersion)||($.eventName=DeletePolicyVersion)||($.eventName=AttachRolePolicy)||($.eventName=DetachRolePolicy)||($.eventName=AttachUserPolicy)||($.eventName=DetachUserPolicy)||($.eventName=AttachGroupPolicy)||($.eventName=DetachGroupPolicy) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "iam_changes_metric"
+                    }
+                ]
+            }
+        },
+        "iamchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "iamchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+
+        
+        "cloudtrailcfgchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "cloudtrail_cfg_changes_metric"
+                    }
+                ]
+            }
+        },
+        "cloudtrailcfgchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "cloudtrailcfgchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+
+
+        "consolesigninfailuremetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "console_signin_failure_metric"
+                    }
+                ]
+            }
+        },
+        "consolesigninfailuresalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "consolesigninfailuremetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+
+        "disableordeletecmkchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventSource = kms.amazonaws.com) && (($.eventName=DisableKey)||($.eventName=ScheduleKeyDeletion)) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "disable_or_delete_cmk_changes_metric"
+                    }
+                ]
+            }
+        },
+        "disableordeletecmkchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "disableordeletecmkchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "s3bucketpolicychangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventSource = s3.amazonaws.com) && (($.eventName = PutBucketAcl) || ($.eventName = PutBucketPolicy) || ($.eventName = PutBucketCors) || ($.eventName = PutBucketLifecycle) || ($.eventName = PutBucketReplication) || ($.eventName = DeleteBucketPolicy) || ($.eventName = DeleteBucketCors) || ($.eventName = DeleteBucketLifecycle) || ($.eventName = DeleteBucketReplication)) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "s3_bucket_policy_changes_metric"
+                    }
+                ]
+            }
+        },
+        "s3bucketpolicychangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "s3bucketpolicychangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "awsconfigchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventSource = config.amazonaws.com) && (($.eventName=StopConfigurationRecorder)||($.eventName=DeleteDeliveryChannel)||($.eventName=PutDeliveryChannel)||($.eventName=PutConfigurationRecorder)) }",      
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "aws_config_changes_metric"
+                    }
+                ]
+            }
+        },
+        "awsconfigchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "awsconfigchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "securitygroupchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "security_group_changes_metric"
+                    }
+                ]
+            }
+        },
+        "securitygroupchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "securitygroupchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "naclchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "nacl_changes_metric"
+                    }
+                ]
+            }
+        },
+        "naclchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "naclchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "networkgwchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = CreateCustomerGateway) || ($.eventName = DeleteCustomerGateway) || ($.eventName = AttachInternetGateway) || ($.eventName = CreateInternetGateway) || ($.eventName = DeleteInternetGateway) || ($.eventName = DetachInternetGateway) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "network_gw_changes_metric"
+                    }
+                ]
+            }
+        },
+        "networkgwchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "networkgwchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "routetablechangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = ReplaceRoute) || ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DeleteRouteTable) || ($.eventName = DeleteRoute) || ($.eventName = DisassociateRouteTable) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "route_table_changes_metric"
+                    }
+                ]
+            }
+        },
+        "routetablechangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "routetablechangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
+            }
+        },
+        "vpcchangesmetric": {
+            "Type": "AWS::Logs::MetricFilter",
+            "Properties": {
+                "LogGroupName": { "Ref": "myLogGroup" },
+                "FilterPattern": "{ ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) || ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) || ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) || ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) || ($.eventName = EnableVpcClassicLink) }",
+                "MetricTransformations": [
+                    {
+                        "MetricValue"       : "1",
+                        "MetricNamespace"   : "CISBenchmark",
+                        "MetricName"        : "vpc_changes_metric"
+                    }
+                ]
+            }
+        },
+        "vpcchangesalarm" : {
+            "Type" : "AWS::CloudWatch::Alarm",
+            "Properties" : {
+                "MetricName"            : { "Ref" : "vpcchangesmetric"},
+                "Statistic"             : "Sum",
+                "Period"                : 300,
+                "Threshold"             : 1,
+                "ComparisonOperator"    : "GreaterThanOrEqualToThreshold",
+                "EvaluationPeriods"     : 1,
+                "Namespace"             : "CISBenchmark",
+                "AlarmActions"          : [ { "Ref" : "mySNSArn"} ]
             }
         }
     }

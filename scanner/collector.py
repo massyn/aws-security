@@ -22,6 +22,7 @@ class collector:
             return item_date_object.timestamp()
 
     def collect_all(self):
+        print('*** COLLECTOR ***')
         self.iam_generate_credential_report()
         self.ec2_describe_regions()             # this one must be at the top.. it is needed for all the others
         self.sts_get_caller_identity()
@@ -76,7 +77,7 @@ class collector:
 
     def check_cache(self,p1,p2,p3 = None, dft = []):
 
-        timeout = 3600
+        timeout = 86400
 
         # -- create the timestamp if it doesn't exist
         if not 'timestamp' in self.cache:

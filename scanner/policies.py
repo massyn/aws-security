@@ -44,6 +44,7 @@ class policies:
         return flat
 
     def execute(self):
+        print('*** POLICIES ***')
         
         p = self.cache
         # ------------------------------------------------------
@@ -669,44 +670,223 @@ class policies:
                 self.finding(policy,compliance,evidence)
 
         # --------------------------------------
-        policy = {
-            'name' : 'Ensure a log metric filter and alarm exist for usage of "root" account',
-            'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for root login attempts.',
-            'vulnerability' : 'Monitoring for root account logins will provide visibility into the use of a fully privileged account and an opportunity to reduce the use of it.',
-            'remediation' : 'Follow the steps in the CIS Benchmark paper',
-            'links' : [
-                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=96'
-            ],
-            'references' : [
-                'AWS CIS v.1.2.0 - 3.3'
-            ]
-        }
+        # == CIS 3.x is special -- all the metrics are identical, except for the filter pattern.  So we break our "one policy" rule, and combine them all into a list
+        POLICIES = [
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for unauthorized API calls',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for unauthorized API calls.',
+                'vulnerability' : 'Monitoring unauthorized API calls will help reveal application errors and may reduce time to detect malicious activity.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=88'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.1'
+                ],
+                'filterPattern' : '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }'
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for Management Console sign-in without MFA',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for console logins that are not protected by multi-factor authentication (MFA).',
+                'vulnerability' : 'Monitoring for single-factor console logins will increase visibility into accounts that are not protected by MFA.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=92'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.2'
+                ],
+                'filterPattern' : '{ ($.eventName = "ConsoleLogin") && ($.additionalEventData.MFAUsed != "Yes") }'
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for usage of "root" account',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for root login attempts.',
+                'vulnerability' : 'Monitoring for root account logins will provide visibility into the use of a fully privileged account and an opportunity to reduce the use of it.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=96'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.3'
+                ],
+                'filterPattern' : '{ $.userIdentity.type = "Root" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != "AwsServiceEvent" }'
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for IAM policy changes',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established changes made to Identity and Access Management (IAM) policies.',
+                'vulnerability' : 'Monitoring changes to IAM policies will help ensure authentication and authorization controls remain intact.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=100'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.4'
+                ],
+                'filterPattern' : "{ ($.eventName=DeleteGroupPolicy)||($.eventName=DeleteRolePolicy)||($.eventName=DeleteUserPolicy)||($.eventName=PutGroupPolicy)||($.eventName=PutRolePolicy)||($.eventName=PutUserPolicy)||($.eventName=CreatePolicy)||($.eventName=DeletePolicy)||($.eventName=CreatePolicyVersion)||($.eventName=DeletePolicyVersion)||($.eventName=AttachRolePolicy)||($.eventName=DetachRolePolicy)||($.eventName=AttachUserPolicy)||($.eventName=DetachUserPolicy)||($.eventName=AttachGroupPolicy)||($.eventName=DetachGroupPolicy) }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for IAM policy changes',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for detecting changes to CloudTrail\'s configurations.',
+                'vulnerability' : 'Monitoring changes to CloudTrail\'s configuration will help ensure sustained visibility to activities performed in the AWS account.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=104'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.5'
+                ],
+                'filterPattern' : "{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for AWS Management Console authentication failures',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for failed console authentication attempts.',
+                'vulnerability' : 'Monitoring failed console logins may decrease lead time to detect an attempt to brute force acredential, which may provide an indicator, such as source IP, that can be used in other event correlation.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=108'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.6'
+                ],
+                'filterPattern' : "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
+            },
 
-        compliant = False   # 
 
-        # -- go through all the cloudtrail logs, and look for one that has IsMultiRegionTrail set to true
-        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
-            for trail in self.cache['cloudtrail']['describe_trails'][region]:
-                if compliant == False: 
-                    # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
-                    if trail['IsMultiRegionTrail'] == True:
-                        if trail['get_trail_status']['IsLogging'] == True:
-                            for e in trail['get_event_selectors']['EventSelectors']:
-                                if e['IncludeManagementEvents'] == True:
-                                    if e['ReadWriteType'] == 'All':
-                                        for f in self.cache['logs']['describe_metric_filters'][region]:
-                                            if f['logGroupName'] in trail['CloudWatchLogsLogGroupArn']:                 
-                                                if f['filterPattern'] == '{ $.userIdentity.type = "Root" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != "AwsServiceEvent" }':
-                                                    for m in self.cache['cloudwatch']['describe_alarms'][region]:
-                                                        if f['filterName'] == m['MetricName']:
-                                                            for a in m['AlarmActions']:
-                                                                for t in self.cache['sns']['list_topics'][region]:
-                                                                    if t['TopicArn'] == a:
-                                                                        compliant = True
-        self.finding(policy,compliant,None)
-                                                                        
-                                                                    
-                                                                
+
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for disabling or scheduled deletion of customer created CMKs ',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for customer created CMKs which have changed state to disabled or scheduled deletion.',
+                'vulnerability' : 'Data encrypted with disabled or deleted keys will no longer be accessible.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=112'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.7'
+                ],
+                'filterPattern' : "{ ($.eventSource = kms.amazonaws.com) && (($.eventName=DisableKey)||($.eventName=ScheduleKeyDeletion)) }"
+            },
+
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for S3 bucket policy changes',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for changes to S3 bucket policies.',
+                'vulnerability' : 'Monitoring changesto S3 bucket policies may reduce time to detect and correct permissive policies on sensitive S3 buckets.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=108'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.8'
+                ],
+                'filterPattern' : "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for AWS Config configuration changes ',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for detecting changes to CloudTrail\'s configurations.',
+                'vulnerability' : 'Monitoring changes to AWS Config configuration will help ensure sustained visibility of configuration items within the AWS account.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=120'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.9'
+                ],
+                'filterPattern' : "{ ($.eventSource = config.amazonaws.com) && (($.eventName=StopConfigurationRecorder)||($.eventName=DeleteDeliveryChannel)||($.eventName=PutDeliveryChannel)||($.eventName=PutConfigurationRecorder)) }}"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for security group changes',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. Security Groups are a stateful packet filter that controls ingressand egress traffic within a VPC. It is recommended that a metric filter and alarm be established changes to Security Groups.',
+                'vulnerability' : 'Monitoring changes to security group will help ensure that resources and services are not unintentionally exposed.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=124'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.10'
+                ],
+                'filterPattern' : "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for changes to Network Access Control Lists (NACL)',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. NACLs are used as a stateless packet filter to control ingress and egress traffic for subnets within a VPC. It is recommended that a metric filter and alarm be established for changes made to NACLs.',
+                'vulnerability' : 'Monitoring changes to NACLs will help ensure that AWS resources and services are not unintentionally exposed.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=128'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.11'
+                ],
+                'filterPattern' : "{ ($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation) }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for changes to network gateways',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. Network gateways are required to send/receive traffic to a destination outside of a VPC. It is recommended that a metric filter and alarm be established for changes to network gateways.',
+                'vulnerability' : 'Monitoring changes to network gateways will help ensure that all ingress/egress traffic traverses the VPC border via a controlled path.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=132'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.12'
+                ],
+                'filterPattern' : "{ ($.eventName = CreateCustomerGateway) || ($.eventName = DeleteCustomerGateway) || ($.eventName = AttachInternetGateway) || ($.eventName = CreateInternetGateway) || ($.eventName = DeleteInternetGateway) || ($.eventName = DetachInternetGateway) }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for route table changes',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. Routing tables are used to route network traffic between subnets and to network gateways. It is recommended that a metric filter and alarm be established for changes to route tables.',
+                'vulnerability' : 'Monitoring changes to route tables will help ensure that all VPC traffic flows through an expected path.',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=136'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.13'
+                ],
+                'filterPattern' : "{ ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = ReplaceRoute) || ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DeleteRouteTable) || ($.eventName = DeleteRoute) || ($.eventName = DisassociateRouteTable) }"
+            },
+            {
+                'name' : 'Ensure a log metric filter and alarm exist for VPC changes ',
+                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is possible to have more than 1 VPC within an account, in addition it is also possible to create a peer connection between 2 VPCs enabling network traffic to route between VPCs. It is recommended that a metric filter and alarm be established for changes made to VPCs.',
+                'vulnerability' : 'Monitoring changes to IAM policies will help ensure authentication and authorization controls remain intact',
+                'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'links' : [
+                    'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=140'
+                ],
+                'references' : [
+                    'AWS CIS v.1.2.0 - 3.14'
+                ],
+                'filterPattern' : "{ ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) || ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) || ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) || ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) || ($.eventName = EnableVpcClassicLink) }"
+            }
+
+        ]
+        
+        for POL in POLICIES:
+            compliant = False
+
+            # -- go through all the cloudtrail logs, and look for one that has IsMultiRegionTrail set to true
+            for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+                for trail in self.cache['cloudtrail']['describe_trails'][region]:
+                    if compliant == False: 
+                        # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
+                        if trail['IsMultiRegionTrail'] == True:
+                            if trail['get_trail_status']['IsLogging'] == True:
+                                for e in trail['get_event_selectors']['EventSelectors']:
+                                    if e['IncludeManagementEvents'] == True:
+                                        if e['ReadWriteType'] == 'All':
+                                            for f in self.cache['logs']['describe_metric_filters'][region]:
+                                                if f['logGroupName'] in trail['CloudWatchLogsLogGroupArn']:                 
+                                                    #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
+                                                    if f['filterPattern'] == POL['filterPattern']:
+                                                        for m in self.cache['cloudwatch']['describe_alarms'][region]:
+                                                            if f['filterName'] == m['MetricName']:
+                                                                for a in m['AlarmActions']:
+                                                                    for t in self.cache['sns']['list_topics'][region]:
+                                                                        if t['TopicArn'] == a:
+                                                                            compliant = True
+            self.finding(POL,compliant,None) 
+        
+                                     
 
 
         # --------------------------------------
@@ -774,7 +954,7 @@ class policies:
 
         # --------------------------------------------------------
         policy = {
-            'name' : 'S3 buckets are not publicly accessible',
+            'name' : 'S3 buckets must not be publicly accessible',
             'description' : 'Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
             'vulnerability' : 'Misconfigured permissions on the S3 bucket can result in unauthorised data disclosure',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html">AWS Best Practices</a> to remediate the publically exposed bucket.',
@@ -783,6 +963,7 @@ class policies:
                 'Trusted Advisor - Amazon S3 bucket permissions'
             ],
             'links' : [
+                'https://github.com/massyn/aws-security/blob/main/policies/ASI.DP.1%20-%20S3%20buckets%20must%20not%20be%20publicly%20accessible.md',
                 'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html',
                 'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
             ]
@@ -813,7 +994,7 @@ class policies:
             'description' : 'Amazon GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior to protect your AWS accounts, workloads, and data stored in Amazon S3.',
             'vulnerability' : 'GuardDuty provides visibility on threats that may try to access your system.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html">AWS Best Practices</a> to enable GuardDuty on all regions.',
-            'reference' : [
+            'references' : [
                 'ASI.DP.2'
             ],
             'links' : [

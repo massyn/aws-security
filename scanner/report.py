@@ -20,10 +20,6 @@ class report:
         return '<table border=0><tr><td width=60px>' + str(round(pct,2)) + '%</td><td width=' + str(int(barwidth)) + ' bgcolor='+col + '>&nbsp;</td><td width=' + str(int(whitewidth)) + '>&nbsp;</td></tr></table>'
 
     def generate(self,file):
-        print('Generate output file ' + file)
-
-        
-
         with open(file,'wt') as f:
             f.write('''<!DOCTYPE html>
                 <html>

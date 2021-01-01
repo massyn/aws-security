@@ -11,6 +11,19 @@ The script needs an IAM account, or at least some credentials to query the AWS a
 https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html
 
 ## Running a security scan
+### Option 1 - Use CloudShell
+https://console.aws.amazon.com/cloudshell/home?region=us-east-1
+
+```
+$ cd /tmp
+$ git clone https://github.com/massyn/aws-security
+$ cd aws-security/
+$ python3 scanner/scanner.py --json site.json --oh report.html
+```
+TODO - save the report to S3
+TODO - botocore.exceptions.ClientError: An error occurred (ExpiredTokenException) when calling the DescribeTrails operation: The security token included in the request is expired
+
+
 ### Option 1 - Use built-in credentials
 https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html
 
