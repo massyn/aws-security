@@ -19,8 +19,15 @@ This check is also available through [AWS Trusted Advisor](https://aws.amazon.co
 ## What can you do about it?
 Limit the bucket policies to the least privileges required.  Refer to [secure-s3-resources](https://aws.amazon.com/premiumsupport/knowledge-center/secure-s3-resources/) for more details.
 ## Remediation ##
+### cli
 ```
-aws s3 delete-bucket-policy --bucket <value>
+aws s3 delete-bucket-policy --bucket BUCKET_NAME
+```
+### Python
+```
+import boto 3
+s3 = boto3.client('s3')
+s3.delete_bucket_policy(Bucket='BUCKET_NAME')
 ```
 ## Additional information
 * https://aws.amazon.com/premiumsupport/knowledge-center/secure-s3-resources/
