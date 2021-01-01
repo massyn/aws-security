@@ -1,7 +1,7 @@
 # S3 buckets must not be publicly accessible
 
-## Description ##
 [S3](https://aws.amazon.com/s3/) is a core storage solution from AWS.  It is used in most services, and provides an secure and scalable storage solution for your application.  If configured correctly, S3 can host highly sensitive information.
+
 This check is also available through [AWS Trusted Advisor](https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/).
 
 ## Why is this a problem?
@@ -17,7 +17,7 @@ This check is also available through [AWS Trusted Advisor](https://aws.amazon.co
 * An attacker may be able to delete sensitive data, resulting in a system outage.
 
 ## What can you do about it?
-
+Limit the bucket policies to the least privileges required.  Refer to [secure-s3-resources](https://aws.amazon.com/premiumsupport/knowledge-center/secure-s3-resources/) for more details.
 
 ## Additional information
 * https://aws.amazon.com/premiumsupport/knowledge-center/secure-s3-resources/
