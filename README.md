@@ -20,21 +20,17 @@ $ git clone https://github.com/massyn/aws-security
 $ cd aws-security/
 $ python3 scanner/scanner.py --json site.json --oh report.html
 ```
-TODO - save the report to S3
-TODO - botocore.exceptions.ClientError: An error occurred (ExpiredTokenException) when calling the DescribeTrails operation: The security token included in the request is expired
 
-
-### Option 1 - Use built-in credentials
+### Option 2 - Use built-in credentials
 https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html
 
 ```
 python scanner\scanner.py --json tmp\site.json --oh tmp\report.html
 ```
 
-### Option 2 - Use access keys
+### Option 3 - Use access keys
 
-### Option 3 - Assume role
+### Option 4 - Assume role
 
-### Option 4 - Lambda (In progress)
-Create an S3 bucket where the data and reports will be stored
+### Option 5 - Lambda
 

@@ -583,14 +583,15 @@ class policies:
             evidence = {region: 'none detected'}
             compliance = 0
             for ct in self.cache['cloudtrail']['describe_trails'][region]:
-                if isinstance(ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime'], (dt.date,dt.datetime)):
-                    x =  ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime'].timestamp()
-                else:
-                    x =  ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime']
-                
-                if (time.time() - x) < 86400:
-                    evidence = {region : ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime']}
-                    compliance = 1
+                if 'LatestCloudWatchLogsDeliveryTime' in ct['get_trail_status']:
+                    if isinstance(ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime'], (dt.date,dt.datetime)):
+                        x =  ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime'].timestamp()
+                    else:
+                        x =  ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime']
+
+                    if (time.time() - x) < 86400:
+                        evidence = {region : ct['get_trail_status']['LatestCloudWatchLogsDeliveryTime']}
+                        compliance = 1
                 
             self.finding(policy,compliance,evidence)
 
@@ -959,11 +960,11 @@ class policies:
             'vulnerability' : 'Misconfigured permissions on the S3 bucket can result in unauthorised data disclosure',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html">AWS Best Practices</a> to remediate the publically exposed bucket.',
             'reference' : [
-                'ASI.DP.1',
+                'ASI.DP.001',
                 'Trusted Advisor - Amazon S3 bucket permissions'
             ],
             'links' : [
-                'https://github.com/massyn/aws-security/blob/main/policies/ASI.DP.1%20-%20S3%20buckets%20must%20not%20be%20publicly%20accessible.md',
+                'https://github.com/massyn/aws-security/blob/main/policies/ASI.DP.001%20-%20S3%20buckets%20must%20not%20be%20publicly%20accessible.md',
                 'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html',
                 'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
             ]
@@ -1010,8 +1011,89 @@ class policies:
                 compliance = 0
                 
             self.finding(policy,compliance,region)
-            
+
+        # --------------------------------------------------------
+        policy = {
+            'name' : 'IAM Roles with Admin Rights',
+            'description' : 'IAM roles should have least privilege defined in its execution role, and only be able to perform very specific tasks.',
+            'vulnerability' : 'If a role with high level access is compromised, it has the potential to cause severe business disruption to the AWS account.',
+            'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html">AWS Best Practices</a> to restrict the roles.',
+            'references' : [
+                'ASI.IAM.001'
+            ],
+            'links' : [
+                'https://github.com/massyn/aws-security/blob/main/policies/ASI.IAM.001%20-%20IAM%20Roles%20with%20Admin%20Rights.md'
+                'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html',
+                'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html'
+            ]
+        }
+        
+        
+        for r in self.cache['iam']['list_roles']:
+            compliance = 1
+            evidence = {}
+            RoleName = r['RoleName']
+            # -- find the attached policies
+            for p in self.cache['iam']['list_attached_role_policies'][RoleName]:
+                # -- check each of the policies if they have admin rights
+                PolicyName = p['PolicyName']
+
+                if PolicyName == 'AdministratorAccess':
+                    compliance = 0
+                    evidence = { 'RoleName' : RoleName, 'PolicyName' : PolicyName}
+                else:
+                    if PolicyName in self.cache['iam']['get_policy_version']:
+                        poly = self.cache['iam']['get_policy_version'][PolicyName]
+                        
+                        for q in self.flattenStatements(poly['Document']['Statement']):
+                            if q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
+                                compliance = 0
+                                evidence = { 'RoleName' : RoleName, 'PolicyName' : PolicyName}
+            self.finding(policy,compliance,evidence)
+
+                
+                        
+
+
+                        
+
+                
+                
+
+
     # ======================================================================================
+
+    def flattenStatements(self,s):
+        
+        flat = []
+        for s1 in s:
+            effect = []
+            if s1['Effect'] == list():
+                effect = s1['Effect']
+            else:
+                effect.append(s1['Effect'])
+
+            action = []
+            if type(s1['Action']) == list:
+                action = s1['Action']
+            else:
+                action.append(s1['Action'])
+
+            resource = []            
+            if type(s1['Resource']) == list:
+                resource = s1['Resource']
+            else:
+                resource.append(s1['Resource'])
+
+            for e in effect:
+                for a in action:
+                    for r in resource:
+                        flat.append({
+                            'Effect' : e,
+                            'Action' : a,
+                            'Resource' : r
+                        })
+        return flat
 
     def comparer(self,data,value):
         c = False

@@ -353,7 +353,7 @@ class collector:
                     bucket_acl = s3.BucketAcl(bucketname)
                     self.cache['s3']['bucketacl'][bucketname]['grants'] = bucket_acl.grants
                     self.cache['s3']['bucketacl'][bucketname]['owner'] = bucket_acl.owner
-                    self.write_json()
+            self.write_json()
            
     def s3_bucketpolicy(self):
         client = boto3.client('s3',
@@ -372,7 +372,7 @@ class collector:
                     policy = {}
 
                 self.cache['s3']['policy'][bucketname] = policy
-                self.write_json()
+        self.write_json()
 
     def iam_policy(self):
         if self.check_cache('iam','policy',None,{}):
@@ -513,7 +513,7 @@ class collector:
             self.write_json()
  
     def iam_credentials(self):
-        if self.check_cache('iam','credentials',None,{}):
+        if self.check_cache('iam','credentials',None,[]):
             # == extract the iam user details, one by one
             iam = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
@@ -600,8 +600,7 @@ class collector:
                     for cl in p['metricFilters']:
                         self.cache['logs']['describe_metric_filters'][region].append(cl)
                 self.write_json()
-
-                    
+                  
     def sns_list_topics(self):
         for region in self.ec2_describe_regions():
             if self.check_cache('sns','list_topics',region,[]):

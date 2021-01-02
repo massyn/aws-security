@@ -26,6 +26,8 @@ def main():
     parser.add_argument('--json',help='The filename where the collected data file should be stored',required = True)
     parser.add_argument('--oj',help='The filename of the output json findings (use %a for the AWS account id, and %d for a datestamp)')
     parser.add_argument('--oh',help='The filename of the output html findings (use %a for the AWS account id, and %d for a datestamp)')
+
+    parser.add_argument('--nocollect',help='Do not run the collector -- just parse the json file', action='store_true')
     
     args = parser.parse_args()
     print ('--- Starting ---')
@@ -35,20 +37,24 @@ def main():
     b = args.aws_secret_access_key
     c = args.aws_session_token
 
-    print('*** AUTHENTICATING ***')
-    if (args.assumerole == False):
-        print (' - Connect directly...')   
-    else:
-        print (' - Trying to switch role...')
-        (a,b,c) = s.assume_role(a,b,c,args.account,args.role,args.externalid)
-        if a == None:
-            print('!!! UNABLE TO SWITCH ROLE !!!')
-            exit(1)
+    if not args.nocollect:
+        print('*** AUTHENTICATING ***')
+        if (args.assumerole == False):
+            print (' - Connect directly...')   
+        else:
+            print (' - Trying to switch role...')
+            (a,b,c) = s.assume_role(a,b,c,args.account,args.role,args.externalid)
+            if a == None:
+                print('!!! UNABLE TO SWITCH ROLE !!!')
+                exit(1)
 
-    c = collector(a,b,c)
-    c.read_json(args.json)
-    c.collect_all()
-    c.write_json()
+        c = collector(a,b,c)
+        c.read_json(args.json)
+        c.collect_all()
+        c.write_json()
+    else:
+        c = collector(a,b,c)
+        c.read_json(args.json)
 
     # -- if we need to generate some output, then we go through this section
     if args.oj or args.oh:    
