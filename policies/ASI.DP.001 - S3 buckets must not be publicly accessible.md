@@ -34,5 +34,5 @@ s3.delete_bucket_policy(Bucket='BUCKET_NAME')
 * https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html
 
 ## References
-* ASI.DP.1
+* ASI.DP.001
 * [Trusted Advisor](https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/) -  Amazon S3 bucket permissions (free)
