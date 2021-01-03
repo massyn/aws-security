@@ -351,11 +351,11 @@ class policies:
                 
                 evidence = {
                     u['user'] : {
-                        'list_user_policies' : p['iam']['list_user_policies'][u['user']],
+                        'list_user_policies' : p['iam']['list_user_policies'].get(u['user']),
                         'list_attached_user_policies' : p['iam']['list_attached_user_policies'][u['user']]
                     }
                 }
-                if len(p['iam']['list_user_policies'][u['user']]) + len(p['iam']['list_attached_user_policies'][u['user']]) == 0:
+                if len(p['iam']['list_user_policies'].get(u['user'],[])) + len(p['iam']['list_attached_user_policies'].get(u['user'],[])) == 0:
                     self.finding(policy,1,evidence)
                 else:
                     self.finding(policy,0,evidence)
@@ -482,7 +482,7 @@ class policies:
                         evidence[gpv] = s
             else:
                 for s in self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']:
-                    if self.comparer(s['Effect'],'Allow') and self.comparer(s['Action'],'*') and self.comparer(s['Resource'],'*'):
+                    if self.comparer(s['Effect'],'Allow') and self.comparer(s.get('Action',''),'*') and self.comparer(s['Resource'],'*'):
                         compliance = 0
                         evidence[gpv] = s
 
@@ -982,11 +982,11 @@ class policies:
                             evidence.append({bucket : self.cache['s3']['policy'][bucket].get('Statement',[]) })
                             compliance = 0
                                 
-            for acl in self.cache['s3']['bucketacl'][bucket]:
-                for g in self.cache['s3']['bucketacl'][bucket]['grants']:
-                    if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
-                        compliance = 0
-                        evidence.append({bucket : g })
+            #for acl in self.cache['s3']['bucketacl'][bucket]:
+            for g in self.cache['s3']['bucketacl'][bucket]['grants']:
+                if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
+                    compliance = 0
+                    evidence.append({bucket : g })
                         
             self.finding(policy,compliance,evidence)    
         # --------------------------------------------------------
@@ -1028,47 +1028,125 @@ class policies:
             ]
         }
         
-        
-        for r in self.cache['iam']['list_roles']:
-            compliance = 1
-            evidence = {}
-            RoleName = r['RoleName']
-            # -- find the attached policies
-            for p in self.cache['iam']['list_attached_role_policies'][RoleName]:
-                # -- check each of the policies if they have admin rights
-                PolicyName = p['PolicyName']
-
-                if PolicyName == 'AdministratorAccess':
+        for q in self.parsePermissions():
+            if 'RoleName' in q:
+                compliance = 1
+                if q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
                     compliance = 0
-                    evidence = { 'RoleName' : RoleName, 'PolicyName' : PolicyName}
-                else:
-                    if PolicyName in self.cache['iam']['get_policy_version']:
-                        poly = self.cache['iam']['get_policy_version'][PolicyName]
-                        
-                        for q in self.flattenStatements(poly['Document']['Statement']):
-                            if q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
-                                compliance = 0
-                                evidence = { 'RoleName' : RoleName, 'PolicyName' : PolicyName}
-            self.finding(policy,compliance,evidence)
+                                
+            self.finding(policy,compliance,q)
 
-                
-                        
+        # --------------------------------------------------------
 
-
-                        
-
-                
-                
+        
 
 
     # ======================================================================================
+    def parsePermissions(self):
+        """
+        parsePermissions will read all permissions for users and roles, and print out the individual policy permissions they have
+
+        """
+        perm = []
+
+        # == cycle through all users ==
+        for u in self.cache['iam']['list_users']:
+            UserName = u['UserName']
+
+            # -- find all inline policies
+            if UserName in self.cache['iam']['list_user_policies']:
+                for PolicyName in self.cache['iam']['list_user_policies'][UserName]:
+
+                    for q in self.flattenStatements(self.cache['iam']['list_user_policies'][UserName][PolicyName]['Statement']):
+                        q['source'] = 'list_user_policies'
+                        q['UserName'] = UserName
+                        q['PolicyName'] = PolicyName
+                        q['Entity'] = u['Arn']
+                        perm.append(q)
+
+            # -- find all policies attached
+            for p in self.cache['iam']['list_attached_user_policies'][UserName]:
+                PolicyName = p['PolicyName']
+                poly = self.cache['iam']['get_policy_version'][PolicyName]
+                for q in self.flattenStatements(poly['Document']['Statement']):
+                    q['source'] = 'list_attached_user_policies'
+                    q['UserName'] = UserName
+                    q['PolicyName'] = PolicyName
+                    q['Entity'] = u['Arn']
+                    perm.append(q)
+
+            # -- find all groups
+            for GroupName in self.cache['iam']['get_group']:
+                for g in self.cache['iam']['get_group'][GroupName]['Users']:
+                    if UserName == g['UserName']:
+                        # -- find all policies attached to the groups
+                        for p in self.cache['iam']['list_attached_group_policies'][GroupName]:
+                            PolicyName = p['PolicyName']
+                            poly = self.cache['iam']['get_policy_version'][PolicyName]
+                            for q in self.flattenStatements(poly['Document']['Statement']):
+                                q['source'] = 'list_attached_group_policies'
+                                q['GroupName'] = GroupName
+                                q['UserName'] = UserName
+                                q['PolicyName'] = PolicyName
+                                q['Entity'] = u['Arn']
+                                perm.append(q)
+
+                        # -- do groups have inline policies?
+                        if GroupName in self.cache['iam']['list_group_policies']:
+                            for PolicyName in self.cache['iam']['list_group_policies'][GroupName]:                            
+                                for q in self.flattenStatements(self.cache['iam']['list_group_policies'][GroupName][PolicyName]['Statement']):
+                                    q['source'] = 'list_group_policies'
+                                    q['GroupName'] = GroupName
+                                    q['UserName'] = UserName
+                                    q['PolicyName'] = PolicyName
+                                    q['Entity'] = u['Arn']
+                                    perm.append(q)
+
+        # == cycle through all roles
+        for r in self.cache['iam']['list_roles']:
+            RoleName = r['RoleName']
+
+            # -- find all policies attached to the roles
+            for p in self.cache['iam']['list_attached_role_policies'][RoleName]:
+                PolicyName = p['PolicyName']
+
+                poly = self.cache['iam']['get_policy_version'][PolicyName]
+                for q in self.flattenStatements(poly['Document']['Statement']):
+                    q['source'] = 'list_attached_role_policies'
+                    q['RoleName'] = RoleName
+                    q['PolicyName'] = PolicyName
+                    q['Entity'] = r['Arn']
+                    perm.append(q)
+            # -- do roles have inline policies?
+            if RoleName in self.cache['iam']['list_role_policies']:
+                for PolicyName in self.cache['iam']['list_role_policies'][RoleName]:
+                    
+                    for q in self.flattenStatements(self.cache['iam']['list_role_policies'][RoleName][PolicyName]['Statement']):
+                        q['source'] = 'list_role_policies'
+                        q['RoleName'] = RoleName
+                        q['PolicyName'] = PolicyName
+                        q['Entity'] = r['Arn']
+                        perm.append(q)
+
+        return perm
 
     def flattenStatements(self,s):
-        
+
         flat = []
+
+        if type(s) == dict:
+            s = [s]
+
         for s1 in s:
+            for qqq in s1:
+                if not qqq in ['Effect','Action','Resource','Sid','Condition']:
+                    print('flattenStatements *** ERROR **' + qqq)
+                    print(s1)
+                    exit(1)
+
+
             effect = []
-            if s1['Effect'] == list():
+            if s1['Effect'] == list:
                 effect = s1['Effect']
             else:
                 effect.append(s1['Effect'])
@@ -1085,13 +1163,17 @@ class policies:
             else:
                 resource.append(s1['Resource'])
 
+
             for e in effect:
                 for a in action:
                     for r in resource:
                         flat.append({
+                            'Sid'       : s1.get('Sid'),
                             'Effect' : e,
                             'Action' : a,
-                            'Resource' : r
+                            'Resource' : r,
+                            'Condition'       : s1.get('Condition')
+
                         })
         return flat
 
@@ -1136,3 +1218,6 @@ class policies:
             return input
         else:
             return [input]
+
+
+    

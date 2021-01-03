@@ -14,7 +14,6 @@ class collector:
         self.aws_access_key_id      = aws_access_key_id
         self.aws_secret_access_key  = aws_secret_access_key
         self.aws_session_token      = aws_session_token
-
         self.cache = {}
 
     def convert_timestamp(self,item_date_object):
@@ -60,10 +59,13 @@ class collector:
         self.kms_list_keys()
         self.kms_get_key_rotation_status()
         self.iam_list_policies()
-        self.iam_get_policy()
+        self.iam_get_policy_version()
+        self.iam_list_role_policies()
+        self.iam_list_group_policies()
         
 
     def write_json(self):
+        print(' -- writing json file --')
         with open(self.data_file,'wt') as f:
             f.write(json.dumps(self.cache,indent = 4, default=self.convert_timestamp))
             f.close()
@@ -162,7 +164,7 @@ class collector:
                         for t in r['TableNames']:
                             print(' - ' + t)                     
                             self.cache['dynamodb']['list_tables'][region].append(t)
-                            self.write_json()
+                    self.write_json()
 
     def ec2_describe_securitygroups(self):
         for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
@@ -173,7 +175,7 @@ class collector:
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
             ).describe_security_groups().get('SecurityGroups')
-            self.write_json()
+                self.write_json()
 
     def ec2_describe_instances(self):
         for region in self.ec2_describe_regions():
@@ -216,7 +218,7 @@ class collector:
                 ).describe_vpcs()['Vpcs']:
                     self.cache['ec2']['describe_vpcs'][region].append(vpc)
                     print(' - ' + vpc['VpcId'])
-            self.write_json()
+                self.write_json()
 
     def ec2_describe_regions(self):
         if self.check_cache('ec2','describe_regions',None,{}):
@@ -284,12 +286,6 @@ class collector:
             
     def kms_get_key_rotation_status(self):
         self.kms_list_keys()
-
-        if not 'kms' in self.cache:
-            self.cache['kms'] = {}
-        if not 'get_key_rotation_status' in self.cache['kms']:
-            self.cache['kms']['get_key_rotation_status'] = {}
-
         for region in self.ec2_describe_regions():
             if self.check_cache('kms','get_key_rotation_status',region,{}):
                 for key in self.cache['kms']['list_keys'][region]:
@@ -334,7 +330,7 @@ class collector:
                 self.write_json()
 
     def s3_bucket_acl(self):
-        
+        if self.check_cache('s3','bucketacl',None,{}):
             client = boto3.client('s3',
                     aws_access_key_id		= self.aws_access_key_id,
                     aws_secret_access_key	= self.aws_secret_access_key,
@@ -343,36 +339,36 @@ class collector:
         
             for bucket in client.list_buckets().get('Buckets'):
                 bucketname = bucket.get('Name')
+                print(' - ' + bucketname)
 
-                if self.check_cache('s3','bucketacl',bucketname,{}):
-                    s3 = boto3.resource('s3',
-                        aws_access_key_id		= self.aws_access_key_id,
-                        aws_secret_access_key	= self.aws_secret_access_key,
-                        aws_session_token		= self.aws_session_token
-                    )
-                    bucket_acl = s3.BucketAcl(bucketname)
-                    self.cache['s3']['bucketacl'][bucketname]['grants'] = bucket_acl.grants
-                    self.cache['s3']['bucketacl'][bucketname]['owner'] = bucket_acl.owner
+                s3 = boto3.resource('s3',
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                )
+                bucket_acl = s3.BucketAcl(bucketname)
+                self.cache['s3']['bucketacl'][bucketname]['grants'] = bucket_acl.grants
+                self.cache['s3']['bucketacl'][bucketname]['owner'] = bucket_acl.owner
             self.write_json()
            
     def s3_bucketpolicy(self):
-        client = boto3.client('s3',
-		        aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token
-        )
-	
-        for bucket in client.list_buckets().get('Buckets'):
-            bucketname = bucket.get('Name')
-
-            if self.check_cache('s3','policy',bucketname,{}):
+        if self.check_cache('s3','policy',None,{}):
+            client = boto3.client('s3',
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+            )
+        
+            for bucket in client.list_buckets().get('Buckets'):
+                bucketname = bucket.get('Name')
+                print(' - ' + bucketname)
                 try:
                     policy = json.loads(client.get_bucket_policy(Bucket = bucketname).get('Policy'))
                 except:
                     policy = {}
 
                 self.cache['s3']['policy'][bucketname] = policy
-        self.write_json()
+            self.write_json()
 
     def iam_policy(self):
         if self.check_cache('iam','policy',None,{}):
@@ -429,73 +425,69 @@ class collector:
 
     def iam_get_group(self):
         self.iam_list_groups()
-        
-        iam = boto3.client('iam',
-            aws_access_key_id		= self.aws_access_key_id,
-            aws_secret_access_key	= self.aws_secret_access_key,
-            aws_session_token		= self.aws_session_token)
-        
-        for g in self.cache['iam']['list_groups']:
-            GroupName = g['GroupName']
-            if self.check_cache('iam','get_group',GroupName,{}):
+        if self.check_cache('iam','get_group',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
+            
+            for g in self.cache['iam']['list_groups']:
+                GroupName = g['GroupName']
+            
                 self.cache['iam']['get_group'][GroupName] = iam.get_group(GroupName = GroupName)
                 self.write_json()
     
     def iam_list_attached_role_policies(self):
         self.iam_list_roles()
-        iam = boto3.client('iam',
-            aws_access_key_id		= self.aws_access_key_id,
-            aws_secret_access_key	= self.aws_secret_access_key,
-            aws_session_token		= self.aws_session_token)
-        
-        for g in self.cache['iam']['list_roles']:
-            RoleName = g['RoleName']
-            if self.check_cache('iam','list_attached_role_policies',RoleName,[]):
-                self.cache['iam']['list_attached_role_policies'][RoleName] = iam.list_attached_role_policies(RoleName = RoleName)['AttachedPolicies']
-                self.write_json()
+        if self.check_cache('iam','list_attached_role_policies',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
+            
+            for g in self.cache['iam']['list_roles']:
+                RoleName = g['RoleName']       
+                
+                for r in iam.get_paginator('list_attached_role_policies').paginate(RoleName=RoleName):
+                    for AttachedPolicies in r['AttachedPolicies']:
+                        self.cache['iam']['list_attached_role_policies'][RoleName].append(AttachedPolicies)
+            self.write_json()
 
     def iam_list_attached_user_policies(self):
         self.iam_list_users()
-        
-        iam = boto3.client('iam',
-            aws_access_key_id		= self.aws_access_key_id,
-            aws_secret_access_key	= self.aws_secret_access_key,
-            aws_session_token		= self.aws_session_token)
-        
-        for g in self.cache['iam']['list_users']:
-            UserName = g['UserName']
-            if self.check_cache('iam','list_attached_user_policies',UserName,[]):
-                self.cache['iam']['list_attached_user_policies'][UserName] = iam.list_attached_user_policies(UserName = UserName)['AttachedPolicies']
-                self.write_json()
-
-    def iam_list_user_policies(self):
-        self.iam_list_users()
-        iam = boto3.client('iam',
-            aws_access_key_id		= self.aws_access_key_id,
-            aws_secret_access_key	= self.aws_secret_access_key,
-            aws_session_token		= self.aws_session_token)
-        
-        for g in self.cache['iam']['list_users']:
-            UserName = g['UserName']
+        if self.check_cache('iam','list_attached_user_policies',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
             
-            if self.check_cache('iam','list_user_policies',UserName,[]):
-                self.cache['iam']['list_user_policies'][UserName] = iam.list_user_policies(UserName = UserName)['PolicyNames']
+            for g in self.cache['iam']['list_users']:
+                UserName = g['UserName']
+                
+                for r in iam.get_paginator('list_attached_user_policies').paginate(UserName=UserName):
+                    for AttachedPolicies in r['AttachedPolicies']:
+                        self.cache['iam']['list_attached_user_policies'][UserName].append(AttachedPolicies)
+
+            self.write_json()
 
     def iam_list_attached_group_policies(self):
         self.iam_list_groups()
 
+        if self.check_cache('iam','list_attached_group_policies',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
+            
+            for g in self.cache['iam']['list_groups']:
+                GroupName = g['GroupName']
+                
+                for r in iam.get_paginator('list_attached_group_policies').paginate(GroupName=GroupName):
+                    for AttachedPolicies in r['AttachedPolicies']:
+                        self.cache['iam']['list_attached_group_policies'][GroupName].append(AttachedPolicies)
+
+            self.write_json()
         
-        iam = boto3.client('iam',
-            aws_access_key_id		= self.aws_access_key_id,
-            aws_secret_access_key	= self.aws_secret_access_key,
-            aws_session_token		= self.aws_session_token)
-        
-        for g in self.cache['iam']['list_groups']:
-            GroupName = g['GroupName']
-            if self.check_cache('iam','list_attached_group_policies',GroupName,[]):
-                self.cache['iam']['list_attached_group_policies'][GroupName] = iam.list_attached_group_policies(GroupName = GroupName)['AttachedPolicies']
-                self.write_json()
-    
     def iam_list_users(self):
         if self.check_cache('iam','list_users',None,{}):
             self.cache['iam']['list_users'] = boto3.client('iam',
@@ -633,27 +625,32 @@ class collector:
                         
     def iam_list_policies(self):
         if self.check_cache('iam','list_policies',None,[]):
-            self.cache['iam']['list_policies'] = boto3.client('iam',
+            for p in boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
                 aws_session_token		= self.aws_session_token
-            ).list_policies()['Policies']
+            ).get_paginator('list_policies').paginate():
+                for i in p['Policies']:
+                    self.cache['iam']['list_policies'].append(i)
+                    print(' - ' + i['PolicyName'])
+
             self.write_json()
 
-    def iam_get_policy(self):
+    def iam_get_policy_version(self):
         self.iam_list_policies()
+
+        if self.check_cache('iam','get_policy_version',None,{}):
         
-        iam = boto3.client('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token
-        )
-        
-        for p in self.cache['iam']['list_policies']:
-            PolicyName = p['PolicyName']    
-            if self.check_cache('iam','get_policy_version',PolicyName,[]):
-                # todo - confirm if this thing wants the policy name, or the policy arn
-                self.cache['iam']['get_policy_version'][p['PolicyName']] = iam.get_policy_version(PolicyArn = p['Arn'], VersionId = p['DefaultVersionId'])['PolicyVersion']
+            iam = boto3.client('iam',
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+            )
+            
+            for p in self.cache['iam']['list_policies']:
+                PolicyName = p['PolicyName']    
+                print(' - ' + PolicyName)
+                self.cache['iam']['get_policy_version'][PolicyName] = iam.get_policy_version(PolicyArn = p['Arn'], VersionId = p['DefaultVersionId'])['PolicyVersion']
             self.write_json()
                 
     def guardduty_list_detectors(self):
@@ -671,4 +668,67 @@ class collector:
                         print(' - ' + i)
                 self.write_json()
 
-        
+    def iam_list_role_policies(self):
+        self.iam_list_roles()
+        if self.check_cache('iam','list_role_policies',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
+            
+            for g in self.cache['iam']['list_roles']:
+                RoleName = g['RoleName']
+                
+
+                for r in iam.get_paginator('list_role_policies').paginate(RoleName=RoleName):
+                    for PolicyName in r['PolicyNames']:
+                        print(' - ' + RoleName + ' - ' + PolicyName)
+                        if not RoleName in self.cache['iam']['list_role_policies']:
+                            self.cache['iam']['list_role_policies'][RoleName] = {}
+
+                        self.cache['iam']['list_role_policies'][RoleName][PolicyName] = iam.get_role_policy(RoleName=RoleName,PolicyName=PolicyName)['PolicyDocument']
+            
+            self.write_json()
+
+    def iam_list_user_policies(self):
+        self.iam_list_users()
+        if self.check_cache('iam','list_user_policies',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
+            
+            for g in self.cache['iam']['list_users']:
+                UserName = g['UserName']
+
+                for r in iam.get_paginator('list_user_policies').paginate(UserName=UserName):
+                    for PolicyName in r['PolicyNames']:
+                        print(' - ' + UserName + ' - ' + PolicyName)
+
+                        if not UserName in self.cache['iam']['list_user_policies']:
+                            self.cache['iam']['list_user_policies'][UserName] = {}
+
+                        self.cache['iam']['list_user_policies'][UserName][PolicyName] = iam.get_user_policy(UserName=UserName,PolicyName=PolicyName)['PolicyDocument']
+            self.write_json()
+
+    def iam_list_group_policies(self):
+        self.iam_list_groups()
+
+        if self.check_cache('iam','list_group_policies',None,{}):
+            iam = boto3.client('iam',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token)
+            
+            for g in self.cache['iam']['list_groups']:
+                GroupName = g['GroupName']
+
+                for r in iam.get_paginator('list_group_policies').paginate(GroupName=GroupName):
+                    for PolicyName in r['PolicyNames']:
+                        print(' - ' + GroupName + ' - ' + PolicyName)
+
+                        if not GroupName in self.cache['iam']['list_group_policies']:
+                            self.cache['iam']['list_group_policies'][GroupName] = {}
+
+                        self.cache['iam']['list_group_policies'][GroupName][PolicyName] = iam.get_group_policy(GroupName=GroupName,PolicyName=PolicyName)['PolicyDocument']
+            self.write_json()

@@ -83,6 +83,8 @@ def main():
                 f.write(json.dumps(p.findings,indent = 4, default=convert_timestamp))
                 f.close()
     print ('--- Completed ---')
+
+    
             
 
 main()
