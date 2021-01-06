@@ -554,7 +554,7 @@ class policies:
             ]
         }
 
-        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:            
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
             for ct in self.cache['cloudtrail']['describe_trails'][region]:
                 evidence = {
                     region : ct['Name']
@@ -563,6 +563,39 @@ class policies:
                     self.finding(policy,1,evidence)
                 else:
                     self.finding(policy,0,evidence)
+
+        # --------------------------------------------------------
+        policy = {
+            'name' : 'Ensure the S3 bucket used to store CloudTrail logs is not publicly accessible',
+            'description' : 'CloudTrail logs a record of every API call made in your AWS account. These logs file are stored in an S3 bucket. It is recommended that the bucket policy,or access control list (ACL),applied to the S3 bucket that CloudTrail logs to prevents public access to the CloudTrail logs.',
+            'vulnerability' : 'Allowing public access to CloudTrail log content may aid an adversary in identifying weaknesses in the affected account\'s use or configuration.',
+            'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html">AWS Best practices</a> to configure CloudTrail S3 buckets.',
+            'links' : [
+                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=66',
+                'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html'
+            ],
+            'references' : [
+                'AWS CIS v.2.3'
+            ]
+        }
+        
+
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            for ct in self.cache['cloudtrail']['describe_trails'][region]:
+
+                evidence = { 'region' : region }
+                if not 'S3BucketName' in ct:
+                    compliance = False
+                    evidence['S3BucketName'] = '** No bucket defined ** '
+                else:
+                    S3BucketName = ct.get('S3BucketName')
+                    evidence['S3BucketName'] = S3BucketName
+                    evidence['Is_Bucket_Public'] = self.cache['awssecurityinfo']['s3_public_buckets'][S3BucketName]
+                
+                    if self.cache['awssecurityinfo']['s3_public_buckets'][S3BucketName] == False:
+                        compliance = True
+                
+                self.finding(policy,compliance,evidence)
 
         # --------------------------------------------------------
 

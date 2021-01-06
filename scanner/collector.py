@@ -1,4 +1,5 @@
 import boto3
+from botocore.config import Config
 import datetime as dt
 import dateutil.parser
 import csv
@@ -25,8 +26,10 @@ class collector:
         self.iam_generate_credential_report()
         self.ec2_describe_regions()             # this one must be at the top.. it is needed for all the others
         self.sts_get_caller_identity()
+        self.s3_list_buckets()
         self.s3_bucketpolicy()
         self.s3_bucket_acl()
+        self.s3_public_buckets()
         self.ec2_describe_vpcs()
         self.ec2_describe_flow_logs()
         self.ec2_describe_instances()
@@ -329,7 +332,41 @@ class collector:
                     self.cache['config']['describe_configuration_recorder_status'][region].append(cr)
                 self.write_json()
 
+    def s3_list_buckets(self):
+        if self.check_cache('s3','list_buckets',None,[]):
+            client = boto3.client('s3',
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+            )
+        
+            for bucket in client.list_buckets()['Buckets']:
+                bucketname = bucket.get('Name')
+                print(' - ' + bucketname)
+                self.cache['s3']['list_buckets'].append(bucketname)
+
+    def s3_public_buckets(self):
+        self.s3_list_buckets()
+        self.cloudtrail_describe_trails()
+
+        if self.check_cache('awssecurityinfo','s3_public_buckets',None,{}):
+            self.s3_list_buckets()
+            for bucketname in self.cache['s3']['list_buckets']:
+                print(' - ' + bucketname)
+                self.cache['awssecurityinfo']['s3_public_buckets'][bucketname] = self.checkS3public(bucketname)['exposed']
+
+            for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+                for ct in self.cache['cloudtrail']['describe_trails'][region]:
+                    if 'S3BucketName' in ct:
+                        S3BucketName = ct['S3BucketName']
+                        if not S3BucketName in self.cache['awssecurityinfo']['s3_public_buckets']:
+                            self.cache['awssecurityinfo']['s3_public_buckets'][S3BucketName] = self.checkS3public(S3BucketName)['exposed']
+
+
+        self.write_json()
+
     def s3_bucket_acl(self):
+        self.s3_list_buckets()
         if self.check_cache('s3','bucketacl',None,{}):
             client = boto3.client('s3',
                     aws_access_key_id		= self.aws_access_key_id,
@@ -337,8 +374,7 @@ class collector:
                     aws_session_token		= self.aws_session_token
             )
         
-            for bucket in client.list_buckets().get('Buckets'):
-                bucketname = bucket.get('Name')
+            for bucketname in self.cache['s3']['list_buckets']:
                 print(' - ' + bucketname)
 
                 s3 = boto3.resource('s3',
@@ -347,11 +383,15 @@ class collector:
                     aws_session_token		= self.aws_session_token
                 )
                 bucket_acl = s3.BucketAcl(bucketname)
+                if not bucketname in self.cache['s3']['bucketacl']:
+                    self.cache['s3']['bucketacl'][bucketname] = {}
+
                 self.cache['s3']['bucketacl'][bucketname]['grants'] = bucket_acl.grants
                 self.cache['s3']['bucketacl'][bucketname]['owner'] = bucket_acl.owner
             self.write_json()
            
     def s3_bucketpolicy(self):
+        self.s3_list_buckets()
         if self.check_cache('s3','policy',None,{}):
             client = boto3.client('s3',
                     aws_access_key_id		= self.aws_access_key_id,
@@ -359,8 +399,7 @@ class collector:
                     aws_session_token		= self.aws_session_token
             )
         
-            for bucket in client.list_buckets().get('Buckets'):
-                bucketname = bucket.get('Name')
+            for bucketname in self.cache['s3']['list_buckets']:
                 print(' - ' + bucketname)
                 try:
                     policy = json.loads(client.get_bucket_policy(Bucket = bucketname).get('Policy'))
@@ -447,9 +486,12 @@ class collector:
             
             for g in self.cache['iam']['list_roles']:
                 RoleName = g['RoleName']       
+                if not RoleName in self.cache['iam']['list_attached_role_policies']:
+                    self.cache['iam']['list_attached_role_policies'][RoleName] = []
                 
                 for r in iam.get_paginator('list_attached_role_policies').paginate(RoleName=RoleName):
                     for AttachedPolicies in r['AttachedPolicies']:
+
                         self.cache['iam']['list_attached_role_policies'][RoleName].append(AttachedPolicies)
             self.write_json()
 
@@ -463,9 +505,12 @@ class collector:
             
             for g in self.cache['iam']['list_users']:
                 UserName = g['UserName']
+                if not UserName in self.cache['iam']['list_attached_user_policies']:
+                    self.cache['iam']['list_attached_user_policies'][UserName] = []
                 
                 for r in iam.get_paginator('list_attached_user_policies').paginate(UserName=UserName):
                     for AttachedPolicies in r['AttachedPolicies']:
+                        
                         self.cache['iam']['list_attached_user_policies'][UserName].append(AttachedPolicies)
 
             self.write_json()
@@ -481,6 +526,8 @@ class collector:
             
             for g in self.cache['iam']['list_groups']:
                 GroupName = g['GroupName']
+                if not GroupName in self.cache['iam']['list_attached_group_policies']:
+                    self.cache['iam']['list_attached_group_policies'][GroupName] = []
                 
                 for r in iam.get_paginator('list_attached_group_policies').paginate(GroupName=GroupName):
                     for AttachedPolicies in r['AttachedPolicies']:
@@ -510,7 +557,8 @@ class collector:
             iam = boto3.client('iam',
                 aws_access_key_id		= self.aws_access_key_id,
                 aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token
+                aws_session_token		= self.aws_session_token,
+                config=Config(connect_timeout=5, read_timeout=60, retries={'max_attempts': 20})
             )
 
             response = iam.generate_credential_report()
@@ -732,3 +780,127 @@ class collector:
 
                         self.cache['iam']['list_group_policies'][GroupName][PolicyName] = iam.get_group_policy(GroupName=GroupName,PolicyName=PolicyName)['PolicyDocument']
             self.write_json()
+
+    def checkS3public(self,bucket):
+        client = boto3.client('s3', aws_access_key_id='', aws_secret_access_key='')
+        client._request_signer.sign = (lambda *args, **kwargs: None)
+        
+        result = {}
+        
+        # get_bucket_accelerate_configuration
+        try:
+            client.get_bucket_accelerate_configuration(Bucket=bucket)
+            result['get_bucket_accelerate_configuration'] = True
+        except:
+            result['get_bucket_accelerate_configuration'] = False
+            
+        # get_bucket_acl
+        try:
+            client.get_bucket_acl(Bucket=bucket)
+            result['get_bucket_acl'] = True
+        except:
+            result['get_bucket_acl'] = False
+                
+        # get_bucket_intelligent_tiering_configuration
+        try:
+            client.get_bucket_intelligent_tiering_configuration(Bucket=bucket)
+            result['get_bucket_intelligent_tiering_configuration'] = True
+        except:
+            result['get_bucket_intelligent_tiering_configuration'] = False
+                
+        # get_bucket_location
+        try:
+            client.get_bucket_location(Bucket=bucket)
+            result['get_bucket_location'] = True
+        except:
+            result['get_bucket_location'] = False
+            
+        # get_bucket_logging
+        try:
+            client.get_bucket_logging(Bucket=bucket)
+            result['get_bucket_logging'] = True
+        except:
+            result['get_bucket_logging'] = False
+                
+        # get_bucket_notification
+        try:
+            client.get_bucket_notification(Bucket=bucket)
+            result['get_bucket_notification'] = True
+        except:
+            result['get_bucket_notification'] = False
+            
+        # get_bucket_notification_configuration
+        try:
+            client.get_bucket_notification_configuration(Bucket=bucket)
+            result['get_bucket_notification_configuration'] = True
+        except:
+            result['get_bucket_notification_configuration'] = False
+
+        # get_bucket_request_payment
+        try:
+            client.get_bucket_request_payment(Bucket=bucket)
+            result['get_bucket_request_payment'] = True
+        except:
+            result['get_bucket_request_payment'] = False
+        
+        # get_bucket_versioning
+        try:
+            client.get_bucket_versioning(Bucket=bucket)
+            result['get_bucket_versioning'] = True
+        except:
+            result['get_bucket_versioning'] = False
+
+            
+        # list_bucket_analytics_configurations
+        try:
+            client.list_bucket_analytics_configurations(Bucket=bucket)
+            result['list_bucket_analytics_configurations'] = True
+        except:
+            result['list_bucket_analytics_configurations'] = False
+        
+        # list_bucket_intelligent_tiering_configurations
+        try:
+            client.list_bucket_intelligent_tiering_configurations(Bucket=bucket)
+            result['list_bucket_intelligent_tiering_configurations'] = True
+        except:
+            result['list_bucket_intelligent_tiering_configurations'] = False
+
+        # list_multipart_uploads
+        try:
+            client.list_multipart_uploads(Bucket=bucket)
+            result['list_multipart_uploads'] = True
+        except:
+            result['list_multipart_uploads'] = False
+        
+        # list_object_versions
+        try:
+            client.list_object_versions(Bucket=bucket)
+            result['list_object_versions'] = True
+        except:
+            result['list_object_versions'] = False
+
+        # list_objects
+        try:
+            client.list_objects(Bucket=bucket)
+            result['list_objects'] = True
+        except:
+            result['list_objects'] = False
+
+        # list_objects_v2
+        try:
+            client.list_objects_v2(Bucket=bucket)
+            result['list_objects_v2'] = True
+        except:
+            result['list_objects_v2'] = False
+
+        
+        exposed = False
+        for r in result:
+            if result[r]:
+                exposed = True
+                
+        return {
+            'bucket'    : bucket,
+            'exposed'   : exposed,
+            'result'    : result
+        }
