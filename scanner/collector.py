@@ -2,10 +2,12 @@ import boto3
 from botocore.config import Config
 import datetime as dt
 import dateutil.parser
+from datetime import datetime
 import csv
 import time
 import json
 import os.path
+from urllib.parse import urlparse
 
 class collector:
     
@@ -16,6 +18,7 @@ class collector:
         self.aws_secret_access_key  = aws_secret_access_key
         self.aws_session_token      = aws_session_token
         self.cache = {}
+        self.data_file = None
 
     def convert_timestamp(self,item_date_object):
         if isinstance(item_date_object, (dt.date,dt.datetime)):
@@ -23,9 +26,10 @@ class collector:
 
     def collect_all(self):
         print('*** COLLECTOR ***')
+        self.sts_get_caller_identity()
         self.iam_generate_credential_report()
         self.ec2_describe_regions()             # this one must be at the top.. it is needed for all the others
-        self.sts_get_caller_identity()
+        self.route53_list_hosted_zones()
         self.s3_list_buckets()
         self.s3_bucketpolicy()
         self.s3_bucket_acl()
@@ -66,12 +70,38 @@ class collector:
         self.iam_list_role_policies()
         self.iam_list_group_policies()
         
+        # -- force a write of the json, just in case we are saving to S3
+        self.write_json(True)
+        
+    def write_json(self,action = False):
+        if self.data_file:
+            if action or not 's3:' in self.data_file:
+                account = self.cache.get('sts',{}).get('get_caller_identity',{}).get('Account',{})
+                
+                if account != {}:
+                    datestamp = datetime.now().strftime("%Y-%m-%d")
+                    output = self.data_file.replace('%a',account).replace('%d',datestamp)
+                    print(' -- writing json file -- '+ output)
 
-    def write_json(self):
-        print(' -- writing json file --')
-        with open(self.data_file,'wt') as f:
-            f.write(json.dumps(self.cache,indent = 4, default=self.convert_timestamp))
-            f.close()
+                    # -- is this s3?
+                    if 's3://' in output:
+                        
+                        p = urlparse(output, allow_fragments=False)
+                        bucket = p.netloc
+                        if p.query:
+                            key = p.path.lstrip('/') + '?' + p.query
+                        else:
+                            key = p.path.lstrip('/')
+                        
+                        # TODO = s3 authentication will be tricky -- think about this for a sec...
+                        boto3.client('s3').put_object(Body=json.dumps(self.cache,indent = 4, default=self.convert_timestamp), Bucket=bucket, Key=key)
+                        
+                    else:
+                        with open(output,'wt') as f:
+                            f.write(json.dumps(self.cache,indent = 4, default=self.convert_timestamp))
+                            f.close()
+                else:
+                    print(' unable to write json until we have credentials ')
     
     def read_json(self,file):
         self.data_file = file
@@ -127,10 +157,12 @@ class collector:
             if p3 == None:
                 print (p1 + ' - ' + p2)
                 self.cache['timestamp'][p1][p2] = epoch_time
+                self.cache[p1][p2] = dft
 
             else:
                 print (p1 + ' - ' + p2 + ' - ' + p3)
                 self.cache['timestamp'][p1][p2][p3] = epoch_time
+                self.cache[p1][p2][p3] = dft
             
             return True
         else:
@@ -168,6 +200,19 @@ class collector:
                             print(' - ' + t)                     
                             self.cache['dynamodb']['list_tables'][region].append(t)
                     self.write_json()
+
+    def route53_list_hosted_zones(self):
+        if self.check_cache('route53','list_hosted_zones',None,[]):
+            client = boto3.client('route53',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token
+                )
+            for x in client.get_paginator('list_hosted_zones').paginate():
+                for y in x['HostedZones']:
+                    y['get_hosted_zone'] = client.get_hosted_zone(Id=y['Id'])
+                    self.cache['route53']['list_hosted_zones'].append(y)
+            self.write_json()
 
     def ec2_describe_securitygroups(self):
         for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
@@ -569,7 +614,7 @@ class collector:
             response = iam.get_credential_report()
             credential_report_csv = response['Content'].decode('utf-8')
             reader = csv.DictReader(credential_report_csv.splitlines())
-            
+
             for row in reader:
                 row['_password_last_changed_age']		= self.age(row['password_last_changed'])
                 row['_password_last_used_age']			= self.age(row['password_last_used'])
@@ -610,7 +655,8 @@ class collector:
                     trail['get_trail_status'] = ct.get_trail_status(Name=trail['TrailARN'])
                     trail['get_event_selectors'] = ct.get_event_selectors(TrailName=trail['TrailARN'])
                     self.cache['cloudtrail']['describe_trails'][region].append(trail)
-                    self.write_json()
+                
+                self.write_json()
 
     def cloudwatch_describe_alarms(self):
         for region in self.ec2_describe_regions():

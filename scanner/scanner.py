@@ -7,10 +7,44 @@ from report import report
 from sts import sts
 import json
 import os.path
+from urllib.parse import urlparse
+import boto3
 
 def convert_timestamp(item_date_object):
     if isinstance(item_date_object, (dt.date,dt.datetime)):
         return item_date_object.timestamp()
+
+def save_file(f,c,sign = False):
+
+    # -- is this s3?
+    if 's3://' in f:
+        p = urlparse(f, allow_fragments=False)
+        bucket = p.netloc
+        if p.query:
+            key = p.path.lstrip('/') + '?' + p.query
+        else:
+            key = p.path.lstrip('/')
+        
+        # TODO = s3 authentication will be tricky -- think about this for a sec...
+        boto3.client('s3').put_object(Body=c, Bucket=bucket, Key=key)
+
+        # should we generate a pre-signed url ?
+        if sign:   
+            response = boto3.client('s3').generate_presigned_url(
+                'get_object',
+                Params = {
+                    'Bucket': bucket,
+                    'Key'   : key
+                },
+                ExpiresIn = 86400
+            )
+            return response
+    else:
+        with open(f,'wt') as f:
+            f.write(c)
+            f.close()
+        
+        return None
 
 def main():
     parser = argparse.ArgumentParser(description='AWS Security Info - Security Scanner')
@@ -23,7 +57,7 @@ def main():
     parser.add_argument('--role',help='The role name you are trying to switch to')
     parser.add_argument('--account',help='The AWS Account number you are trying to switch to')
     parser.add_argument('--externalid',help='The external ID required to complete the assume role')
-    parser.add_argument('--json',help='The filename where the collected data file should be stored',required = True)
+    parser.add_argument('--json',help='The filename where the collected data file should be stored')
     parser.add_argument('--oj',help='The filename of the output json findings (use %a for the AWS account id, and %d for a datestamp)')
     parser.add_argument('--oh',help='The filename of the output html findings (use %a for the AWS account id, and %d for a datestamp)')
 
@@ -49,12 +83,15 @@ def main():
                 exit(1)
 
         c = collector(a,b,c)
-        c.read_json(args.json)
+        if args.json:
+            c.read_json(args.json)
         c.collect_all()
-        c.write_json()
+        if args.json:
+            c.write_json()
     else:
         c = collector(a,b,c)
-        c.read_json(args.json)
+        if args.json:
+            c.read_json(args.json)
 
     # -- if we need to generate some output, then we go through this section
     if args.oj or args.oh:    
@@ -73,15 +110,19 @@ def main():
         if args.oh:
             output = args.oh.replace('%a',account).replace('%d',datestamp)
             print('Writing output html findings == ' + output) 
-            r.generate(output)
+            out = r.generate()
+
+            url = save_file(output,out,True)
+            if url:
+                print('Report URL will be valid for 24 hours ==> ' + url)
+
 
         if args.oj:
             
             output = args.oj.replace('%a',account).replace('%d',datestamp)
-            print('Writing output json findings == ' + output) 
-            with open(output,'wt') as f:
-                f.write(json.dumps(p.findings,indent = 4, default=convert_timestamp))
-                f.close()
+            print('Writing output json findings == ' + output)
+            save_file(output,json.dumps(p.findings,indent = 4, default=convert_timestamp))
+            
     print ('--- Completed ---')
 
     

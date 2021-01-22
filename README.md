@@ -12,14 +12,17 @@ https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html
 
 ## Running a security scan
 ### Option 1 - Use CloudShell
-https://console.aws.amazon.com/cloudshell/home?region=us-east-1
+This method requires an S3 bucket to be created.
 
+* Open a CloudShell session - https://console.aws.amazon.com/cloudshell/home?region=us-east-1
+* Execute the following commands
 ```
 $ cd /tmp
 $ git clone https://github.com/massyn/aws-security
 $ cd aws-security/
-$ python3 scanner/scanner.py --json site.json --oh report.html
+$ python scanner/scanner.py --oh "s3://BUCKET NAME/%%a-%%d.html"
 ```
+* Once the signed URL is generated, you can download the generated report.
 
 ### Option 2 - Use built-in credentials
 https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html

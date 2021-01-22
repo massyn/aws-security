@@ -19,9 +19,9 @@ class report:
         
         return '<table border=0><tr><td width=60px>' + str(round(pct,2)) + '%</td><td width=' + str(int(barwidth)) + ' bgcolor='+col + '>&nbsp;</td><td width=' + str(int(whitewidth)) + '>&nbsp;</td></tr></table>'
 
-    def generate(self,file):
-        with open(file,'wt') as f:
-            f.write('''<!DOCTYPE html>
+    def generate(self):
+        
+      content = '''<!DOCTYPE html>
                 <html>
                 <head>
                 <title>AWS Security Info - Vulnerability Report</title>
@@ -76,80 +76,83 @@ table {
 <p>The following report has been automatically generated.
 </p>
 <p>
-<ul>''')
-            f.write('<li>AWS Account : <b>{account}</b></li>'.format(account = self.cache['sts']['get_caller_identity']['Account']))
-            f.write('<li>Date of scan : <b>{date}</b></li></ul></p>'.format(date = self.cache['sts']['get_caller_identity']['ResponseMetadata']['HTTPHeaders']['date']))
+<ul>'''
+      content = content + '<li>AWS Account : <b>{account}</b></li>'.format(account = self.cache['sts']['get_caller_identity']['Account'])
+      content = content + '<li>Date of scan : <b>{date}</b></li></ul></p>'.format(date = self.cache['sts']['get_caller_identity']['ResponseMetadata']['HTTPHeaders']['date'])
 
-            globalerr = 0
-            globalok = 0
-            for policy in self.data:
-                globalerr += len(self.data[policy][0])
-                globalok += len(self.data[policy][1])
-                globaltotal = globalok + globalerr
-                globalpct = globalok / (globalok + globalerr) * 100
+      globalerr = 0
+      globalok = 0
+      for policy in self.data:
+          globalerr += len(self.data[policy][0])
+          globalok += len(self.data[policy][1])
+          globaltotal = globalok + globalerr
+          globalpct = globalok / (globalok + globalerr) * 100
 
-            f.write('<li>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known vulnerabilities.</li>'.format(globalok = globalok, globaltotal = globaltotal))
-            f.write(self.htmlbar(globalpct))
-            # -- table
-            f.write('<h2>Summary</h2>')
-            f.write('<table border=1>')
-            for policy in self.data:
-                totalerr = len(self.data[policy][0])
-                totalok = len(self.data[policy][1])
-                pct = totalok / (totalok + totalerr) * 100
+      content = content + '<li>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known vulnerabilities.</li>'.format(globalok = globalok, globaltotal = globaltotal)
+      content = content + self.htmlbar(globalpct)
+      # -- table
+      content = content + '<h2>Summary</h2>'
+      content = content + '<table border=1>'
+      for policy in self.data:
+          totalerr = len(self.data[policy][0])
+          totalok = len(self.data[policy][1])
+          pct = totalok / (totalok + totalerr) * 100
 
-                f.write('<tr><td><a href="#{policy}">{policy}</a></td><td>{pct}</td></tr>'.format(policy = policy,
-                    totalerr = totalerr,
-                    totalok = totalok,
-                    pct = self.htmlbar(pct)
-                ))
-            f.write('</table>')
+          content = content + '<tr><td><a href="#{policy}">{policy}</a></td><td>( {totalok} / {total} ) </td><td>{pct}</td></tr>'.format(policy = policy,
+              totalerr = totalerr,
+              totalok = totalok,
+              total = totalok + totalerr,
+              pct = self.htmlbar(pct)
+          )
+      content = content + '</table>'
 
-            f.write('<h2>Detail</h2>')
-            for policy in self.data:
-                totalerr = len(self.data[policy][0])
-                totalok = len(self.data[policy][1])
+      content = content + '<h2>Detail</h2>'
+      for policy in self.data:
+          totalerr = len(self.data[policy][0])
+          totalok = len(self.data[policy][1])
 
-                pct = totalok / (totalok + totalerr) * 100
+          pct = totalok / (totalok + totalerr) * 100
 
-                if self.data[policy]['description'] == '':
-                  print (policy + ' - WARNING - no description')
-                if self.data[policy]['remediation'] == '':
-                  print (policy + ' - WARNING - no remediation')
-                if self.data[policy]['vulnerability'] == '':
-                  print (policy + ' - WARNING - no vulnerability')
-                if self.data[policy]['references'] == []:
-                  print (policy + ' - WARNING - no references')
-                if self.data[policy]['links'] == []:
-                  print (policy + ' - WARNING - no links')
+          if self.data[policy]['description'] == '':
+            print (policy + ' - WARNING - no description')
+          if self.data[policy]['remediation'] == '':
+            print (policy + ' - WARNING - no remediation')
+          if self.data[policy]['vulnerability'] == '':
+            print (policy + ' - WARNING - no vulnerability')
+          if self.data[policy]['references'] == []:
+            print (policy + ' - WARNING - no references')
+          if self.data[policy]['links'] == []:
+            print (policy + ' - WARNING - no links')
 
-                non = self.data[policy][0]
-                                
-                f.write('''
-                    <h3 id="{policy}">{policy}</h3>
-                    <p>{htmlbar}</p>
-                    <h4>Description</h4>
-                    <p>{description}</p>
-                    <h4>Vulnerability</h4>
-                    <p>{vulnerability}</p>
-                    <h4>Remediation</h4>
-                    <p>{remediation}</p>
-                    <h4>Vulnerable resources</h4>
-                    <p><div class="evidence"><pre>{non}</pre></div></p>
-                    <h4>Links</h4>
-                    <p>{links}</p>
-                    <h4>References</h4>
-                    <p>{references}</p>
-                    
-                    '''.format(
-                            policy = policy,
-                            pct     = pct,
-                            non     = json.dumps(non,indent=4),
-                            description = self.data[policy]['description'],
-                            remediation = self.data[policy]['remediation'],
-                            vulnerability = self.data[policy]['vulnerability'],
-                            htmlbar = self.htmlbar(pct),
-                            links = self.data[policy]['links'],
-                            references = self.data[policy]['references']
-                            
-                    ))
+          non = self.data[policy][0]
+                          
+          content = content + '''
+              <h3 id="{policy}">{policy}</h3>
+              <p>{htmlbar}</p>
+              <h4>Description</h4>
+              <p>{description}</p>
+              <h4>Vulnerability</h4>
+              <p>{vulnerability}</p>
+              <h4>Remediation</h4>
+              <p>{remediation}</p>
+              <h4>Vulnerable resources</h4>
+              <p><div class="evidence"><pre>{non}</pre></div></p>
+              <h4>Links</h4>
+              <p>{links}</p>
+              <h4>References</h4>
+              <p>{references}</p>
+              
+              '''.format(
+                      policy = policy,
+                      pct     = pct,
+                      non     = json.dumps(non,indent=4),
+                      description = self.data[policy]['description'],
+                      remediation = self.data[policy]['remediation'],
+                      vulnerability = self.data[policy]['vulnerability'],
+                      htmlbar = self.htmlbar(pct),
+                      links = self.data[policy]['links'],
+                      references = self.data[policy]['references']
+                      
+              )
+
+          return content

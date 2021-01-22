@@ -61,6 +61,7 @@ class policies:
                 'AWS CIS v1.2.0 - 1.1'
             ]
         }
+        
         for u in p['iam']['credentials']:
             if u['user'] == '<root_account>':
                 evidence = {
@@ -920,9 +921,6 @@ class policies:
                                                                             compliant = True
             self.finding(POL,compliant,None) 
         
-                                     
-
-
         # --------------------------------------
         policy = {
             'name' : 'Ensure no security groups allow ingress from 0.0.0.0/0 to port 22',
@@ -1061,16 +1059,35 @@ class policies:
             ]
         }
         
-        for q in self.parsePermissions():
-            if 'RoleName' in q:
-                compliance = 1
-                if q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
-                    compliance = 0
-                                
-            self.finding(policy,compliance,q)
+        for list_roles in self.cache['iam']['list_roles']:
+            compliance = 1
+            for q in self.parsePermissions():
+                if 'RoleName' in q:
+                    if q['RoleName'] == list_roles['RoleName'] and q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
+                        compliance = 0
+                                        
+            self.finding(policy,compliance,list_roles['RoleName'])
 
         # --------------------------------------------------------
-
+ 
+        policy = {
+            'name' : 'Subnets should not issue public IP addresses',
+            'description' : 'To improve the security of VPCs, it is recommended that subnets should not allocate public IP addresses.',
+            'vulnerability' : 'Automated issuing of public IP addresses increases the risk of internet exposure to your instances.',
+            'remediation' : 'Execute the <a href="https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py">remediation script</a> within your AWS account to remediate all subnets.',
+            'references' : [
+                'ASI.NET.001'
+            ],
+            'links' : [
+                'https://github.com/massyn/aws-security/blob/main/policies/ASI.NET.001%20-%20Subnets%20should%20not%20issue%20public%20IP%20addresses.md',
+                'https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet'
+            ]
+        }
+        
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            for subnet in self.cache['ec2']['describe_subnets'][region]:
+                self.finding(policy,subnet['MapPublicIpOnLaunch'] == False,{ 'region' : region, 'SubnetId' : subnet['SubnetId']})
+            # --------------------------------------------------------
         
 
 
@@ -1233,7 +1250,7 @@ class policies:
 
     def finding(self,policy,compliance,evidence = {}):
         name = policy['name']
-
+        
         if not name in self.findings:
             self.findings[name] = {}
             self.findings[name][0] = []
