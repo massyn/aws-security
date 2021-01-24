@@ -1,0 +1,87 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	"Description" : "AWS Security Info - Grant ASI read-only access to your account",
+	"Parameters": {
+		"AWSSecurityAccount" : {
+			"Type" : "String",
+			"Description" : "AWS Account that will be granted read-only access",
+			"Default" : "153977100785"
+		},
+		"ExternalId": {
+			"Type": "String",
+			"Description": "Enter the External ID",
+			"Default" : "717CF4D0BF1E46C3CD59B0B8BF85D11314896814C522CE67D59CBE6F58DA1866"
+		}
+	},
+	"Resources" : {
+		"AWSSecurityInfoReadOnlyRole" : {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/ReadOnlyAccess",
+					"arn:aws:iam::aws:policy/SecurityAudit",
+					"arn:aws:iam::aws:policy/AmazonInspectorReadOnlyAccess",
+					"arn:aws:iam::aws:policy/AWSSupportAccess",
+					"arn:aws:iam::aws:policy/AWSSecurityHubReadOnlyAccess"
+				],
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect"	: "Allow",
+							"Principal"	: { "AWS": 	{"Fn::Join" : [ "",["arn:aws:iam::",{"Ref": "AWSSecurityAccount"},":root"]]} },
+							"Action"	: [	"sts:AssumeRole" ],
+							"Condition"	: {	"StringEquals": { "sts:ExternalId": { "Ref": "ExternalId"	} }	}
+						}
+					]
+				},
+				"Policies": [
+                    {
+                        "PolicyName": "AWSSecurityInfoReadOnlyPolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "iam:GenerateCredentialReport",
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+					},
+					{
+						"PolicyName": "AWSSecurityInfoDenyData",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Deny",
+									"Action": [
+										"cloudformation:GetTemplate",
+										"dynamodb:GetItem",
+										"dynamodb:BatchGetItem",
+										"dynamodb:Query",
+										"dynamodb:Scan",
+										"ec2:GetConsoleOutput",
+										"ec2:GetConsoleScreenshot",
+										"ecr:BatchGetImage",
+										"ecr:GetAuthorizationToken",
+										"ecr:GetDownloadUrlForLayer",
+										"kinesis:Get*",
+										"lambda:GetFunction",
+										"logs:GetLogEvents",
+										"s3:GetObject",
+										"sdb:Select*",
+										"sqs:ReceiveMessage"
+										],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ],
+				"RoleName": "AWSSecurityInfoReadOnlyRole"
+			}
+		}
+	}
+}
