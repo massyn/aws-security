@@ -10,6 +10,12 @@ pip install -r requirements.txt
 The script needs an IAM account, or at least some credentials to query the AWS account.  At the very least, the script must have read-only access.
 https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html
 
+### S3 bucket
+You can store your data files on the local machine, but it makes more sense to use an S3 bucket.  It is recomended that you create an S3 bucket to store all data files.
+
+### Slack
+The solution has built in support for Slack.  You can provide a Slack Webhook to receive alerts directly in your channel for any issues that have been identified.
+
 ## Running a security scan
 ### Option 1 - Use CloudShell
 This method requires an S3 bucket to be created.
@@ -69,4 +75,14 @@ You can invoke the Lambda function.  You basically have 3 choices :
     }
 ]
 ```
+
+## About the policies
+There are a number of policies built into the script. The open format will also allow you to build your own policies.  The policies are in two distinct categories.
+
+The first is the _industry best practice_ category, and this is typically policies that relate to the Center for Internet Security, or PCI standards.  These policies will be as true to the industry standard as possible, and will not be modified.
+
+The second catory is _AWS Security Info Specific_, and there I am more than happy to entertain changes and tweaks to the policy.  
+
+### How to submit a change request
+Simply open an issue in (https://github.com/massyn/aws-security/issues|Github), and I'll review the request and include it into the solution.  You're also welcome to fork the solution, and submit a pull request to merge your own policies into the solution.
 
