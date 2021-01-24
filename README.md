@@ -36,4 +36,37 @@ python scanner\scanner.py --json tmp\site.json --oh tmp\report.html
 ### Option 4 - Assume role
 
 ### Option 5 - Lambda
+You have the option to run the code inside a Lambda function.
+
+* Create a role in IAM with the necessary permissions (TODO)
+* Create an S3 bucket and allow the Lambda function PutObject and GetObject access
+* Create a lambda function, using Python 3.8 as the code base
+* Copy all the files in the "scanner" directory to be used by the python function
+* Be sure to rename scanner.py to lambda_function.py
+* Create an environment variable called S3_BUCKET and put the s3 bucket name in there
+* If you want to use slack for notifications, create an environment variable called SLACK_WEBHOOK and place the webhook url in there
+
+You can invoke the Lambda function.  You basically have 3 choices :
+
+* Run it with no payload will execute against the account it runs in.
+* Run it with a simple payload of accountId and externalId where you specify the target account Id and the external Id.  The function will attempt to switch the role, and run the process.
+```
+{
+    "accountId" : "123456789012",
+    "externalId" : "yourVerySecretExternalId"
+}
+```
+* You can also put the payload in an array, which will invoke individual Lambda functions
+```
+[
+    {
+        "accountId" : "123456789012",
+        "externalId" : "yourVerySecretExternalId"
+    },
+    {
+        "accountId" : "098765432109",
+        "externalId" : "yourVerySecretExternalId"
+    }
+]
+```
 

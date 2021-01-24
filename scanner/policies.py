@@ -53,6 +53,7 @@ class policies:
             'description' : 'The <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html">root user</a> is the highest privileged, unrestricted account within your AWS landscape.  Because of the sensitivity of this account, it should not be used for normal day-to-day operations.',
             'vulnerability' : 'The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner\'s expense.',
             'remediation' : 'Avoid using the root account, and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html">create a seperate IAM user</a> with the least-privilege policies applied.',
+            'severity' : 'high',
             'links' : [
                 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html',
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=11'
@@ -77,6 +78,7 @@ class policies:
             'description' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.',
             'vulnerability' : 'Without MFA, there is a higher probability of the account being compromised.',
             'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html">AWS best practices</a> to configure MFA on your root account.',
+            'severity' : 'high',
             'links' : [
                 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html',
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=13'
@@ -100,6 +102,7 @@ class policies:
             'name' : 'Ensure credentials unused for 90 days or greater are disabled',
             'description' : 'Credentials refer to passwords or access keys.',
             'vulnerability' : 'Unused credentials indicate a user account that may not be in use.  Accounts that are not in use should be removed to reduce the risk of account compromise.',
+            'severity' : 'high',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html">AWS Best practices</a> to remove unused credentials',
             'references' : [
                 'AWS CIS v.1.2.0 - 1.3'
@@ -148,6 +151,7 @@ class policies:
             'name'  : 'Ensure access keys are rotated every 90 days or less',
             'description' : 'Rotating access keys is a security best practice to reduce the likelihood of account compromise.',
             'vulnerability' : 'Aging access keys, just like passwords, need to be rotated to reduce the risk of credentials leaking to unauthorised users, resulting in account compromise.',
+            'severity' : 'medium',
             'remediation' : 'Follow <a href="https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/">AWS Best practices</a> to rotate access keys.',
             'references' : [
                 'AWS CIS v.1.2.0 - 1.4'
@@ -185,6 +189,7 @@ class policies:
             'name' : 'Ensure IAM password policy is set to a strong password',
             'description' : 'IAM Password Policy specifies the password complexity requirements for the AWS IAM users.',
             'vulnerability' : 'Weak password policies will cause users to select weak, easy to guess passwords.',
+            'severity' : 'medium',
             'remediation' : '''Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html">AWS Best Practices</a> to set an IAM Password Policy.<ul>
             
             <li>1.5 Ensure IAM password policy requires at least one uppercase letter</li>
@@ -261,6 +266,7 @@ class policies:
             'description' : '<a href="https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html">Access keys</a> allow programatic access to your AWS account.  When the access keys are not well protected, it can allow unauthorised access to your AWS account.',
             'remediation' : 'Remove the root access keys.  <a href="https://docs.aws.amazon.com/general/latest/gr/managing-aws-access-keys.html">More information</a>',
             'vulnerability' : 'Access keys provide access to the AWS account without having to use a password or multi-factor authentication.  They can end up in source code, and pose a significant risk if not managed correctly.',
+            'severity' : 'critical',
             'references' : [
                 "AWS CIS v.1.2.0 - 1.12"
             ],
@@ -295,6 +301,7 @@ class policies:
             'description' : 'The <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html">root user</a> is the highest privileged, unrestricted account within your AWS landscape.  It has to be securely protected.',
             'vulnerability' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.  This reduces the likelihood of the account being compromised due to the loss of the root username and password.',
             'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa">AWS best practices</a> to configure MFA on your root account.',
+            'severity' : 'critical',
             'links' : [
                 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_enable_virtual.html#enable-virt-mfa-for-root',
                 'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
@@ -317,6 +324,7 @@ class policies:
             'description' : 'Protecting the root account with a hardware MFA token to increase security with protecting the credentials.',
             'vulnerability' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.  This reduces the likelihood of the account being compromised due to the loss of the root username and password.',
             'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa">AWS best practices</a> to configure MFA on your root account.',
+            'severity' : 'high',
             'references' : [
                 'AWS CIS v.1.2.0 - 1.14'
             ],
@@ -338,6 +346,7 @@ class policies:
             'description' : 'Controlling access for users should be done through groups.',
             'vulnerability' : 'Attaching policies directly to user accounts will obfuscate the access a user will have, and can result in permission creep.',
             'remediation' : 'Create IAM groups for each job function, and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups_manage_add-remove-users.html">add the users to the groups</a>.',
+            'severity' : 'low',
 
             'references' : [
                 'AWS CIS v.1.2.0 - 1.16'
@@ -367,6 +376,7 @@ class policies:
             'description' : 'AWS IAM roles reduce the risks associated with sharing and rotating credentials that can be used outside of AWS itself. If credentials are compromised, they can be used from outside of the AWS account they give access to. In contrast, in order to leverage role permissions an attacker would need to gain and maintain access to a specific instance to use the privileges associated with it.',
             'vulnerability' : 'AWS access from within AWS instances can be done by either encoding AWS keys into AWS API calls or by assigning the instance to a role which has an appropriate permissions policy for the required access. "AWS Access" means accessing the APIs of AWS in order to access AWS resources or manage AWS account resources.',
             'remediation' : 'Remove the access keys from any user account in use on an EC2 instance, and setup EC2 IAM Roles instead.',
+            'severity' : 'low',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=49',
                 'https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html'
@@ -390,6 +400,7 @@ class policies:
             'description' : 'The AWS Support Role allows a user to create and manage support cases with AWS.',
             'vulnerability' : 'Without a support role, no one (with the exception of the root user) will be able to open a support case with AWS.  Note that there are charges for using the support service from AWS.  Refer to their <a href="https://aws.amazon.com/premiumsupport/pricing/">support pricing model</a> for more information.',
             'remediation' : 'Assign the policy AWSSupportAccess to a user or a group.',
+            'severity' : 'info',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=52',
                 'https://aws.amazon.com/premiumsupport/pricing/',
@@ -434,6 +445,7 @@ class policies:
         policy = {
             'name'  : 'Do not setup access keys during initial user setup for all IAM users that have a console password',
             'description' : 'IAM users can have multiple credentials, for example passwords, or access keys.',
+            'severity' : 'high',
             'vulnerability' : 'Access to the AWS account needs to be restricted to avoid the account being compromised.  While having an access key is not strictly an issue, having access keys, and a console password would raise concerns on the multiple ways a user can gain access to the system, resulting in a potential breach if the credentials are not properly managed.  <b>Note</b> that while AWS CIS v.1.20 is specifically checking access keys created with user created, AWS Security Info will check for any console user that also has access keys.',
             'remediation' : 'To remediate this issue, either remove the console password, or remove the access keys.',
             'links' : [
@@ -466,6 +478,7 @@ class policies:
             'description' : 'Policies define the list of actions that is allowed against a set of resources.  They typically represent all the actions an entity can take as part of a required job function.',
             'vulnerability' : 'Creating an additional policy with administrative access to the entire AWS account has a risk of going undetected, if it is were to be added to a rogue account, leading to a compromise of the AWS account.',
             'remediation' : 'Remove the offending policy, and add the user, group, or role to the AWS managed Administrator policy',
+            'severity' : 'medium',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=57'
             ],
@@ -495,6 +508,7 @@ class policies:
             'description' : 'The AWS API call history produced by CloudTrail enables security analysis, resource change tracking, and compliance auditing.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html">AWS Best Practices</a> to create a new trail.',
             'vulnerability' : 'Without proper logging of AWS API activity, any activity, be it malicious, or legitimate will go undetected, resulting in breaches, or lack of regulatory compliance.',
+            'severity' : 'medium',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=61',
                 'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html',
@@ -545,6 +559,7 @@ class policies:
             'name' : 'Ensure CloudTrail log file validation is enabled',
             'description' : 'Enabling log file validation will provide additional integrity checking of CloudTrail logs.',
             'vulnerability' : 'Without log file validation, there is a higher liklihood of regulatory compliance findings related to audit logging.',
+            'severity' : 'low',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-enabling.html">AWS Best Practices</a> to enable log file validation.',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=64',
@@ -570,6 +585,7 @@ class policies:
             'name' : 'Ensure the S3 bucket used to store CloudTrail logs is not publicly accessible',
             'description' : 'CloudTrail logs a record of every API call made in your AWS account. These logs file are stored in an S3 bucket. It is recommended that the bucket policy,or access control list (ACL),applied to the S3 bucket that CloudTrail logs to prevents public access to the CloudTrail logs.',
             'vulnerability' : 'Allowing public access to CloudTrail log content may aid an adversary in identifying weaknesses in the affected account\'s use or configuration.',
+            'severity' : 'critical',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html">AWS Best practices</a> to configure CloudTrail S3 buckets.',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=66',
@@ -604,6 +620,7 @@ class policies:
             'name' : 'Ensure CloudTrail trails are integrated with CloudWatch Logs',
             'description' : 'Sending CloudTrail logs to CloudWatch Logs will facilitate real-time and historic activity logging based on user, API, resource, and IP address, and provides opportunity to establish alarms and notifications for anomalous or sensitivity account activity.',
             'vulnerability' : 'Without sending CloudTrail logs to CloudWatch, real-time alerts will not be visible, and may go undetected',
+            'severity' : 'low',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html">AWS Best practices</a> to configure CloudTrail to CloudWatch integration.',
             'reference' : [
                 'AWS CIS v.1.2.0 - 2.4'
@@ -637,6 +654,7 @@ class policies:
             'description' : 'The AWS configuration item history captured by AWS Config enables security analysis, resource change tracking, and compliance auditing.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html">AWS Best Practices</a> to enable AWS Config in all regions.',
             'vulnerability' : 'Without AWS Config enabled, technical teams will struggle to identify the historical changes to resources when the need arise for forensic investigation.',
+            'severity' : 'low',
             'reference' : [
                 'AWS CIS v.1.2.0 - 2.5'
             ],
@@ -666,6 +684,7 @@ class policies:
             'description' : 'Rotating encryption keys helps reduce the potential impact of a compromised key as data encrypted with a new key cannot be accessed with a previous key that may have been exposed.',
             'vulnerability' : 'By not rotating encryption keys, there is a higher likelihood of data compromize due to improper management of secret keys.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html">AWS Best Practices</a> to rotate keys.',
+            'severity' : 'medium',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=82',
                 'https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html'
@@ -686,6 +705,7 @@ class policies:
             'description' : 'VPC Flow Logs provide visibility into network traffic that traverses the VPC and can be used to detect anomalous traffic or insight during security workflows.',
             'vulnerability' : 'Without VPC Flow Logs, technical teams will not have visibility on how network traffic flows.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html">AWS Best Practices</a> to enable VPC Flow Logs.',
+            'severity' : 'low',
             'reference' : [
                 'AWS CIS v.1.2.0 - 2.9'
             ],
@@ -712,6 +732,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for unauthorized API calls.',
                 'vulnerability' : 'Monitoring unauthorized API calls will help reveal application errors and may reduce time to detect malicious activity.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=88'
                 ],
@@ -725,6 +746,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for console logins that are not protected by multi-factor authentication (MFA).',
                 'vulnerability' : 'Monitoring for single-factor console logins will increase visibility into accounts that are not protected by MFA.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=92'
                 ],
@@ -738,6 +760,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for root login attempts.',
                 'vulnerability' : 'Monitoring for root account logins will provide visibility into the use of a fully privileged account and an opportunity to reduce the use of it.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=96'
                 ],
@@ -751,6 +774,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established changes made to Identity and Access Management (IAM) policies.',
                 'vulnerability' : 'Monitoring changes to IAM policies will help ensure authentication and authorization controls remain intact.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=100'
                 ],
@@ -764,6 +788,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for detecting changes to CloudTrail\'s configurations.',
                 'vulnerability' : 'Monitoring changes to CloudTrail\'s configuration will help ensure sustained visibility to activities performed in the AWS account.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=104'
                 ],
@@ -777,6 +802,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for failed console authentication attempts.',
                 'vulnerability' : 'Monitoring failed console logins may decrease lead time to detect an attempt to brute force acredential, which may provide an indicator, such as source IP, that can be used in other event correlation.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=108'
                 ],
@@ -793,6 +819,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for customer created CMKs which have changed state to disabled or scheduled deletion.',
                 'vulnerability' : 'Data encrypted with disabled or deleted keys will no longer be accessible.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=112'
                 ],
@@ -807,6 +834,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for changes to S3 bucket policies.',
                 'vulnerability' : 'Monitoring changesto S3 bucket policies may reduce time to detect and correct permissive policies on sensitive S3 buckets.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=108'
                 ],
@@ -820,6 +848,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for detecting changes to CloudTrail\'s configurations.',
                 'vulnerability' : 'Monitoring changes to AWS Config configuration will help ensure sustained visibility of configuration items within the AWS account.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=120'
                 ],
@@ -833,6 +862,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. Security Groups are a stateful packet filter that controls ingressand egress traffic within a VPC. It is recommended that a metric filter and alarm be established changes to Security Groups.',
                 'vulnerability' : 'Monitoring changes to security group will help ensure that resources and services are not unintentionally exposed.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=124'
                 ],
@@ -846,6 +876,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. NACLs are used as a stateless packet filter to control ingress and egress traffic for subnets within a VPC. It is recommended that a metric filter and alarm be established for changes made to NACLs.',
                 'vulnerability' : 'Monitoring changes to NACLs will help ensure that AWS resources and services are not unintentionally exposed.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=128'
                 ],
@@ -859,6 +890,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. Network gateways are required to send/receive traffic to a destination outside of a VPC. It is recommended that a metric filter and alarm be established for changes to network gateways.',
                 'vulnerability' : 'Monitoring changes to network gateways will help ensure that all ingress/egress traffic traverses the VPC border via a controlled path.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=132'
                 ],
@@ -872,6 +904,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. Routing tables are used to route network traffic between subnets and to network gateways. It is recommended that a metric filter and alarm be established for changes to route tables.',
                 'vulnerability' : 'Monitoring changes to route tables will help ensure that all VPC traffic flows through an expected path.',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=136'
                 ],
@@ -885,6 +918,7 @@ class policies:
                 'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is possible to have more than 1 VPC within an account, in addition it is also possible to create a peer connection between 2 VPCs enabling network traffic to route between VPCs. It is recommended that a metric filter and alarm be established for changes made to VPCs.',
                 'vulnerability' : 'Monitoring changes to IAM policies will help ensure authentication and authorization controls remain intact',
                 'remediation' : 'Follow the steps in the CIS Benchmark paper',
+                'severity' : 'info',
                 'links' : [
                     'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=140'
                 ],
@@ -927,6 +961,7 @@ class policies:
             'description' : 'Security groups that are configured to allow port 22 (SSH) from the internet.',
             'vulnerability' : 'Removing unfettered connectivity to remote console services, such as SSH, reduces a server''s exposure to risk',
             'remediation' : 'Restrict the incomping IP ranges of the security groups to a smaller IP range, or alternatively, remove the security group.',
+            'severity' : 'high',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=144'
             ],
@@ -946,6 +981,7 @@ class policies:
             'description' : 'Security groups that are configured to allow port 3389 (RDP) from the internet.',
             'vulnerability' : 'Removing unfettered connectivity to remote console services, such as RDP, reduces a server''s exposure to risk',
             'remediation' : 'Restrict the incomping IP ranges of the security groups to a smaller IP range, or alternatively, remove the security group.',
+            'severity' : 'high',
             'links' : [
                 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=146'
             ],
@@ -966,6 +1002,7 @@ class policies:
             'description' : 'Configuring all VPC default security groups to restrict all traffic will encourage least privilege security group development and mindful placement of AWS resources into security groups which will in-turn reduce the exposure of those resources.',
             'vulnerability' : 'The default security group allows very open permissions, and could inadvertently be applied to a resource, exposing that resource to the internet.',
             'remediation' : 'Remove any rules from the default security group.',
+            'severity' : 'low',
             'references' : [
                 'AWS CIS v.1.2.0 - 4.3'
             ],
@@ -990,6 +1027,7 @@ class policies:
             'description' : 'Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
             'vulnerability' : 'Misconfigured permissions on the S3 bucket can result in unauthorised data disclosure',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html">AWS Best Practices</a> to remediate the publically exposed bucket.',
+            'severity' : 'high',
             'reference' : [
                 'ASI.DP.001',
                 'Trusted Advisor - Amazon S3 bucket permissions'
@@ -1026,6 +1064,7 @@ class policies:
             'description' : 'Amazon GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior to protect your AWS accounts, workloads, and data stored in Amazon S3.',
             'vulnerability' : 'GuardDuty provides visibility on threats that may try to access your system.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html">AWS Best Practices</a> to enable GuardDuty on all regions.',
+            'severity' : 'medium',
             'references' : [
                 'ASI.DP.2'
             ],
@@ -1048,6 +1087,7 @@ class policies:
             'name' : 'IAM Roles with Admin Rights',
             'description' : 'IAM roles should have least privilege defined in its execution role, and only be able to perform very specific tasks.',
             'vulnerability' : 'If a role with high level access is compromised, it has the potential to cause severe business disruption to the AWS account.',
+            'severity' : 'high',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html">AWS Best Practices</a> to restrict the roles.',
             'references' : [
                 'ASI.IAM.001'
@@ -1074,6 +1114,7 @@ class policies:
             'name' : 'Subnets should not issue public IP addresses',
             'description' : 'To improve the security of VPCs, it is recommended that subnets should not allocate public IP addresses.',
             'vulnerability' : 'Automated issuing of public IP addresses increases the risk of internet exposure to your instances.',
+            'severity' : 'info',
             'remediation' : 'Execute the <a href="https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py">remediation script</a> within your AWS account to remediate all subnets.',
             'references' : [
                 'ASI.NET.001'
@@ -1256,6 +1297,7 @@ class policies:
             self.findings[name][0] = []
             self.findings[name][1] = []
             self.findings[name]['description'] = policy.get('description','')
+            self.findings[name]['severity'] = policy.get('severity','info')
             self.findings[name]['remediation'] = policy.get('remediation','')
             self.findings[name]['vulnerability'] = policy.get('vulnerability','')
             self.findings[name]['references'] = self.ulify(policy.get('references',[]))

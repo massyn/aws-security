@@ -102,13 +102,46 @@ class collector:
                             f.close()
                 else:
                     print(' unable to write json until we have credentials ')
-    
-    def read_json(self,file):
-        self.data_file = file
-        if os.path.isfile(file):
-            with open(file,'rt') as f:
-                self.cache = json.load(f)
-                f.close()
+
+    def read_json(self,fi):
+        if 'sts' in self.cache:
+            account = self.cache['sts']['get_caller_identity']['Account']
+        else:
+            account = ''
+            if '%a' in fi:
+                print('ERROR - we cannot read a file with %a if we don\'t know what the account is')
+                exit(1)
+
+        datestamp = datetime.now().strftime("%Y-%m-%d")
+        f = fi.replace('%a',account).replace('%d',datestamp)
+
+        self.data_file = f
+
+        print(' -- loading ' + f)
+        # -- is this s3?
+        if 's3://' in f:
+            p = urlparse(f, allow_fragments=False)
+            bucket = p.netloc
+            if p.query:
+                key = p.path.lstrip('/') + '?' + p.query
+            else:
+                key = p.path.lstrip('/')
+
+            try:
+                self.cache = json.load(boto3.client('s3').get_object(Bucket=bucket, Key=key)['Body'])
+            except:
+                print(' ** Unable to read the s3 file - ' + f)
+                return {}
+        else:
+            if os.path.isfile(f):
+                
+                with open(f,'rt') as j:
+                    self.cache = json.load(j)
+                    j.close()
+
+            else:
+                print(' !! cannot load ' + f)
+                return {}
 
     def check_cache(self,p1,p2,p3 = None, dft = []):
 
@@ -413,11 +446,7 @@ class collector:
     def s3_bucket_acl(self):
         self.s3_list_buckets()
         if self.check_cache('s3','bucketacl',None,{}):
-            client = boto3.client('s3',
-                    aws_access_key_id		= self.aws_access_key_id,
-                    aws_secret_access_key	= self.aws_secret_access_key,
-                    aws_session_token		= self.aws_session_token
-            )
+            
         
             for bucketname in self.cache['s3']['list_buckets']:
                 print(' - ' + bucketname)
@@ -456,20 +485,30 @@ class collector:
 
     def iam_policy(self):
         if self.check_cache('iam','policy',None,{}):
-            response = boto3.resource('iam',
-                aws_access_key_id		= self.aws_access_key_id,
-                aws_secret_access_key	= self.aws_secret_access_key,
-                aws_session_token		= self.aws_session_token
-            ).AccountPasswordPolicy()
+            try:
+                response = boto3.resource('iam',
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).AccountPasswordPolicy()
 
-            self.cache['iam']['policy']['max_password_age']                 = response.max_password_age
-            self.cache['iam']['policy']['minimum_password_length']          = response.minimum_password_length
-            self.cache['iam']['policy']['password_reuse_prevention']        = response.password_reuse_prevention
-            self.cache['iam']['policy']['allow_users_to_change_password']   = response.allow_users_to_change_password
-            self.cache['iam']['policy']['require_lowercase_characters']     = response.require_lowercase_characters
-            self.cache['iam']['policy']['require_numbers']                  = response.require_numbers
-            self.cache['iam']['policy']['require_symbols']                  = response.require_symbols
-            self.cache['iam']['policy']['require_uppercase_characters']     = response.require_uppercase_characters
+                self.cache['iam']['policy']['max_password_age']                 = response.max_password_age
+                self.cache['iam']['policy']['minimum_password_length']          = response.minimum_password_length
+                self.cache['iam']['policy']['password_reuse_prevention']        = response.password_reuse_prevention
+                self.cache['iam']['policy']['allow_users_to_change_password']   = response.allow_users_to_change_password
+                self.cache['iam']['policy']['require_lowercase_characters']     = response.require_lowercase_characters
+                self.cache['iam']['policy']['require_numbers']                  = response.require_numbers
+                self.cache['iam']['policy']['require_symbols']                  = response.require_symbols
+                self.cache['iam']['policy']['require_uppercase_characters']     = response.require_uppercase_characters
+            except:
+                self.cache['iam']['policy']['max_password_age']                 = 9999999
+                self.cache['iam']['policy']['minimum_password_length']          = 0
+                self.cache['iam']['policy']['password_reuse_prevention']        = 0
+                self.cache['iam']['policy']['allow_users_to_change_password']   = False
+                self.cache['iam']['policy']['require_lowercase_characters']     = False
+                self.cache['iam']['policy']['require_numbers']                  = False
+                self.cache['iam']['policy']['require_symbols']                  = False
+                self.cache['iam']['policy']['require_uppercase_characters']     = False
             self.write_json()
 
     def iam_generate_credential_report(self):
