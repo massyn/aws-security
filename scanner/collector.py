@@ -27,13 +27,20 @@ class collector:
     def collect_all(self):
         print('*** COLLECTOR ***')
         self.sts_get_caller_identity()
-        self.iam_generate_credential_report()
         self.ec2_describe_regions()             # this one must be at the top.. it is needed for all the others
+        self.iam_generate_credential_report()
+        self.elb_describe_load_balancers()
+        self.elbv2_describe_load_balancers()
+        self.ssm_describe_instance_information()
+        self.ssm_get_parameters_by_path()
+        self.organizations_list_accounts()
+        self.organizations_describe_organization()
         self.route53_list_hosted_zones()
         self.s3_list_buckets()
         self.s3_bucketpolicy()
         self.s3_bucket_acl()
         self.s3_public_buckets()
+        self.s3_get_bucket_encryption()
         self.ec2_describe_vpcs()
         self.ec2_describe_flow_logs()
         self.ec2_describe_instances()
@@ -219,6 +226,61 @@ class collector:
             ).get_caller_identity()
             self.write_json()
 
+    def ssm_get_parameters_by_path(self):
+        for region in self.ec2_describe_regions():
+                if self.check_cache('ssm','get_parameters_by_path',region,[]):
+                    paginator = boto3.client('ssm',
+                        region_name				= region,
+                        aws_access_key_id		= self.aws_access_key_id,
+                        aws_secret_access_key	= self.aws_secret_access_key,
+                        aws_session_token		= self.aws_session_token
+                    ).get_paginator('get_parameters_by_path')
+                    for r in paginator.paginate(
+                        Path='/',
+                        Recursive=True
+                    ):
+                        for t in r['Parameters']:
+                            print(' - ' + t['Name'])
+                            self.cache['ssm']['get_parameters_by_path'][region].append(t)
+                    self.write_json()
+
+    def ssm_describe_instance_information(self):
+        for region in self.ec2_describe_regions():
+                if self.check_cache('ssm','describe_instance_information',region,[]):
+                    paginator = boto3.client('ssm',
+                        region_name				= region,
+                        aws_access_key_id		= self.aws_access_key_id,
+                        aws_secret_access_key	= self.aws_secret_access_key,
+                        aws_session_token		= self.aws_session_token
+                    ).get_paginator('describe_instance_information')
+                    for r in paginator.paginate():
+                        for t in r['InstanceInformationList']:
+                            print(' - ' + t['InstanceId'])
+                            self.cache['ssm']['describe_instance_information'][region].append(t)
+                    self.write_json()
+
+    def organizations_describe_organization(self):
+        if self.check_cache('organizations','describe_organization',None,[]):
+            self.cache['organizations']['describe_organization'] = boto3.client('organizations',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token
+            ).describe_organization()['Organization']
+            self.write_json()
+
+    def organizations_list_accounts(self):
+        if self.check_cache('organizations','list_accounts',None,[]):
+            paginator = boto3.client('organizations',
+                aws_access_key_id		= self.aws_access_key_id,
+                aws_secret_access_key	= self.aws_secret_access_key,
+                aws_session_token		= self.aws_session_token
+            ).get_paginator('list_accounts')
+            for r in paginator.paginate():
+                for t in r['Accounts']:
+                    print(' - ' + t['Name'])                     
+                    self.cache['organizations']['list_accounts'].append(t)
+            self.write_json()
+
     def dynamodb_list_tables(self):
             for region in self.ec2_describe_regions():
                 if self.check_cache('dynamodb','list_tables',region,[]):
@@ -354,6 +416,69 @@ class collector:
                     self.cache['ec2']['describe_route_tables'][region].append(p['RouteTables'])
                 self.write_json()
 
+    def elb_describe_load_balancers(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('elb','describe_load_balancers',region,[]):
+                paginator = boto3.client('elb',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).get_paginator('describe_load_balancers')
+
+                for p in paginator.paginate():
+                    self.cache['elb']['describe_load_balancers'][region].append(p['LoadBalancerDescriptions'])
+
+                self.write_json()
+
+    def elbv2_describe_load_balancers(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('elbv2','describe_load_balancers',region,[]):
+                elbv2 = boto3.client('elbv2',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                )
+                paginator = elbv2.get_paginator('describe_load_balancers')
+
+                for p in paginator.paginate():
+
+                    for loadb in p['LoadBalancers']:
+                        
+                        # -- retrieve the listerns
+                        loadb['describe_listeners'] = []
+                        lp = elbv2.get_paginator('describe_listeners')
+                        for ll in lp.paginate(LoadBalancerArn = loadb['LoadBalancerArn']):
+                            for lll in ll['Listeners']:
+                                loadb['describe_listeners'].append(lll)
+
+                        # -- retrieve the target groups
+                        loadb['describe_target_groups'] = []
+                        lp = elbv2.get_paginator('describe_target_groups')
+                        for ll in lp.paginate(LoadBalancerArn = loadb['LoadBalancerArn']):
+                            for lll in ll['TargetGroups']:
+                                loadb['describe_target_groups'].append(lll)
+
+                        self.cache['elbv2']['describe_load_balancers'][region].append(loadb)
+
+                self.write_json()
+
+    def elbv2_describe_listeners(self):
+        for region in self.ec2_describe_regions():
+            if self.check_cache('elbv2','describe_listeners',region,[]):
+                paginator = boto3.client('elbv2',
+                    region_name				= region,
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+                ).get_paginator('describe_listeners')
+
+                for p in paginator.paginate():
+                    self.cache['elbv2']['describe_listeners'][region].append(p['Listeners'])
+
+                self.write_json()
+
     def kms_list_keys(self):
         for region in self.ec2_describe_regions():
             if self.check_cache('kms','list_keys',region,{}):
@@ -463,7 +588,26 @@ class collector:
                 self.cache['s3']['bucketacl'][bucketname]['grants'] = bucket_acl.grants
                 self.cache['s3']['bucketacl'][bucketname]['owner'] = bucket_acl.owner
             self.write_json()
-           
+
+    def s3_get_bucket_encryption(self):
+        self.s3_list_buckets()
+        if self.check_cache('s3','get_bucket_encryption',None,{}):
+            client = boto3.client('s3',
+                    aws_access_key_id		= self.aws_access_key_id,
+                    aws_secret_access_key	= self.aws_secret_access_key,
+                    aws_session_token		= self.aws_session_token
+            )
+        
+            for bucketname in self.cache['s3']['list_buckets']:
+                print(' - ' + bucketname)
+                try:
+                    policy = client.get_bucket_encryption(Bucket = bucketname).get('ServerSideEncryptionConfiguration')
+                except:
+                    policy = {}
+
+                self.cache['s3']['get_bucket_encryption'][bucketname] = policy
+            self.write_json()
+
     def s3_bucketpolicy(self):
         self.s3_list_buckets()
         if self.check_cache('s3','policy',None,{}):

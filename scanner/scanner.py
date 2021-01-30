@@ -15,7 +15,7 @@ import urllib.parse
 
 def slackMe(webHook = None,message = None):
     if webHook != None:
-        print(' -- sending slack message')
+        print(' -- sending slack message -- ' + message)
         req = urllib.request.Request(
             webHook,
             json.dumps({'text': message}).encode('utf-8'),
@@ -25,6 +25,8 @@ def slackMe(webHook = None,message = None):
         response = resp.read()
         
         print(response)
+    else:
+        print(' -- Slack not configured -- ' + message)
 
 def convert_timestamp(item_date_object):
     if isinstance(item_date_object, (dt.date,dt.datetime)):
@@ -97,9 +99,9 @@ def history(trackfile,c,p,slack = None):
     if trackfile:
 
         account = c.cache['sts']['get_caller_identity']['Account']
-        datestamp = datetime.now().strftime("%Y-%m-%d")
+        datestamp = datetime.utcnow().strftime("%Y-%m-%d")
 
-        currentDT = dt.datetime.now()
+        currentDT = dt.datetime.utcnow()
         now = currentDT.strftime("%Y-%m-%d %H:%M:%S")
 
         file = trackfile.replace('%a',account).replace('%d',datestamp)
@@ -139,7 +141,6 @@ def history(trackfile,c,p,slack = None):
                     if o_history['state'] != state:
                         if state == 0 and newfile == False:
                             slackMe(slack,':warning: Account {account} - {policy} - {o}'.format(account = account,policy = policy, o = o))
-                            #print(':warning: Account {account} - {policy} - {o}'.format(account = account,policy = policy, o = o))
 
         save_file(file,json.dumps(newhistory,indent = 4, default=convert_timestamp))
 
@@ -203,7 +204,7 @@ def main():
     account = c.cache['sts']['get_caller_identity']['Account']
     print('AWS Account is ' + str(account))
     # the datestamp is fixed to Y-m-d - this is to allow for sorting, and having the newest first
-    datestamp = datetime.now().strftime("%Y-%m-%d")
+    datestamp = datetime.utcnow().strftime("%Y-%m-%d")
 
     # == generate the list if findings from the policies defined
     p = policies(c.cache)
@@ -268,6 +269,11 @@ def lambda_handler(event, context):
         # -- if we get an accountid, we need to switch role
         s = sts()
         (a,b,c) = s.assume_role(None,None,None,event['accountId'],'AWSSecurityInfoReadOnlyRole',event['externalId'])
+
+        # -- do we need to overwrite the slack webhook ?  (maybe the client should be sent to a different account)
+        if 'slack' in event:
+            slack_webhook = event['slack']
+            
         if a == None:
             slackMe(slack_webhook,':warning: Unable to switch role for {account}'.format(account = event['accountId']))
             exit(1)
@@ -288,7 +294,7 @@ def lambda_handler(event, context):
 
     print('AWS Account is ' + str(account))
     # the datestamp is fixed to Y-m-d - this is to allow for sorting, and having the newest first
-    datestamp = datetime.now().strftime("%Y-%m-%d")
+    datestamp = datetime.utcnow().strftime("%Y-%m-%d")
 
     # -- save the cache file
     save_file('s3://' + s3_bucket + '/cache-' + str(account) + '.json',json.dumps(c.cache,indent = 4, default=convert_timestamp))

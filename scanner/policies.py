@@ -1024,8 +1024,8 @@ class policies:
         # --------------------------------------------------------
         policy = {
             'name' : 'S3 buckets must not be publicly accessible',
-            'description' : 'Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
-            'vulnerability' : 'Misconfigured permissions on the S3 bucket can result in unauthorised data disclosure',
+            'description' : '<a href="https://aws.amazon.com/s3/">S3</a> is a core storage solution from AWS.  It is used in most services, and provides an secure and scalable storage solution for your application.  If configured correctly, S3 can host highly sensitive information.  Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
+            'vulnerability' : 'Data within the bucket could be exposed, resulting in a loss of confidentiality.  When other files (for example web site images) are stored, there is a risk that another website may be using your resources by linking to the public bucket, incurring additional charges to your account.  An attacker may be able to modify sensitive data (for example updating an invoice to be paid with new bank details).  An attacker may be able to inject their own data into the bucket (for example submitting a fake order through an EDI system).  An attacker may be able to delete sensitive data, resulting in a system outage.',
             'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html">AWS Best Practices</a> to remediate the publically exposed bucket.',
             'severity' : 'high',
             'reference' : [
@@ -1033,7 +1033,6 @@ class policies:
                 'Trusted Advisor - Amazon S3 bucket permissions'
             ],
             'links' : [
-                'https://github.com/massyn/aws-security/blob/main/policies/ASI.DP.001%20-%20S3%20buckets%20must%20not%20be%20publicly%20accessible.md',
                 'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html',
                 'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
             ]
@@ -1093,7 +1092,6 @@ class policies:
                 'ASI.IAM.001'
             ],
             'links' : [
-                'https://github.com/massyn/aws-security/blob/main/policies/ASI.IAM.001%20-%20IAM%20Roles%20with%20Admin%20Rights.md'
                 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html',
                 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html'
             ]
@@ -1112,24 +1110,95 @@ class policies:
  
         policy = {
             'name' : 'Subnets should not issue public IP addresses',
-            'description' : 'To improve the security of VPCs, it is recommended that subnets should not allocate public IP addresses.',
+            'description' : 'Defence-in-depth suggests that multiple security controls must be implemented to properly protect a system.  Removing the assignment of public IP addresses is one strategy that can be deployed to reduce the risk.</p><p>By allocating public IP addresses in subnets, any new system being created (database or EC2 instance) could inadvertantly be exposed to the public internet.</p><p>Instead of simply giving EC2 instances public IP addresses, the solution must be designed in a way to utilize load balancers instead.  Note that the subnet where you place a load balancer will need to have the ability to issue public IP addresses. Consider creating a load balancer with a public IP before you remove the functionality.',
             'vulnerability' : 'Automated issuing of public IP addresses increases the risk of internet exposure to your instances.',
             'severity' : 'info',
-            'remediation' : 'Execute the <a href="https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py">remediation script</a> within your AWS account to remediate all subnets.',
+            'remediation' : 'Execute the <a href="https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py">remediation script</a> within your AWS account to remediate all subnets.</p><p><b>WARNING:</b> The script will cause all subnets in all regions to stop issuing public IP addresses.  If you need this functionality for things like autoscaling, this script can potentially break your solution.',
             'references' : [
                 'ASI.NET.001'
             ],
             'links' : [
-                'https://github.com/massyn/aws-security/blob/main/policies/ASI.NET.001%20-%20Subnets%20should%20not%20issue%20public%20IP%20addresses.md',
                 'https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet'
             ]
         }
         
         for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
             for subnet in self.cache['ec2']['describe_subnets'][region]:
-                self.finding(policy,subnet['MapPublicIpOnLaunch'] == False,{ 'region' : region, 'SubnetId' : subnet['SubnetId']})
-            # --------------------------------------------------------
+                if subnet['MapPublicIpOnLaunch'] == False:
+                    compliance = 1
+                else:
+                    compliance = 0
+                self.finding(policy,compliance,{ 'region' : region, 'SubnetId' : subnet['SubnetId']})
+        # --------------------------------------------------------
+        policy = {
+            'name' : 'Application Load Balancer (ALB) listener allows connections over HTTP',
+            'description' : 'Load balancers that listen on an HTTP port will not encrypt data while in transit.',
+            'vulnerability' : 'When a load balancer operates over HTTP, any data it transmits is in clear text.  There is a high probability that the data can be intercepted and be compromised.',
+            'remediation' : 'Create an <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html">HTTPS</a> listener for your load balancer.',
+            'references' : [
+                'ASI.NET.002'
+            ],
+            'links' : [
+                'https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html'
+            ],
+            'severity' : 'high',
+        }
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            for elbv2 in self.cache['elbv2']['describe_load_balancers'][region]:
+                if elbv2 != []:
+                    compliance = 1
+
+                    if 'describe_listeners' in elbv2:
+                        for listener in elbv2['describe_listeners']:
+                            if listener['Protocol'] == 'HTTP':
+                                compliance = 0
+
+                    self.finding(policy, compliance , {'region' : region, 'type' : 'elbv2', 'LoadBalancerName' : elbv2['LoadBalancerName'] })
+
+            for elbx in self.cache['elb']['describe_load_balancers'][region]:
+                for elb in elbx:
+                    if elb != []:
+                        compliance = 1
+                        
+                        if 'ListenerDescriptions' in elb:
+                            for listener in elb['ListenerDescriptions']:
+                                if listener['Listener']['Protocol'] == 'HTTP':
+                                    compliance = 0
+
+                        self.finding(policy, compliance , {'region' : region, 'type' : 'elb', 'LoadBalancerName' : elb['LoadBalancerName'] })
+
+        # --------------------------------------------------------     
+        policy = {
+            'name' : 'Application Load Balancer (ALB) utilizing weak ciphers',
+            'description' : 'Load Balancers running with the right encryption level ensures confidentiality of data being transmitted.',
+            'vulnerability' : 'Vulnerabilities are detected in ciphers, that would allow the encrypted data to be easily decrypted, resulting in a loss of confidentiality.',
+            'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-security-policy-table.html">steps</a> on the AWS website to improve the ciphers.',
+            'references' : [
+                'ASI.NET.003'
+            ],
+            'links' : [
+                'https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-security-policy-table.html'
+            ],
+            'severity' : 'high',
+        }
+        for region in [region['RegionName'] for region in self.cache['ec2']['describe_regions']]:
+            for elbv2 in self.cache['elbv2']['describe_load_balancers'][region]:
+                if elbv2 != []:
+                    compliance = 1
+
+                    if 'describe_listeners' in elbv2:
+                        for listener in elbv2['describe_listeners']:
+                            
+                            if listener['Protocol'] == 'HTTPS':
+                                if listener['SslPolicy'] == 'ELBSecurityPolicy-TLS-1-0-2015-04':
+                                    compliance = 0
+
+                                self.finding(policy, compliance , {'region' : region, 'type' : 'elbv2', 'LoadBalancerName' : elbv2['LoadBalancerName'] ,'SslPolicy' : listener.get('SslPolicy','')})
+
         
+        
+        #print(json.dumps(self.findings,indent = 4,default=self.convert_timestamp))                    
+        # --------------------------------------------------------
 
 
     # ======================================================================================
@@ -1291,7 +1360,6 @@ class policies:
 
     def finding(self,policy,compliance,evidence = {}):
         name = policy['name']
-        
         if not name in self.findings:
             self.findings[name] = {}
             self.findings[name][0] = []
