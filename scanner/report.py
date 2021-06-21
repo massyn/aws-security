@@ -79,10 +79,10 @@ table {{
 
 </head>
 
-                    <h1>AWS Security Info - Vulnerability Assessment Report</h1>
+                    <h1>AWS Security Configuration Misconfiguration Report</h1>
 <h2>Overview</h2>
 <p>Date : <b>{date}</b></p>
-<p><a href="https://www.awssecurity.info">AWS Security Info</a> performed a penetration test on {date} encompassing the scope described below:</p>
+<p><a href="http://www.awssecurity.info">AWS Security Info</a> performed a configuration misconfiguration assessment on {date} encompassing the scope described below:</p>
 <p>
 <table width=300px style="text-align:center;">
 <tr><th style="text-align:center;">AWS Account</th></tr>
@@ -148,6 +148,13 @@ table {{
 This report is intended only to provide documentation on potential issues that may exist in AWS account <b>{account}</b>.  It is still the account owner's responsibility to perform any triage and remediation actions based on the recommendations in this report.</p>
 <p>This report cannot and does not protect against personal or business loss as the result of use of the applications or systems described. AWS Security Info offers no warranties, representations or legal certifications concerning the applications or systems it tests. All software includes defects: nothing in this document is intended to represent or warrant that security testing was complete and without error, nor does this document represent or warrant that the application tested is suitable to task, free of other defects than reported, fully compliant with any industry standards, or fully compatible with any operating system, hardware, or other application. By using this information you agree that AWS Security Info shall be held harmless in any event.
 </p>
+<h2>About the tool</h2>
+<p>
+AWS Security Info is provided free of charge under an open source model.  The only condition for use is your contribution to report bugs, feature requests, and source code.
+<li><a href="https://github.com/massyn/aws-security/">Github</a> repository</li>
+<li><a href="https://github.com/massyn/aws-security/issues">Report</a> an issue or feature request</li>
+<li>Author : <a href="https://twitter.com/massyn">Phil Massyn</a></li>
+</p>
     '''.format(
       date = self.cache['sts']['get_caller_identity']['ResponseMetadata']['HTTPHeaders']['date'],
       account = self.cache['sts']['get_caller_identity']['Account'])
@@ -171,9 +178,6 @@ This report is intended only to provide documentation on potential issues that m
                   sev = severities[self.data[policy]['severity']]['html']
               )
       content = content + '</table>'
-
-      
-            
 
       content = content + '<h2>Detail</h2>'
       for severity in severities:

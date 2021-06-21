@@ -22,7 +22,8 @@
 					"arn:aws:iam::aws:policy/SecurityAudit",
 					"arn:aws:iam::aws:policy/AmazonInspectorReadOnlyAccess",
 					"arn:aws:iam::aws:policy/AWSSupportAccess",
-					"arn:aws:iam::aws:policy/AWSSecurityHubReadOnlyAccess"
+					"arn:aws:iam::aws:policy/AWSSecurityHubReadOnlyAccess",
+					"arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess"
 				],
 				"AssumeRolePolicyDocument": {
 					"Version": "2012-10-17",

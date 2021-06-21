@@ -26,7 +26,7 @@ This method requires an S3 bucket to be created.
 $ cd /tmp
 $ git clone https://github.com/massyn/aws-security
 $ cd aws-security/
-$ python scanner/scanner.py --oh "s3://BUCKET NAME/%%a-%%d.html"
+$ python scanner/scanner.py --html "s3://BUCKET NAME/%%a-%%d.html"
 ```
 * Once the signed URL is generated, you can download the generated report.
 

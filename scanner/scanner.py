@@ -151,13 +151,13 @@ def main():
     parser.add_argument('--aws_secret_access_key', help='aws_secret_access_key', default = None)
     parser.add_argument('--aws_session_token', help='aws_session_token', default = None)
 
-    parser.add_argument('--assumerole',help='Attempt to switch role', action='store_true')
-    parser.add_argument('--role',help='The role name you are trying to switch to')
+    
+    parser.add_argument('--assumerole',help='The role name you are trying to switch to',default=False)
     parser.add_argument('--account',help='The AWS Account number you are trying to switch to')
     parser.add_argument('--externalid',help='The external ID required to complete the assume role')
-    parser.add_argument('--json',help='The filename where the collected data file should be stored')
-    parser.add_argument('--oj',help='The filename of the output json findings (use %a for the AWS account id, and %d for a datestamp)')
-    parser.add_argument('--oh',help='The filename of the output html findings (use %a for the AWS account id, and %d for a datestamp)')
+    parser.add_argument('--json',help='The filename where the collected data file should be stored', required=True)
+    parser.add_argument('--output',help='The filename of the output json findings (use %a for the AWS account id, and %d for a datestamp)')
+    parser.add_argument('--html',help='The filename of the output html findings (use %a for the AWS account id, and %d for a datestamp)')
     parser.add_argument('--slack',help='Provide a Slack webhook for status reporting')
     parser.add_argument('--nocollect',help='Do not run the collector -- just parse the json file', action='store_true')
     parser.add_argument('--track',help='Specify a file that is used to keep track of all findings, and send slack alerts for all new alerts.')
@@ -178,13 +178,13 @@ def main():
             print (' - Connect directly...')   
         else:
             print (' - Trying to switch role...')
-            (a,b,c) = s.assume_role(a,b,c,args.account,args.role,args.externalid)
+            (a,b,c) = s.assume_role(a,b,c,args.account,args.assumerole,args.externalid)
             if a == None:
                 print('!!! UNABLE TO SWITCH ROLE !!!')
                 exit(1)
 
         c = collector(a,b,c)
-        c.sts_get_caller_identity()
+        c.cache_call(False,'sts','get_caller_identity')
 
         if args.json:
             c.read_json(args.json)
@@ -211,13 +211,13 @@ def main():
     p.execute()
 
     # -- if we need to generate some output, then we go through this section
-    if args.oj or args.oh:    
+    if args.output or args.html:
         print('*** GENERATE REPORTS ***')
         
 
         r = report(p.findings, c.cache)
-        if args.oh:
-            output = args.oh.replace('%a',account).replace('%d',datestamp)
+        if args.html:
+            output = args.html.replace('%a',account).replace('%d',datestamp)
             print('Writing output html findings == ' + output) 
             out = r.generate()
 
@@ -226,8 +226,8 @@ def main():
                 print('Report URL will be valid for 24 hours ==> ' + url)
                 slackMe(args.slack,':checkered_flag: Security audit report for <{url}|{account}> is now complete.'.format(account = account, url = url))
 
-        if args.oj:
-            output = args.oj.replace('%a',account).replace('%d',datestamp)
+        if args.output:
+            output = args.output.replace('%a',account).replace('%d',datestamp)
             print('Writing output json findings == ' + output)
             save_file(output,json.dumps(p.findings,indent = 4, default=convert_timestamp))
 
