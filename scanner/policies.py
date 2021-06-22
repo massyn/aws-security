@@ -388,7 +388,7 @@ class policies:
       
       for region in self.cache['ec2']['describe_regions']:
          for e in self.cache['ec2']['describe_instances'][region]:
-            for ec2 in e:
+            for ec2 in e['Instances']:
                compliance = 0
                evidence = {region : ec2['InstanceId']}
                for ia in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
@@ -1241,30 +1241,30 @@ class policies:
 
          # -- find all groups
          for GroupName in self.cache['iam']['get_group']:
-               for g in self.cache['iam']['get_group'][GroupName]['Users']:
-                  if UserName == g['UserName']:
-                     # -- find all policies attached to the groups
-                     for p in self.cache['iam']['list_attached_group_policies'][GroupName]:
-                           PolicyName = p['PolicyName']
-                           poly = self.cache['iam']['get_policy_version'][PolicyName]
-                           for q in self.flattenStatements(poly['Document']['Statement']):
-                              q['source'] = 'list_attached_group_policies'
+            for g in self.cache['iam']['get_group'][GroupName][0]['Users']:
+               if UserName == g['UserName']:
+                  # -- find all policies attached to the groups
+                  for p in self.cache['iam']['list_attached_group_policies'][GroupName]:
+                        PolicyName = p['PolicyName']
+                        poly = self.cache['iam']['get_policy_version'][PolicyName]
+                        for q in self.flattenStatements(poly['Document']['Statement']):
+                           q['source'] = 'list_attached_group_policies'
+                           q['GroupName'] = GroupName
+                           q['UserName'] = UserName
+                           q['PolicyName'] = PolicyName
+                           q['Entity'] = u['Arn']
+                           perm.append(q)
+
+                  # -- do groups have inline policies?
+                  if GroupName in self.cache['iam']['list_group_policies']:
+                        for PolicyName in self.cache['iam']['list_group_policies'][GroupName]:                            
+                           for q in self.flattenStatements(self.cache['iam']['get_group_policy'][GroupName + ':' + PolicyName]['Statement']):
+                              q['source'] = 'get_group_policy'
                               q['GroupName'] = GroupName
                               q['UserName'] = UserName
                               q['PolicyName'] = PolicyName
                               q['Entity'] = u['Arn']
                               perm.append(q)
-
-                     # -- do groups have inline policies?
-                     if GroupName in self.cache['iam']['list_group_policies']:
-                           for PolicyName in self.cache['iam']['list_group_policies'][GroupName]:                            
-                              for q in self.flattenStatements(self.cache['iam']['get_group_policy'][GroupName + ':' + PolicyName]['Statement']):
-                                 q['source'] = 'get_group_policy'
-                                 q['GroupName'] = GroupName
-                                 q['UserName'] = UserName
-                                 q['PolicyName'] = PolicyName
-                                 q['Entity'] = u['Arn']
-                                 perm.append(q)
 
       # == cycle through all roles
       for r in self.cache['iam']['list_roles']:
