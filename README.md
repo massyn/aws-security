@@ -2,7 +2,7 @@
 Scan your own AWS account for security vulnerabilities
 ## Getting started
 ### Installing Python libraries
-aws-security has been built with Python 3.8.  Install the requred libraries.
+aws-security has been built with Python 3.9.  Install the requred libraries.
 ```
 pip install -r requirements.txt
 ```
@@ -26,7 +26,7 @@ This method requires an S3 bucket to be created.
 $ cd /tmp
 $ git clone https://github.com/massyn/aws-security
 $ cd aws-security/
-$ python scanner/scanner.py --html "s3://BUCKET NAME/%%a-%%d.html"
+$ python3 scanner/scanner.py --json "s3://BUCKET NAME/%%a-%%d.json" --html "s3://BUCKET NAME/%%a-%%d.html"
 ```
 * Once the signed URL is generated, you can download the generated report.
 
@@ -34,12 +34,24 @@ $ python scanner/scanner.py --html "s3://BUCKET NAME/%%a-%%d.html"
 https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html
 
 ```
-python scanner\scanner.py --json tmp\site.json --oh tmp\report.html
+$ python3 scanner/scanner.py --json tmp/site.json --html tmp/report.html
 ```
 
 ### Option 3 - Use access keys
-
+```
+$ python3 scanner/scanner.py --json tmp/site.json --html tmp/report.html --aws_access_key_id _access key_ --aws_secret_access_key _secret_access_key_
+```
 ### Option 4 - Assume role
+You can use Assume Role to scan another AWS account, assuming the target account has granted you access to assume the role.
+
+
+```
+$ python3 scanner/scanner.py --json tmp/site.json --html tmp/report.html --assumerole _ROLENAME_ --account _target AWS account ID_ --externalid _EXTERNALID_
+```
+You can [deploy](cloudformation/readonly.json) the read-only stackset on the target account.  Change the account and external ID to your source detail (leaving the details as is will grant my account access to your AWS account.)
+```
+$ python3 scanner/scanner.py --json tmp/site.json --html tmp/report.html --assumerole AWSSecurityInfoReadOnlyRole --account _target AWS account ID_ --externalid 717CF4D0BF1E46C3CD59B0B8BF85D11314896814C522CE67D59CBE6F58DA1866
+```
 
 ### Option 5 - Lambda
 You have the option to run the code inside a Lambda function.
