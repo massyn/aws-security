@@ -10,7 +10,6 @@ import os.path
 from urllib.parse import urlparse
 
 class collector:
-    
    def __init__(self,aws_access_key_id = None,aws_secret_access_key = None,aws_session_token = None):
       # we need to pull the access keys into the class... this is used all the time
       self.aws_access_key_id      = aws_access_key_id
@@ -18,6 +17,8 @@ class collector:
       self.aws_session_token      = aws_session_token
       self.cache = {}
       self.data_file = None
+      self.counter = 0
+      self.start_time = time.time()
 
    def convert_timestamp(self,item_date_object):
       if isinstance(item_date_object, (dt.date,dt.datetime)):
@@ -160,23 +161,27 @@ class collector:
       return self.cache[client][function][region]
 
    def aws_call(self,client,function,region = 'us-east-1', leaf = None,variable = None, parameter = {}):
-      print('aws call - {client} / {function} ({region})'.format(client = client,function = function, region = region))
-
       # -- is this a global call (touch all regions)?
       if region == '*':
          output = {}
          for R in self.cache_call('ec2','describe_regions',None,'Regions','RegionName'):
-            output[R] = self.aws_call(client,function,R,leaf,variable,parameter)
+            try:
+               output[R] = self.aws_call(client,function,R,leaf,variable,parameter)
+            except:
+               print('Error calling AWS api')
+               output[R] = {}
+               
          return output
-      
       else:
+         self.counter += 1
+         print('aws call - {client} / {function} - {region} - ({elapsed} seconds, {counter} API calls)'.format(client = client,function = function, region = region, counter = self.counter, elapsed = int(time.time() - self.start_time)))
          # -- single call
          c = boto3.client( client ,
-            aws_access_key_id		= self.aws_access_key_id,
-            aws_secret_access_key	= self.aws_secret_access_key,
-            aws_session_token		= self.aws_session_token,
+            aws_access_key_id		   = self.aws_access_key_id,
+            aws_secret_access_key   = self.aws_secret_access_key,
+            aws_session_token       = self.aws_session_token,
             region_name             = region,
-            config=Config(connect_timeout=5, read_timeout=60, retries={'max_attempts': 5})
+            config                  = Config(connect_timeout=5, read_timeout=60, retries={'max_attempts': 5})
          )
          
          pager = c.can_paginate(function)
@@ -186,11 +191,24 @@ class collector:
             # -- convert the parameters
             para = ''
             for k in parameter:
-               para += k + ' = \'' + parameter[k] + '\','
+               if(type(parameter[k]) == list):
+                  
+                  para += k + ' = ['
+                  toggle = False
+                  for v in parameter[k]:
+                     if toggle:
+                        para += ','
+                     para += '\'' + v + '\''
+                     toggle = True
+                  
+                  para += ']'
+               else:
+                  para += k + ' = \'' + parameter[k] + '\','
 
             if leaf == None:
                result = eval('c.' + function + '(' + para + ')')
             else:
+               #result = eval('c.' + function + '(' + para + ')')[leaf]
                try:
                   result = eval('c.' + function + '(' + para + ')')[leaf]
                except:
@@ -204,7 +222,6 @@ class collector:
                else:
                   for i in p[leaf]:
                      output.append(i)
-                  
             return output
                         
          if variable == None:
@@ -246,6 +263,9 @@ class collector:
          for cert in x[region]:
             self.cache_call('acm','describe_certificate',region,'Certificate',None,{ 'CertificateArn' : cert['CertificateArn']},None)
       
+      # == Cloudformation
+      self.cache_call('cloudformation','describe_stacks','*','Stacks',None,{},None)
+      
       # == Cloudfront
       self.cache_call('cloudfront','list_distributions','*','DistributionList',None,{},None)
       self.cache_call('cloudfront','list_cloud_front_origin_access_identities','*','CloudFrontOriginAccessIdentityList',None,{},None)
@@ -265,14 +285,45 @@ class collector:
       # == Cloudwatch
       self.cache_call('cloudwatch','describe_alarms','*','MetricAlarms',None,{},None)
       
+      # == Cognito
+      x = self.cache_call('cognito-identity','list_identity_pools','*','IdentityPools',None, { 'MaxResults' : 60 }, None)
+      for region in x:
+         for i in x[region]:
+            self.cache_call('cognito-identity','describe_identity_pool',region,None,None, { 'IdentityPoolId ' : i['IdentityPoolId'] }, i['IdentityPoolId'])
+      
+      x = self.cache_call('cognito-idp','list_user_pools','*','UserPools',None, { 'MaxResults' : 60 }, None)
+      for region in x:
+         for i in x[region]:
+            self.cache_call('cognito-idp','describe_user_pool',region,'UserPool',None, { 'UserPoolId' : i['Id'] }, i['Id'])
+            
       # == Config
       self.cache_call('config','describe_configuration_recorders','*','ConfigurationRecorders',None, {}, None)
       self.cache_call('config','describe_configuration_recorder_status','*','ConfigurationRecordersStatus',None,{},None)
       
+      x = self.cache_call('config','describe_delivery_channels','*','DeliveryChannels',None,{},None)
+      for region in x:
+         for d in x[region]:
+            self.cache_call('config','describe_delivery_channel_status',region,'DeliveryChannelsStatus',None,{ 'DeliveryChannelNames' : [ d['name'] ] },None)
+      
+      # == Directory services
+      self.cache_call('ds','describe_directories','*','DirectoryDescriptions',None,{},None)
+      
+      # == Direct Connect
+      x = self.cache_call('directconnect','describe_connections','*','connections',None,{},None)
+      for region in x:
+         for c in x[region]:
+            self.cache_call('directconnect','describe_direct_connect_gateways',region,'connections',None,{ 'directConnectGatewayId' : c['connectionId']},None)
+            self.cache_call('directconnect','describe_virtual_interfaces',region,'virtualInterfaces',None,{ 'directConnectGatewayId' : c['connectionId']},None)
+
       # == DynamoDb
-      self.cache_call('dynamodb','list_tables','*','TableNames')
+      x = self.cache_call('dynamodb','list_tables','*','TableNames')
+      for region in x:
+         for d in x[region]:
+            self.cache_call('dynamodb','describe_table',region,'Table',None,{'TableName' : d},d)
       
       # == EC2
+      self.cache_call('ec2','describe_account_attributes','*','AccountAttributes',None, {} , None)
+      self.cache_call('ec2','describe_images','*','Images',None, { 'Owners ' : [ 'self' ] } , None)
       self.cache_call('ec2','describe_regions',None,'Regions','RegionName', {} , None)
       self.cache_call('ec2','describe_instances','*','Reservations','Instances', {}, None)
       self.cache_call('ec2','describe_security_groups','*','SecurityGroups',None,{},None)
@@ -286,6 +337,28 @@ class collector:
       self.cache_call('ec2','describe_nat_gateways','*','NatGateways',None,{},None)
       self.cache_call('ec2','describe_snapshots','*','Snapshots',None,{ 'OwnerIds' : [ 'self' ] },None)
       self.cache_call('ec2','describe_vpc_peering_connections','*','VpcPeeringConnections',None,{},None)
+      self.cache_call('ec2','describe_network_interfaces','*','NetworkInterfaces',None,{},None)
+      self.cache_call('ec2','describe_key_pairs','*','KeyPairs',None,{},None)
+      self.cache_call('ec2','describe_volumes','*','Volumes',None,{},None)
+      
+      # botocore.exceptions.ClientError: An error occurred (AuthFailure) when calling the DescribeMovingAddresses operation: This request has been administratively disabled.
+      #self.cache_call('ec2','describe_moving_addresses','*','MovingAddressStatuses',None,{},None) 
+      
+      # == ECS
+      
+      x = self.cache_call('ecs','list_clusters','*','clusterArns',None,{},None)
+      for region in x:
+         for c in x[region]:
+            for i in self.cache_call('ecs','list_services',region,'serviceArns',None,{'cluster' : c},None):
+               self.cache_call('ecs','describe_services',region,'services',None,{ 'cluster' : c, 'services' :  [i]   },i)
+            
+            for i in self.cache_call('ecs','list_container_instances',region,'containerInstanceArns',None,{'cluster' : c},None):
+               self.cache_call('ecs','describe_container_instances',region,'containerInstances',None,{ 'cluster' : c, 'containerInstances' :  [i]   },i)
+   
+      x = self.cache_call('ecs','list_task_definitions','*','taskDefinitionArns',None,{},None)
+      for region in x:
+         for t in x[region]:
+            self.cacle_call('ecs','describe_task_defintion',region,'taskDefinition',None,{'taskDefinition' : t},None,t)
 
       # == ELB
       self.cache_call('elb','describe_load_balancers','*','LoadBalancerDescriptions',None,{},None)
@@ -298,7 +371,12 @@ class collector:
             self.cache_call('elbv2','describe_target_groups',region,'TargetGroups',None,{ 'LoadBalancerArn' : elb['LoadBalancerArn'] },None)
       
       # == EKS
-      self.cache_call('eks','list_clusters','*','clusters',None,{},None)
+      x = self.cache_call('eks','list_clusters','*','clusters',None,{},None)
+      for region in x:
+         for e in x[region]:
+            self.cache_call('eks','describe_cluster',region,'cluster',None,{ 'name' : e},e)
+            for f in self.cache_call('eks','list_fargate_profiles',region,'fargateProfileNames',None,{'clusterName' : e},None):
+               self.cache_call('eks','describe_fargate_profile',region,'cluster',None,{ 'clusterName' : e, 'fargateProfileName' : f},f)
       
       # == GuardDuty
       self.cache_call('guardduty','list_detectors','*','DetectorIds',None,{},None)
@@ -348,6 +426,13 @@ class collector:
       
       # == Logs
       self.cache_call('logs','describe_metric_filters','*','metricFilters',None,{},None)
+      self.cache_call('logs','describe_log_groups','*','logGroups',None,{},None)
+      
+      # == MQ
+      x = self.cache_call('mq','list_brokers','*','BrokerSummaries',None,{},None)
+      for region in x:
+         for i in x[region]:
+            self.cache_call('mq','describe_broker',region,None,None,{ 'BrokerId' : i['BrokerId'] },i['BrokerId'])
       
       # == Organizations
       self.cache_call('organizations','describe_organization',None,'Organization',None, {},None)
@@ -360,6 +445,7 @@ class collector:
       
       # == Route 53
       self.cache_call('route53','list_hosted_zones',None,'HostedZones',None,{},None)
+      self.cache_call('route53domains','list_domains',None,'Domains',None,{},None)
       
       # == S3
       for s in self.cache_call('s3','list_buckets',None,'Buckets',None, {} , None):
@@ -378,7 +464,18 @@ class collector:
             if 'S3BucketName' in ct:
                if not ct['S3BucketName'] in self.cache['s3']['_public_s3_bucket']:
                   self.cache['s3']['_public_s3_bucket'][ct['S3BucketName']] = self.check_if_S3_bucket_is_public(ct['S3BucketName'])
-                     
+      
+      # == Sagemaker
+      x = self.cache_call('sagemaker','list_notebook_instances','*','NotebookInstances',None,{},None)
+      for region in x:
+         for s in x[region]:
+            self.cache_call('sagemaker','describe_notebook_instance',region,None,None,{ 'NotebookInstanceName' : x['NotebookInstanceName']},x['NotebookInstanceName'])
+            
+      x = self.cache_call('sagemaker','list_endpoints','*','Endpoints',None,{},None)
+      for region in x:
+         for s in x[region]:
+            self.cache_call('sagemaker','describe_endpoints',region,None,None,{ 'EndpointName' : x['EndpointName']},x['EndpointName'])
+            
       # == SNS
       self.cache_call('sns','list_topics','*','Topics',None,{},None)
       
