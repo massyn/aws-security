@@ -60,7 +60,7 @@ th {{
   color: white;
 }}
 th, td {{
-  padding: 10px;
+  padding: 3px;
   text-align: left;
 }}
 .evidence {{
@@ -89,8 +89,11 @@ table {{
 <tr><td style="text-align:center;">{account}</td></tr>
 </table>
 </p>
+<p>
+This document is classified as <b>strictly private and confidential</b>.
+</p>
 <h3>Executive Summary</h3>
-<p>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known vulnerabilities.</p>
+<p>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known configuration issues.</p>
 {globalpcthtmlbar}
 <p><i>Note that the percentage reported is purey arbitrary.  It should be be used as an indicator.  Even solutions with above 90% scores can still be comprormised.</i></p>
 
@@ -103,28 +106,26 @@ table {{
 
       )
 
-      
-      
       w = 100
       severities = {
         'critical' : {
-          'html' : '<td width={w} bgcolor=#000000><font color=#FFFFFF>CRITICAL</font></td>'.format(w=w),
+          'html' : '<td width={w} bgcolor=#000000 style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>CRITICAL</font></td>'.format(w=w),
           'count' : 0
         },
         'high' : {
-          'html' : '<td width={w} bgcolor=#C00000><font color=#FFFFFF>HIGH</font></td>'.format(w=w),
+          'html' : '<td width={w} bgcolor=#C00000 style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>HIGH</font></td>'.format(w=w),
           'count' : 0
         },
         'medium' : {
-          'html' : '<td width={w} bgcolor=#CCCC00><font color=#000000>MEDIUM</font></td>'.format(w=w),
+          'html' : '<td width={w} bgcolor=#CCCC00 style="text-align: center; vertical-align: middle;"><font color=#000000>MEDIUM</font></td>'.format(w=w),
           'count' : 0
         },
         'low' : {
-          'html' : '<td width={w} bgcolor=#0066CC><font color=#FFFFFF>LOW</font></td>'.format(w=w),
+          'html' : '<td width={w} bgcolor=#0066CC style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>LOW</font></td>'.format(w=w),
           'count' : 0
         },
         'info' : {
-          'html'  : '<td width={w} bgcolor=#00CCFF><font color=#000000>INFO</font></td>'.format(w=w),
+          'html'  : '<td width={w} bgcolor=#00CCFF style="text-align: center; vertical-align: middle;"><font color=#000000>INFO</font></td>'.format(w=w),
           'count' : 0
         }
       }
@@ -181,7 +182,7 @@ AWS Security Info is provided free of charge under an open source model.  The on
 
       content = content + '<h2>Detail</h2>'
       for severity in severities:
-        content = content + '<table border=1><tr>' + severities[severity]['html'] + '</tr></table>'
+        #content = content + '<table border=1><tr>' + severities[severity]['html'] + '</tr></table>'
 
         for policy in self.data:
               if self.data[policy]['severity'] == severity:
@@ -206,8 +207,9 @@ AWS Security Info is provided free of charge under an open source model.  The on
                 if pct != 100:
                                 
                   content = content + '''
-                      <h3 id="{policy}">{policy}</h3>
-                      <p>{htmlbar}</p>
+                     
+                      <table border=0><tr>{severityhtml}<td><h3 id="{policy}">{policy}</h3><p>{htmlbar}</p></td></tr></table>
+                      
                       <h4>Description</h4>
                       <p>{description}</p>
                       <h4>Vulnerability</h4>
@@ -221,7 +223,7 @@ AWS Security Info is provided free of charge under an open source model.  The on
                       <h4>References</h4>
                       <p>{references}</p>
                       <p><a href="#top">Top</a></p>
-                      
+                      <hr>
                       '''.format(
                               policy = policy,
                               pct     = pct,
@@ -232,7 +234,8 @@ AWS Security Info is provided free of charge under an open source model.  The on
                               htmlbar = self.htmlbar(pct),
                               links = self.data[policy]['links'],
                               references = self.data[policy]['references'],
-                              severity = self.data[policy]['severity']
+                              severity = self.data[policy]['severity'],
+                              severityhtml = severities[self.data[policy]['severity']]['html']
                               
                       )
 

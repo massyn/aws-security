@@ -137,7 +137,7 @@ class collector:
                   return self.cache[client][function][field3]
                else:
                   self.cache[client][function][field3] = self.aws_call(client,function,'us-east-1',leaf,variable,parameter)
-                  self.write_json()
+                  self.write_json()                  
                   return self.cache[client][function][field3]
       else:
          if region == '*':
@@ -211,17 +211,24 @@ class collector:
                #result = eval('c.' + function + '(' + para + ')')[leaf]
                try:
                   result = eval('c.' + function + '(' + para + ')')[leaf]
+                  
                except:
                   print(' ** AWS Call failed **')
                   result = {}
          else:
             output = []
-            for p in c.get_paginator(function).paginate(**parameter):
-               if leaf == None:
-                  output.append(p)
-               else:
-                  for i in p[leaf]:
-                     output.append(i)
+            try:
+               for p in c.get_paginator(function).paginate(**parameter):
+                  if leaf == None:
+                     output.append(p)
+                  else:
+                     if type(p[leaf]) == list():
+                        for i in p[leaf]:
+                           output.append(i)
+                     else:
+                        return p[leaf]
+            except:
+               print(' ** AWS Call failed **')
             return output
                         
          if variable == None:
@@ -236,6 +243,9 @@ class collector:
       self.cache_call('sts','get_caller_identity')       # We do this one first, so we know what account we're talking about
       self.cache_call('iam','generate_credential_report')   # this report takes a while to run, so do it first
       
+      # == Access Analyzer
+      self.cache_call('accessanalyzer','list_analyzers','*','analyzers',None,{},None)
+
       # == API Gateway
       x = self.cache_call('apigateway','get_domain_names','*','items',None,{},None)
       for region in x:
@@ -358,7 +368,7 @@ class collector:
       x = self.cache_call('ecs','list_task_definitions','*','taskDefinitionArns',None,{},None)
       for region in x:
          for t in x[region]:
-            self.cacle_call('ecs','describe_task_defintion',region,'taskDefinition',None,{'taskDefinition' : t},None,t)
+            self.cache_call('ecs','describe_task_defintion',region,'taskDefinition',None,{'taskDefinition' : t},t)
 
       # == ELB
       self.cache_call('elb','describe_load_balancers','*','LoadBalancerDescriptions',None,{},None)
@@ -437,9 +447,10 @@ class collector:
       # == Organizations
       self.cache_call('organizations','describe_organization',None,'Organization',None, {},None)
       # -- only run this if you are the master account
-      if self.cache['sts']['get_caller_identity']['Account'] == self.cache['organizations']['describe_organization']['MasterAccountId']:
-         self.cache_call('organizations','list_accounts',None,'Accounts',None, {},None)
-     
+      if 'describe_organization' in self.cache['organizations']:
+         if self.cache['sts']['get_caller_identity']['Account'] == self.cache['organizations']['describe_organization']['MasterAccountId']:
+            self.cache_call('organizations','list_accounts',None,'Accounts',None, {},None)
+      
       # == RDS
       self.cache_call('rds','describe_db_instances','*','DBInstances',None,{},None)
       

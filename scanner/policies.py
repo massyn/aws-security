@@ -63,15 +63,18 @@ class policies:
          ]
       }
       
-      for u in p['iam']['get_credential_report']:
-         if u['user'] == '<root_account>':
-               evidence = {
-                  'password_last_used' : u['password_last_used']
-               }
-               if u['_password_last_used_age'] > 90:
-                  self.finding(policy,1,evidence)
-               else:
-                  self.finding(policy,0,evidence)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['user'] == '<root_account>':
+                  evidence = {
+                     'password_last_used' : u['password_last_used']
+                  }
+                  if u['_password_last_used_age'] > 90:
+                     self.finding(policy,1,evidence)
+                  else:
+                     self.finding(policy,0,evidence)
       # ---------------------------------------------------
       policy = {
          'name' : 'Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password',
@@ -87,15 +90,18 @@ class policies:
                'AWS CIS v.1.2.0 - 1.2'
          ]
       }
-      for u in p['iam']['get_credential_report']:
-         if u['password_enabled'] == 'true':
-               evidence = {
-                  'user' : u['user']                 
-               }
-               if u['mfa_active'] == 'true':
-                  self.finding(policy,1,evidence)
-               else:
-                  self.finding(policy,0,evidence)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['password_enabled'] == 'true':
+                  evidence = {
+                     'user' : u['user']                 
+                  }
+                  if u['mfa_active'] == 'true':
+                     self.finding(policy,1,evidence)
+                  else:
+                     self.finding(policy,0,evidence)
 
       # ------------------------------------------------------
       policy = {
@@ -112,39 +118,42 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=16'
          ]
       }
-      for u in p['iam']['get_credential_report']:
-         # -- console password
-         if u['password_enabled'] == 'true':
-               evidence = {
-                  'user' : u['user'],
-                  'password_last_used' : u['password_last_used']
-               }
-               if u['_password_last_used_age'] > 90 or u['_password_last_used_age'] == -1:
-                  self.finding(policy,0,evidence)
-               else:
-                  self.finding(policy,1,evidence)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            # -- console password
+            if u['password_enabled'] == 'true':
+                  evidence = {
+                     'user' : u['user'],
+                     'password_last_used' : u['password_last_used']
+                  }
+                  if u['_password_last_used_age'] > 90 or u['_password_last_used_age'] == -1:
+                     self.finding(policy,0,evidence)
+                  else:
+                     self.finding(policy,1,evidence)
 
-         # -- access key 1
-         if u['access_key_1_active'] == 'true':
-               evidence = {
-                  'user' : u['user'],
-                  'access_key_1_last_used_date' : u['access_key_1_last_used_date']
-               }
-               if u['_access_key_1_last_used_date_age'] > 90 or u['_access_key_1_last_used_date_age'] == -1:
-                  self.finding(policy,0,evidence)
-               else:
-                  self.finding(policy,1,evidence)
+            # -- access key 1
+            if u['access_key_1_active'] == 'true':
+                  evidence = {
+                     'user' : u['user'],
+                     'access_key_1_last_used_date' : u['access_key_1_last_used_date']
+                  }
+                  if u['_access_key_1_last_used_date_age'] > 90 or u['_access_key_1_last_used_date_age'] == -1:
+                     self.finding(policy,0,evidence)
+                  else:
+                     self.finding(policy,1,evidence)
 
-         # -- access key 2
-         if u['access_key_2_active'] == 'true':
-               evidence = {
-                  'user' : u['user'],
-                  'access_key_2_last_used_date' : u['access_key_2_last_used_date']
-               }
-               if u['_access_key_2_last_used_date_age'] > 90 or u['_access_key_2_last_used_date_age'] == -1:
-                  self.finding(policy,0,evidence)
-               else:
-                  self.finding(policy,1,evidence)
+            # -- access key 2
+            if u['access_key_2_active'] == 'true':
+                  evidence = {
+                     'user' : u['user'],
+                     'access_key_2_last_used_date' : u['access_key_2_last_used_date']
+                  }
+                  if u['_access_key_2_last_used_date_age'] > 90 or u['_access_key_2_last_used_date_age'] == -1:
+                     self.finding(policy,0,evidence)
+                  else:
+                     self.finding(policy,1,evidence)
 
       # ------------------------------------------------------
       policy = {
@@ -162,28 +171,31 @@ class policies:
          ]
       }
 
-      for u in p['iam']['get_credential_report']:
-         # -- access key 1
-         if u['access_key_1_active'] == 'true':
-               evidence = {
-                  'user' : u['user'],
-                  'access_key_1_last_rotated' : u['access_key_1_last_rotated']
-               }
-               if u['_access_key_1_last_rotated_age'] > 90 or u['_access_key_1_last_rotated_age'] == -1:
-                  self.finding(policy,0,evidence)
-               else:
-                  self.finding(policy,1,evidence)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            # -- access key 1
+            if u['access_key_1_active'] == 'true':
+                  evidence = {
+                     'user' : u['user'],
+                     'access_key_1_last_rotated' : u['access_key_1_last_rotated']
+                  }
+                  if u['_access_key_1_last_rotated_age'] > 90 or u['_access_key_1_last_rotated_age'] == -1:
+                     self.finding(policy,0,evidence)
+                  else:
+                     self.finding(policy,1,evidence)
 
-         # -- access key 2
-         if u['access_key_2_active'] == 'true':
-               evidence = {
-                  'user' : u['user'],
-                  'access_key_2_last_rotated' : u['access_key_2_last_rotated']
-               }
-               if u['_access_key_2_last_rotated_age'] > 90 or u['_access_key_2_last_rotated_age'] == -1:
-                  self.finding(policy,0,evidence)
-               else:
-                  self.finding(policy,1,evidence)
+            # -- access key 2
+            if u['access_key_2_active'] == 'true':
+                  evidence = {
+                     'user' : u['user'],
+                     'access_key_2_last_rotated' : u['access_key_2_last_rotated']
+                  }
+                  if u['_access_key_2_last_rotated_age'] > 90 or u['_access_key_2_last_rotated_age'] == -1:
+                     self.finding(policy,0,evidence)
+                  else:
+                     self.finding(policy,1,evidence)
       # ------------------------------------------------------
       policy = {
          'name' : 'Ensure IAM password policy is set to a strong password',
@@ -275,25 +287,28 @@ class policies:
                'https://docs.aws.amazon.com/general/latest/gr/managing-aws-access-keys.html'
          ]
       }
-      for u in p['iam']['get_credential_report']:
-         if u['user'] == '<root_account>':
-               evidence = {
-                  'key'   : '1',
-                  'access_key_1_last_rotated' : u['access_key_1_last_rotated']
-               }
-               if u['access_key_1_last_rotated'] == 'N/A':
-                  self.finding(policy,1,evidence)
-               else:
-                  self.finding(policy,0,evidence)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['user'] == '<root_account>':
+                  evidence = {
+                     'key'   : '1',
+                     'access_key_1_last_rotated' : u['access_key_1_last_rotated']
+                  }
+                  if u['access_key_1_last_rotated'] == 'N/A':
+                     self.finding(policy,1,evidence)
+                  else:
+                     self.finding(policy,0,evidence)
 
-               evidence = {
-                  'key'   : '2',
-                  'access_key_1_last_rotated' : u['access_key_1_last_rotated']
-               }
-               if u['access_key_2_last_rotated'] == 'N/A':
-                  self.finding(policy,1,evidence)
-               else:
-                  self.finding(policy,0,evidence)
+                  evidence = {
+                     'key'   : '2',
+                     'access_key_1_last_rotated' : u['access_key_1_last_rotated']
+                  }
+                  if u['access_key_2_last_rotated'] == 'N/A':
+                     self.finding(policy,1,evidence)
+                  else:
+                     self.finding(policy,0,evidence)
 
       # ------------------------------------------------------
       policy = {
@@ -311,12 +326,15 @@ class policies:
                'Trusted Advisor - Multi-factor authentication on root account'
          ]
       }
-      for u in p['iam']['get_credential_report']:
-         if u['user'] == '<root_account>':
-               if u['mfa_active'] == 'true':
-                  self.finding(policy,1)
-               else:
-                  self.finding(policy,0)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['user'] == '<root_account>':
+                  if u['mfa_active'] == 'true':
+                     self.finding(policy,1)
+                  else:
+                     self.finding(policy,0)
 
       # ------------------------------------------------------
       policy = {
@@ -356,19 +374,22 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=43'
          ]
       }
-      for u in p['iam']['get_credential_report']:
-         if u['user'] != '<root_account>':
-               
-               evidence = {
-                  u['user'] : {
-                     'list_user_policies' : p['iam']['list_user_policies'].get(u['user']),
-                     'list_attached_user_policies' : p['iam']['list_attached_user_policies'][u['user']]
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['user'] != '<root_account>':
+                  
+                  evidence = {
+                     u['user'] : {
+                        'list_user_policies' : p['iam']['list_user_policies'].get(u['user']),
+                        'list_attached_user_policies' : p['iam']['list_attached_user_policies'][u['user']]
+                     }
                   }
-               }
-               if len(p['iam']['list_user_policies'].get(u['user'],[])) + len(p['iam']['list_attached_user_policies'].get(u['user'],[])) == 0:
-                  self.finding(policy,1,evidence)
-               else:
-                  self.finding(policy,0,evidence)
+                  if len(p['iam']['list_user_policies'].get(u['user'],[])) + len(p['iam']['list_attached_user_policies'].get(u['user'],[])) == 0:
+                     self.finding(policy,1,evidence)
+                  else:
+                     self.finding(policy,0,evidence)
 
       # ------------------------------------------------------
       policy = {
@@ -385,16 +406,18 @@ class policies:
                'AWS CIS v.1.2.0 - 1.19'
          ]
       }
-      
-      for region in self.cache['ec2']['describe_regions']:
-         for e in self.cache['ec2']['describe_instances'][region]:
-            for ec2 in e['Instances']:
-               compliance = 0
-               evidence = {region : ec2['InstanceId']}
-               for ia in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
-                  if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
-                     compliance = 1   
-               self.finding(policy,compliance,evidence)
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for region in self.cache['ec2']['describe_regions']:
+            for e in self.cache['ec2']['describe_instances'][region]:
+               for ec2 in e['Instances']:
+                  compliance = 0
+                  evidence = {region : ec2['InstanceId']}
+                  for ia in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
+                     if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
+                        compliance = 1   
+                  self.finding(policy,compliance,evidence)
       # ------------------------------------------------------
       policy = {
          'name'  : 'Ensure a support role has been created to manage incidents with AWS Support',
@@ -416,32 +439,35 @@ class policies:
       # -- cycle through all the users
       compliance = 0
       evidence = []
-      for u in p['iam']['get_credential_report']:
-         if u['user'] != '<root_account>':
-               # -- check the user's attached policies
-               for aup in self.cache['iam']['list_attached_user_policies'][u['user']]:
-                  if aup['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
-                     evidence.append({'user' : u['user']})
-                     compliance = 1
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['user'] != '<root_account>':
+                  # -- check the user's attached policies
+                  for aup in self.cache['iam']['list_attached_user_policies'][u['user']]:
+                     if aup['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
+                        evidence.append({'user' : u['user']})
+                        compliance = 1
 
-               # -- check the user's groups
-               for aad in self.cache['iam']['get_account_authorization_details']: 
-                  if aad['UserName'] == u['user']:
-                     for g in aad['GroupList']:
-                           for agp in self.cache['iam']['list_attached_group_policies'][g]:
-                              if agp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
-                                 compliance = 1
-                                 evidence.append({ 'user' : u['user'], 'group' : g})
+                  # -- check the user's groups
+                  for aad in self.cache['iam']['get_account_authorization_details']: 
+                     if aad['UserName'] == u['user']:
+                        for g in aad['GroupList']:
+                              for agp in self.cache['iam']['list_attached_group_policies'][g]:
+                                 if agp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
+                                    compliance = 1
+                                    evidence.append({ 'user' : u['user'], 'group' : g})
 
-               # -- check the role
-               for aad in self.cache['iam']['get_account_authorization_details']:
-                  for amp in aad['AttachedManagedPolicies']:
-                     if amp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
-                           evidence.append({'role' : aad['RoleName']})
+                  # -- check the role
+                  for aad in self.cache['iam']['get_account_authorization_details']:
+                     for amp in aad['AttachedManagedPolicies']:
+                        if amp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
+                              evidence.append({'role' : aad['RoleName']})
 
-                           compliance = 1
+                              compliance = 1
 
-      self.finding(policy,compliance,evidence)
+         self.finding(policy,compliance,evidence)
       # ------------------------------------------------------
       policy = {
          'name'  : 'Do not setup access keys during initial user setup for all IAM users that have a console password',
@@ -456,22 +482,25 @@ class policies:
                'AWS CIS v.1.2.0 - 1.21'
          ]
       }
-      for u in p['iam']['get_credential_report']:
-         if u['user'] != '<root_account>':
-               evidence = {
-                  'user'                          : u['user'],
-                  'password_enabled'              : u['password_enabled'],
-                  'access_key_1_active'           : u['access_key_1_active'],
-                  'access_key_1_last_used_date'   : u['access_key_1_last_used_date'],
-                  'access_key_2_active'           : u['access_key_2_active'],
-                  'access_key_2_last_used_date'   : u['access_key_2_last_used_date']
-               }
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         for u in p['iam']['get_credential_report']:
+            if u['user'] != '<root_account>':
+                  evidence = {
+                     'user'                          : u['user'],
+                     'password_enabled'              : u['password_enabled'],
+                     'access_key_1_active'           : u['access_key_1_active'],
+                     'access_key_1_last_used_date'   : u['access_key_1_last_used_date'],
+                     'access_key_2_active'           : u['access_key_2_active'],
+                     'access_key_2_last_used_date'   : u['access_key_2_last_used_date']
+                  }
 
-               if u['password_enabled'] == 'true' and (u['access_key_1_active'] == 'true' or u['access_key_2_active'] == 'true'):
-                  self.finding(policy,0,evidence)
-               else:
-                  self.finding(policy,1,evidence)
-                  
+                  if u['password_enabled'] == 'true' and (u['access_key_1_active'] == 'true' or u['access_key_2_active'] == 'true'):
+                     self.finding(policy,0,evidence)
+                  else:
+                     self.finding(policy,1,evidence)
+                     
 
       # ------------------------------------------------------
       policy = {
@@ -490,18 +519,23 @@ class policies:
       evidence = {}
       compliance = 1  # in this case we assume everything is fine, until we find something that is not
       for gpv in self.cache['iam']['get_policy_version']:
-         if type(self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']) == dict:
-               s = self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']
-               if self.comparer(s['Effect'],'Allow') and self.comparer(s['Action'],'*') and self.comparer(s['Resource'],'*'):
-                     compliance = 0
-                     evidence[gpv] = s
-         else:
-               for s in self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']:
-                  if self.comparer(s['Effect'],'Allow') and self.comparer(s.get('Action',''),'*') and self.comparer(s['Resource'],'*'):
-                     compliance = 0
-                     evidence[gpv] = s
-
-      self.finding(policy,compliance,evidence)
+         if gpv != 'AdministratorAccess':
+            if 'Document' in self.cache['iam']['get_policy_version'][gpv]:
+               if type(self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']) == dict:
+                     s = self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']
+                     if self.comparer(s['Effect'],'Allow') and self.comparer(s['Action'],'*') and self.comparer(s['Resource'],'*'):
+                           compliance = 0
+                           evidence[gpv] = s
+               else:
+                     for s in self.cache['iam']['get_policy_version'][gpv]['Document']['Statement']:
+                        if self.comparer(s['Effect'],'Allow') and self.comparer(s.get('Action',''),'*') and self.comparer(s['Resource'],'*'):
+                           compliance = 0
+                           evidence[gpv] = s
+            else:
+               compliance = 0
+               evidence[gpv] = 'policy details not available'
+               
+            self.finding(policy,compliance,evidence)
 
       # ------------------------------------------------------
       policy = {
@@ -534,7 +568,7 @@ class policies:
 
                if self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]:
                   IsLogging = True
-               
+
                for e in self.cache['cloudtrail']['get_event_selectors'][region][ct['TrailARN']]['EventSelectors']:
                   if e['IncludeManagementEvents'] == True:
                      IncludeManagementEvents = True
@@ -946,7 +980,7 @@ class policies:
                                  if e['IncludeManagementEvents'] == True:
                                        if e['ReadWriteType'] == 'All':
                                           for f in self.cache['logs']['describe_metric_filters'][region]:
-                                             if f['logGroupName'] in trail['CloudWatchLogsLogGroupArn']:                 
+                                             if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
                                                    #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
                                                    if f['filterPattern'] == POL['filterPattern']:
                                                       for m in self.cache['cloudwatch']['describe_alarms'][region]:
@@ -1014,14 +1048,17 @@ class policies:
       }    
       for region in self.cache['ec2']['describe_regions']:
          compliance = 1
+         evidence = {}
          for s in self.security_groups('IpPermissions',region):
                if s['GroupName'] == 'default':
                   compliance = 0
+                  evidence = { 'region' : region, 'GroupId' : s['GroupId']}
          for s in self.security_groups('IpPermissionsEgress',region):
                if s['GroupName'] == 'default':
                   compliance = 0
+                  evidence = { 'region' : region, 'GroupId' : s['GroupId']}
 
-         self.finding(policy,compliance,region)
+         self.finding(policy,compliance,evidence)
 
       # --------------------------------------------------------
       policy = {
@@ -1050,12 +1087,11 @@ class policies:
                   #for Action in self.lister(s['Action']):
                         #for Resource in self.lister(s['Resource']):
                            # 5 
-                  if Effect == 'Allow' and Principal == {'AWS' : '*'} or Principal == '*':
+                  if Effect == 'Allow' and (Principal == {'AWS' : '*'} or Principal == '*'):
                         evidence.append({bucket : bucket_policy.get('Statement',[]) })
                         compliance = 0
-                              
-         #for acl in self.cache['s3']['bucketacl'][bucket]:
-         for g in self.cache['s3']['get_bucket_acl'][bucket]['Grants']:
+
+         for g in self.cache['s3']['get_bucket_acl'][bucket].get('Grants',[]):
                if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
                   compliance = 0
                   evidence.append({bucket : g })
@@ -1159,17 +1195,15 @@ class policies:
 
                   self.finding(policy, compliance , {'region' : region, 'type' : 'elbv2', 'LoadBalancerName' : elbv2['LoadBalancerName'] })
 
-         for elbx in self.cache['elb']['describe_load_balancers'][region]:
-               for elb in elbx:
-                  if elb != []:
-                     compliance = 1
-                     
-                     if 'ListenerDescriptions' in elb:
-                           for listener in elb['ListenerDescriptions']:
-                              if listener['Listener']['Protocol'] == 'HTTP':
-                                 compliance = 0
-
-                     self.finding(policy, compliance , {'region' : region, 'type' : 'elb', 'LoadBalancerName' : elb['LoadBalancerName'] })
+         for elb in self.cache['elb']['describe_load_balancers'][region]:
+            if elb != []:
+               compliance = 1
+               
+               if 'ListenerDescriptions' in elb:
+                     for listener in elb['ListenerDescriptions']:
+                        if listener['Listener']['Protocol'] == 'HTTP':
+                           compliance = 0
+               self.finding(policy, compliance , {'region' : region, 'type' : 'elb', 'LoadBalancerName' : elb['LoadBalancerName'] })
 
       # --------------------------------------------------------     
       policy = {
@@ -1240,7 +1274,8 @@ class policies:
                   perm.append(q)
 
          # -- find all groups
-         for GroupName in self.cache['iam']['get_group']:
+         for list_groups in self.cache['iam']['list_groups']:
+            GroupName = list_groups['GroupName']
             for g in self.cache['iam']['get_group'][GroupName][0]['Users']:
                if UserName == g['UserName']:
                   # -- find all policies attached to the groups
