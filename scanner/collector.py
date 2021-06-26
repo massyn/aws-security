@@ -517,9 +517,7 @@ class collector:
       # == WAFv2
       self.cache_call('wafv2','list_web_acls','*','WebACLs',None,{'Scope' : 'REGIONAL' }, None)
       self.cache_call('wafv2','list_web_acls',None,'WebACLs',None,{'Scope' : 'CLOUDFRONT' }, 'CLOUDFRONT')
-      
-      
-      
+
       self.write_json(True)
       # --------------------------------------------------------------
 
