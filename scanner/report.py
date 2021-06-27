@@ -98,8 +98,8 @@ This document is classified as <b>strictly private and confidential</b>.
 <p><i>Note that the percentage reported is purey arbitrary.  It should be be used as an indicator.  Even solutions with above 90% scores can still be comprormised.</i></p>
 
 '''.format(
-      date = self.cache['sts']['get_caller_identity']['ResponseMetadata']['HTTPHeaders']['date'],
-      account = self.cache['sts']['get_caller_identity']['Account'],
+      date = self.cache['sts']['get_caller_identity']['us-east-1']['ResponseMetadata']['HTTPHeaders']['date'],
+      account = self.cache['sts']['get_caller_identity']['us-east-1']['Account'],
       globalok = globalok,
       globaltotal = globaltotal,
       globalpcthtmlbar = self.htmlbar(globalpct)
@@ -157,8 +157,8 @@ AWS Security Info is provided free of charge under an open source model.  The on
 <li>Author : <a href="https://twitter.com/massyn">Phil Massyn</a></li>
 </p>
     '''.format(
-      date = self.cache['sts']['get_caller_identity']['ResponseMetadata']['HTTPHeaders']['date'],
-      account = self.cache['sts']['get_caller_identity']['Account'])
+      date = self.cache['sts']['get_caller_identity']['us-east-1']['ResponseMetadata']['HTTPHeaders']['date'],
+      account = self.cache['sts']['get_caller_identity']['us-east-1']['Account'])
 
       # -- table
       content = content + '<h2 id="top">Summary</h2>'

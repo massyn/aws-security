@@ -17,36 +17,39 @@ class policies:
       flat = []
       grp = {}
       
-      for sg in self.cache['ec2']['describe_security_groups'][region]:
-         grp['GroupId'] = sg['GroupId']
-         grp['GroupName'] = sg['GroupName']
-         
-         for r in sg[t]:
-               grp['FromPort'] = r.get('FromPort',0)
-               grp['ToPort'] = r.get('ToPort',65535)
-               grp['IpProtocol'] = r['IpProtocol']
-               for i in r['IpRanges']:
-                  grp['IpRange'] = i['CidrIp']
-                  cp = {}
-                  for g in grp:
-                     cp[g] = grp[g]
-                  
-                  flat.append(cp)
+      for SS in self.cache['ec2']['describe_security_groups'][region]:
+         for sg in SS['SecurityGroups']:
+            grp['GroupId'] = sg['GroupId']
+            grp['GroupName'] = sg['GroupName']
+            
+            for r in sg[t]:
+                  grp['FromPort'] = r.get('FromPort',0)
+                  grp['ToPort'] = r.get('ToPort',65535)
+                  grp['IpProtocol'] = r['IpProtocol']
+                  for i in r['IpRanges']:
+                     grp['IpRange'] = i['CidrIp']
+                     cp = {}
+                     for g in grp:
+                        cp[g] = grp[g]
+                     
+                     flat.append(cp)
 
-               for i in r['Ipv6Ranges']:
-                  grp['IpRange'] = i['CidrIpv6']
+                  for i in r['Ipv6Ranges']:
+                     grp['IpRange'] = i['CidrIpv6']
 
-                  cp = {}
-                  for g in grp:
-                     cp[g] = grp[g]
-                  
-                  flat.append(cp)
+                     cp = {}
+                     for g in grp:
+                        cp[g] = grp[g]
+                     
+                     flat.append(cp)
       return flat
 
    def execute(self):
       print('*** POLICIES ***')
       
       p = self.cache
+      regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions']['us-east-1']['Regions']]
+      
       # ------------------------------------------------------
       policy = {
          'name' : 'Avoid the use of the "root" account',
@@ -66,7 +69,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['user'] == '<root_account>':
                   evidence = {
                      'password_last_used' : u['password_last_used']
@@ -93,7 +96,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['password_enabled'] == 'true':
                   evidence = {
                      'user' : u['user']                 
@@ -121,7 +124,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             # -- console password
             if u['password_enabled'] == 'true':
                   evidence = {
@@ -174,7 +177,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             # -- access key 1
             if u['access_key_1_active'] == 'true':
                   evidence = {
@@ -228,49 +231,49 @@ class policies:
          ]
       }
       
-      if p['iam']['AccountPasswordPolicy']['require_uppercase_characters']:
-         self.finding(policy,1,{ 'require_uppercase_characters' : p['iam']['AccountPasswordPolicy']['require_uppercase_characters'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_uppercase_characters']:
+         self.finding(policy,1,{ 'require_uppercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_uppercase_characters'] })
       else:
-         self.finding(policy,0,{ 'require_uppercase_characters' : p['iam']['AccountPasswordPolicy']['require_uppercase_characters'] })
+         self.finding(policy,0,{ 'require_uppercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_uppercase_characters'] })
 
-      if p['iam']['AccountPasswordPolicy']['require_lowercase_characters']:
-         self.finding(policy,1,{ 'require_lowercase_characters' : p['iam']['AccountPasswordPolicy']['require_lowercase_characters'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_lowercase_characters']:
+         self.finding(policy,1,{ 'require_lowercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_lowercase_characters'] })
       else:
-         self.finding(policy,0,{ 'require_lowercase_characters' : p['iam']['AccountPasswordPolicy']['require_lowercase_characters'] })
+         self.finding(policy,0,{ 'require_lowercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_lowercase_characters'] })
 
-      if p['iam']['AccountPasswordPolicy']['require_symbols']:
-         self.finding(policy,1,{ 'require_symbols' : p['iam']['AccountPasswordPolicy']['require_symbols'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_symbols']:
+         self.finding(policy,1,{ 'require_symbols' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_symbols'] })
       else:
-         self.finding(policy,0,{ 'require_symbols' : p['iam']['AccountPasswordPolicy']['require_symbols'] })
+         self.finding(policy,0,{ 'require_symbols' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_symbols'] })
 
-      if p['iam']['AccountPasswordPolicy']['require_numbers']:
-         self.finding(policy,1,{ 'require_numbers' : p['iam']['AccountPasswordPolicy']['require_numbers'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_numbers']:
+         self.finding(policy,1,{ 'require_numbers' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_numbers'] })
       else:
-         self.finding(policy,0,{ 'require_numbers' : p['iam']['AccountPasswordPolicy']['require_numbers'] })
+         self.finding(policy,0,{ 'require_numbers' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_numbers'] })
 
-      if p['iam']['AccountPasswordPolicy']['minimum_password_length'] == None:
-         self.finding(policy,0,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['minimum_password_length'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] == None:
+         self.finding(policy,0,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] })
       else:
-         if p['iam']['AccountPasswordPolicy']['minimum_password_length'] >= 14:
-               self.finding(policy,1,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['minimum_password_length'] })
+         if p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] >= 14:
+               self.finding(policy,1,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] })
          else:
-               self.finding(policy,0,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['minimum_password_length'] })
+               self.finding(policy,0,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] })
 
-      if p['iam']['AccountPasswordPolicy']['password_reuse_prevention'] == None:
-         self.finding(policy,0,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['password_reuse_prevention'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] == None:
+         self.finding(policy,0,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] })
       else:
-         if p['iam']['AccountPasswordPolicy']['password_reuse_prevention'] >= 24:
-               self.finding(policy,1,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['password_reuse_prevention'] })
+         if p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] >= 24:
+               self.finding(policy,1,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] })
          else:
-               self.finding(policy,0,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['password_reuse_prevention'] })
+               self.finding(policy,0,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] })
 
-      if p['iam']['AccountPasswordPolicy']['max_password_age'] == None:
-         self.finding(policy,0,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['max_password_age'] })
+      if p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] == None:
+         self.finding(policy,0,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] })
       else:
-         if p['iam']['AccountPasswordPolicy']['max_password_age'] <= 90:
-               self.finding(policy,1,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['max_password_age'] })
+         if p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] <= 90:
+               self.finding(policy,1,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] })
          else:
-               self.finding(policy,0,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['max_password_age'] })
+               self.finding(policy,0,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] })
 
       # ------------------------------------------------------
       policy = {
@@ -290,7 +293,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['user'] == '<root_account>':
                   evidence = {
                      'key'   : '1',
@@ -329,7 +332,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['user'] == '<root_account>':
                   if u['mfa_active'] == 'true':
                      self.finding(policy,1)
@@ -351,9 +354,9 @@ class policies:
          ]
       }
       evidence = {
-         '<root_account>' : p['iam']['get_account_summary']['AccountMFAEnabled']
+         '<root_account>' : p['iam']['get_account_summary']['us-east-1']['SummaryMap']['AccountMFAEnabled']
       }
-      if p['iam']['get_account_summary']['AccountMFAEnabled'] == 1:
+      if p['iam']['get_account_summary']['us-east-1']['SummaryMap']['AccountMFAEnabled'] == 1:
          self.finding(policy,1,evidence)
       else:
          self.finding(policy,0,evidence)
@@ -377,16 +380,16 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['user'] != '<root_account>':
                   
                   evidence = {
                      u['user'] : {
-                        'list_user_policies' : p['iam']['list_user_policies'].get(u['user']),
-                        'list_attached_user_policies' : p['iam']['list_attached_user_policies'][u['user']]
+                        'list_user_policies' : p['iam']['list_user_policies']['us-east-1'].get(u['user']),
+                        'list_attached_user_policies' : p['iam']['list_attached_user_policies']['us-east-1'][u['user']]
                      }
                   }
-                  if len(p['iam']['list_user_policies'].get(u['user'],[])) + len(p['iam']['list_attached_user_policies'].get(u['user'],[])) == 0:
+                  if len(p['iam']['list_user_policies']['us-east-1'].get(u['user'],[])) + len(p['iam']['list_attached_user_policies']['us-east-1'].get(u['user'],[])) == 0:
                      self.finding(policy,1,evidence)
                   else:
                      self.finding(policy,0,evidence)
@@ -409,15 +412,17 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for region in self.cache['ec2']['describe_regions']:
+         for region in regionList:
             for e in self.cache['ec2']['describe_instances'][region]:
-               for ec2 in e['Instances']:
-                  compliance = 0
-                  evidence = {region : ec2['InstanceId']}
-                  for ia in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
-                     if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
-                        compliance = 1   
-                  self.finding(policy,compliance,evidence)
+               for R in e['Reservations']:
+                  for ec2 in R['Instances']:
+                     compliance = 0
+                     evidence = {region : ec2['InstanceId']}
+                     for II in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
+                        for ia in II['IamInstanceProfileAssociations']:
+                           if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
+                              compliance = 1   
+                        self.finding(policy,compliance,evidence)
       # ------------------------------------------------------
       policy = {
          'name'  : 'Ensure a support role has been created to manage incidents with AWS Support',
@@ -442,30 +447,34 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['user'] != '<root_account>':
                   # -- check the user's attached policies
-                  for aup in self.cache['iam']['list_attached_user_policies'][u['user']]:
-                     if aup['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
-                        evidence.append({'user' : u['user']})
-                        compliance = 1
+                  for A in self.cache['iam']['list_attached_user_policies']['us-east-1'][u['user']]:
+                     for aup in A['AttachedPolicies']:
+                        if aup['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
+                           evidence.append({'user' : u['user']})
+                           compliance = 1
 
                   # -- check the user's groups
-                  for aad in self.cache['iam']['get_account_authorization_details']: 
-                     if aad['UserName'] == u['user']:
-                        for g in aad['GroupList']:
-                              for agp in self.cache['iam']['list_attached_group_policies'][g]:
-                                 if agp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
-                                    compliance = 1
-                                    evidence.append({ 'user' : u['user'], 'group' : g})
+                  for B in self.cache['iam']['get_account_authorization_details']['us-east-1']: 
+                     for aad in B['UserDetailList']:
+                        if aad['UserName'] == u['user']:
+                           for g in aad['GroupList']:
+                                 for C in self.cache['iam']['list_attached_group_policies']['us-east-1'][g]:
+                                    for agp in C['AttachedPolicies']:
+                                       if agp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
+                                          compliance = 1
+                                          evidence.append({ 'user' : u['user'], 'group' : g})
 
                   # -- check the role
-                  for aad in self.cache['iam']['get_account_authorization_details']:
-                     for amp in aad['AttachedManagedPolicies']:
-                        if amp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
-                              evidence.append({'role' : aad['RoleName']})
+                  for D in self.cache['iam']['get_account_authorization_details']['us-east-1']:
+                     for aad in D['UserDetailList']:
+                        for amp in aad['AttachedManagedPolicies']:
+                           if amp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
+                                 evidence.append({'role' : aad['RoleName']})
 
-                              compliance = 1
+                                 compliance = 1
 
          self.finding(policy,compliance,evidence)
       # ------------------------------------------------------
@@ -485,7 +494,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']:
+         for u in p['iam']['get_credential_report']['us-east-1']:
             if u['user'] != '<root_account>':
                   evidence = {
                      'user'                          : u['user'],
@@ -560,21 +569,21 @@ class policies:
       IncludeManagementEvents = False
       ReadWriteType = False
 
-      for region in self.cache['ec2']['describe_regions']:            
-         for ct in self.cache['cloudtrail']['describe_trails'][region]:
-               # IsMultiRegionTrail
-               if ct['IsMultiRegionTrail']:
-                  IsMultiRegionTrail = True
+      for region in regionList:            
+         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+            # IsMultiRegionTrail
+            if ct['IsMultiRegionTrail']:
+               IsMultiRegionTrail = True
 
-               if self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]:
-                  IsLogging = True
+            if self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]:
+               IsLogging = True
 
-               for e in self.cache['cloudtrail']['get_event_selectors'][region][ct['TrailARN']]['EventSelectors']:
-                  if e['IncludeManagementEvents'] == True:
-                     IncludeManagementEvents = True
+            for e in self.cache['cloudtrail']['get_event_selectors'][region][ct['TrailARN']]['EventSelectors']:
+               if e['IncludeManagementEvents'] == True:
+                  IncludeManagementEvents = True
 
-                  if e['ReadWriteType'] == 'All':
-                     ReadWriteType = True
+               if e['ReadWriteType'] == 'All':
+                  ReadWriteType = True
          
          evidence = {
                'region' : region,
@@ -605,8 +614,8 @@ class policies:
          ]
       }
 
-      for region in self.cache['ec2']['describe_regions']:
-         for ct in self.cache['cloudtrail']['describe_trails'][region]:
+      for region in regionList:
+         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
                evidence = {
                   region : ct['Name']
                }
@@ -632,7 +641,7 @@ class policies:
       }
       
 
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          for ct in self.cache['cloudtrail']['describe_trails'][region]:
 
             evidence = { 'region' : region }
@@ -665,10 +674,10 @@ class policies:
                'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html'
          ]
       }
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          evidence = {region: 'none detected'}
          compliance = 0
-         for ct in self.cache['cloudtrail']['describe_trails'][region]:
+         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
             if 'LatestCloudWatchLogsDeliveryTime' in self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]:
                if isinstance(self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime'], (dt.date,dt.datetime)):
                   x = self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime'].timestamp()
@@ -698,13 +707,13 @@ class policies:
                'https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html'
          ]
       }
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          compliance = 0
          evidence = {'region' : region}
-         for c in self.cache['config']['describe_configuration_recorders'][region]:
+         for c in self.cache['config']['describe_configuration_recorders'][region]['ConfigurationRecorders']:
                if c.get('recordingGroup').get('allSupported') == True and c.get('recordingGroup').get('includeGlobalResourceTypes') == True:
                   # == so far so good.  Let's see if we can find the recording status
-                  for s in self.cache['config']['describe_configuration_recorder_status'][region]:
+                  for s in self.cache['config']['describe_configuration_recorder_status'][region]['ConfigurationRecordersStatus']:
                      if s['name'] == c['name']:
                            if s['recording'] == True and s['lastStatus'] == 'SUCCESS':
                               compliance = 1
@@ -725,7 +734,7 @@ class policies:
                'https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html'
          ]
       }
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          if region in self.cache['kms']['get_key_rotation_status']:
             for k in self.cache['kms']['get_key_rotation_status'][region]:
                evidence = { region : k}
@@ -751,14 +760,16 @@ class policies:
          ]
       }
 
-      for region in self.cache['ec2']['describe_regions']:
-         for v in self.cache['ec2']['describe_vpcs'][region]:
+      for region in regionList:
+         for VV in self.cache['ec2']['describe_vpcs'][region]:
+            for v in VV['Vpcs']:
                compliance = 0
                evidence = { region : v['VpcId'] }
-               for fl in self.cache['ec2']['describe_flow_logs'][region]:
-                  if fl['ResourceId'] == v['VpcId']:
-                     compliance = 1
-               self.finding(policy,compliance,evidence)
+               for F in self.cache['ec2']['describe_flow_logs'][region]:
+                  for fl in F['FlowLogs']:
+                     if fl['ResourceId'] == v['VpcId']:
+                        compliance = 1
+                  self.finding(policy,compliance,evidence)
 
       # --------------------------------------
       # == CIS 3.x is special -- all the metrics are identical, except for the filter pattern.  So we break our "one policy" rule, and combine them all into a list
@@ -970,8 +981,8 @@ class policies:
          compliant = False
 
          # -- go through all the cloudtrail logs, and look for one that has IsMultiRegionTrail set to true
-         for region in self.cache['ec2']['describe_regions']:
-               for trail in self.cache['cloudtrail']['describe_trails'][region]:
+         for region in regionList:
+               for trail in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
                   if compliant == False: 
                      # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
                      if trail['IsMultiRegionTrail'] == True:
@@ -1005,7 +1016,7 @@ class policies:
                'AWS CIS v.1.2.0 - 4.1'
          ]
       }
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          for s in self.security_groups('IpPermissions',region):
                if (s['FromPort'] >= 22 and s['ToPort'] <= 22) and s['IpRange'] in ('0.0.0.0/0','::/0'):
                   self.finding(policy,0,s)
@@ -1025,7 +1036,7 @@ class policies:
                'AWS CIS v.1.2.0 - 4.2'
          ]
       }
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          for s in self.security_groups('IpPermissions',region):
                if (s['FromPort'] >= 3389 and s['ToPort'] <= 3389) and s['IpRange'] in ('0.0.0.0/0','::/0'):
                   self.finding(policy,0,s)
@@ -1046,7 +1057,7 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=148'
          ]
       }    
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          compliance = 1
          evidence = {}
          for s in self.security_groups('IpPermissions',region):
@@ -1076,11 +1087,10 @@ class policies:
                'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
          ]
       }
-      for bucket in self.cache['s3']['get_bucket_policy']:
+      for bucket in self.cache['s3']['get_bucket_policy']['us-east-1']:
          evidence = []
          compliance = 1
-         bucket_policy = json.loads(self.cache['s3']['get_bucket_policy'][bucket]) if self.cache['s3']['get_bucket_policy'][bucket] != {} else {}
-         
+         bucket_policy = json.loads(self.cache['s3']['get_bucket_policy']['us-east-1'][bucket].get('Policy','{}'))
          for s in bucket_policy.get('Statement',[]):
             for Effect in self.lister(s['Effect']):
                for Principal in self.lister(s['Principal']):
@@ -1091,7 +1101,7 @@ class policies:
                         evidence.append({bucket : bucket_policy.get('Statement',[]) })
                         compliance = 0
 
-         for g in self.cache['s3']['get_bucket_acl'][bucket].get('Grants',[]):
+         for g in self.cache['s3']['get_bucket_acl']['us-east-1'][bucket].get('Grants',[]):
                if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
                   compliance = 0
                   evidence.append({bucket : g })
@@ -1112,7 +1122,7 @@ class policies:
          ]
       }
       
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          compliance = 0
          if len(self.cache['guardduty']['list_detectors'][region]) > 0:
                compliance = 1
@@ -1137,14 +1147,15 @@ class policies:
          ]
       }
       
-      for list_roles in self.cache['iam']['list_roles']:
-         compliance = 1
-         for q in self.parsePermissions():
-               if 'RoleName' in q:
-                  if q['RoleName'] == list_roles['RoleName'] and q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
-                     compliance = 0
-                                       
-         self.finding(policy,compliance,list_roles['RoleName'])
+      for LR in self.cache['iam']['list_roles']['us-east-1']:
+         for list_roles in LR['Roles']:
+            compliance = 1
+            for q in self.parsePermissions():
+                  if 'RoleName' in q:
+                     if q['RoleName'] == list_roles['RoleName'] and q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
+                        compliance = 0
+                                          
+            self.finding(policy,compliance,list_roles['RoleName'])
 
       # --------------------------------------------------------
 
@@ -1162,8 +1173,9 @@ class policies:
          ]
       }
       
-      for region in self.cache['ec2']['describe_regions']:
-         for subnet in self.cache['ec2']['describe_subnets'][region]:
+      for region in regionList:
+         for SS in self.cache['ec2']['describe_subnets'][region]:
+            for subnet in SS['Subnets']:
                if subnet['MapPublicIpOnLaunch'] == False:
                   compliance = 1
                else:
@@ -1183,8 +1195,9 @@ class policies:
          ],
          'severity' : 'high',
       }
-      for region in self.cache['ec2']['describe_regions']:
-         for elbv2 in self.cache['elbv2']['describe_load_balancers'][region]:
+      for region in regionList:
+         for EE in self.cache['elbv2']['describe_load_balancers'][region]:
+            for elbv2 in EE['LoadBalancers']:
                if elbv2 != []:
                   compliance = 1
 
@@ -1195,15 +1208,16 @@ class policies:
 
                   self.finding(policy, compliance , {'region' : region, 'type' : 'elbv2', 'LoadBalancerName' : elbv2['LoadBalancerName'] })
 
-         for elb in self.cache['elb']['describe_load_balancers'][region]:
-            if elb != []:
-               compliance = 1
-               
-               if 'ListenerDescriptions' in elb:
-                     for listener in elb['ListenerDescriptions']:
-                        if listener['Listener']['Protocol'] == 'HTTP':
-                           compliance = 0
-               self.finding(policy, compliance , {'region' : region, 'type' : 'elb', 'LoadBalancerName' : elb['LoadBalancerName'] })
+         for EE in self.cache['elb']['describe_load_balancers'][region]:
+            for elb in EE['LoadBalancerDescriptions']:
+               if elb != []:
+                  compliance = 1
+                  
+                  if 'ListenerDescriptions' in elb:
+                        for listener in elb['ListenerDescriptions']:
+                           if listener['Listener']['Protocol'] == 'HTTP':
+                              compliance = 0
+                  self.finding(policy, compliance , {'region' : region, 'type' : 'elb', 'LoadBalancerName' : elb['LoadBalancerName'] })
 
       # --------------------------------------------------------     
       policy = {
@@ -1219,7 +1233,7 @@ class policies:
          ],
          'severity' : 'high',
       }
-      for region in self.cache['ec2']['describe_regions']:
+      for region in regionList:
          for elbv2 in self.cache['elbv2']['describe_load_balancers'][region]:
                if elbv2 != []:
                   compliance = 1
@@ -1248,84 +1262,93 @@ class policies:
       perm = []
 
       # == cycle through all users ==
-      for u in self.cache['iam']['list_users']:
-         UserName = u['UserName']
+      for UU in self.cache['iam']['list_users']['us-east-1']:
+         for u in UU['Users']:
+            UserName = u['UserName']
+            # -- find all inline policies
+            if UserName in self.cache['iam']['list_user_policies']['us-east-1']:
+                  
+                  for P in self.cache['iam']['list_user_policies']['us-east-1'][UserName]:
+                     for PolicyName in P['PolicyNames']:
 
-         # -- find all inline policies
-         if UserName in self.cache['iam']['list_user_policies']:
-               for PolicyName in self.cache['iam']['list_user_policies'][UserName]:
-
-                  for q in self.flattenStatements(self.cache['iam']['get_user_policy'][UserName + ':' + PolicyName]['Statement']):
-                     q['source'] = 'get_user_policy'
-                     q['UserName'] = UserName
-                     q['PolicyName'] = PolicyName
-                     q['Entity'] = u['Arn']
-                     perm.append(q)
-
-         # -- find all policies attached
-         for p in self.cache['iam']['list_attached_user_policies'][UserName]:
-               PolicyName = p['PolicyName']
-               poly = self.cache['iam']['get_policy_version'][PolicyName]
-               for q in self.flattenStatements(poly['Document']['Statement']):
-                  q['source'] = 'list_attached_user_policies'
-                  q['UserName'] = UserName
-                  q['PolicyName'] = PolicyName
-                  q['Entity'] = u['Arn']
-                  perm.append(q)
-
-         # -- find all groups
-         for list_groups in self.cache['iam']['list_groups']:
-            GroupName = list_groups['GroupName']
-            for g in self.cache['iam']['get_group'][GroupName][0]['Users']:
-               if UserName == g['UserName']:
-                  # -- find all policies attached to the groups
-                  for p in self.cache['iam']['list_attached_group_policies'][GroupName]:
-                        PolicyName = p['PolicyName']
-                        poly = self.cache['iam']['get_policy_version'][PolicyName]
-                        for q in self.flattenStatements(poly['Document']['Statement']):
-                           q['source'] = 'list_attached_group_policies'
-                           q['GroupName'] = GroupName
+                        for q in self.flattenStatements(self.cache['iam']['get_user_policy']['us-east-1'][UserName + ':' + PolicyName]['PolicyDocument']['Statement']):
+                           q['source'] = 'get_user_policy'
                            q['UserName'] = UserName
                            q['PolicyName'] = PolicyName
                            q['Entity'] = u['Arn']
                            perm.append(q)
 
-                  # -- do groups have inline policies?
-                  if GroupName in self.cache['iam']['list_group_policies']:
-                        for PolicyName in self.cache['iam']['list_group_policies'][GroupName]:                            
-                           for q in self.flattenStatements(self.cache['iam']['get_group_policy'][GroupName + ':' + PolicyName]['Statement']):
-                              q['source'] = 'get_group_policy'
-                              q['GroupName'] = GroupName
-                              q['UserName'] = UserName
-                              q['PolicyName'] = PolicyName
-                              q['Entity'] = u['Arn']
-                              perm.append(q)
+            # -- find all policies attached
+            for PP in self.cache['iam']['list_attached_user_policies']['us-east-1'][UserName]:
+               for p in PP['AttachedPolicies']:
+                  PolicyName = p['PolicyName']
+                  poly = self.cache['iam']['get_policy_version']['us-east-1'][PolicyName]['PolicyVersion']
+                  for q in self.flattenStatements(poly['Document']['Statement']):
+                     q['source'] = 'list_attached_user_policies'
+                     q['UserName'] = UserName
+                     q['PolicyName'] = PolicyName
+                     q['Entity'] = u['Arn']
+                     perm.append(q)
+
+            # -- find all groups
+            for LG in self.cache['iam']['list_groups']['us-east-1']:
+               for list_groups in LG['Groups']:
+                  GroupName = list_groups['GroupName']
+                  for GG in self.cache['iam']['get_group']['us-east-1'][GroupName]:
+                     for g in GG['Users']:
+                        if UserName == g['UserName']:
+                           # -- find all policies attached to the groups
+                           for PP in self.cache['iam']['list_attached_group_policies']['us-east-1'][GroupName]:
+                              for p in PP['AttachedPolicies']:
+                                 PolicyName = p['PolicyName']
+                                 poly = self.cache['iam']['get_policy_version']['us-east-1'][PolicyName]['PolicyVersion']
+                                 for q in self.flattenStatements(poly['Document']['Statement']):
+                                    q['source'] = 'list_attached_group_policies'
+                                    q['GroupName'] = GroupName
+                                    q['UserName'] = UserName
+                                    q['PolicyName'] = PolicyName
+                                    q['Entity'] = u['Arn']
+                                    perm.append(q)
+
+                           # -- do groups have inline policies?
+                           if GroupName in self.cache['iam']['list_group_policies']:
+                                 for PolicyName in self.cache['iam']['list_group_policies'][GroupName]:                            
+                                    for q in self.flattenStatements(self.cache['iam']['get_group_policy']['us-east-1'][GroupName + ':' + PolicyName]['Statement']):
+                                       q['source'] = 'get_group_policy'
+                                       q['GroupName'] = GroupName
+                                       q['UserName'] = UserName
+                                       q['PolicyName'] = PolicyName
+                                       q['Entity'] = u['Arn']
+                                       perm.append(q)
 
       # == cycle through all roles
-      for r in self.cache['iam']['list_roles']:
-         RoleName = r['RoleName']
+      for R in self.cache['iam']['list_roles']['us-east-1']:
+         for r in R['Roles']:
+            
+            RoleName = r['RoleName']
 
-         # -- find all policies attached to the roles
-         for p in self.cache['iam']['list_attached_role_policies'][RoleName]:
-               PolicyName = p['PolicyName']
+            # -- find all policies attached to the roles
+            for S in self.cache['iam']['list_attached_role_policies']['us-east-1'][RoleName]:
+               for p in S['AttachedPolicies']:
+                  PolicyName = p['PolicyName']
 
-               poly = self.cache['iam']['get_policy_version'][PolicyName]
-               for q in self.flattenStatements(poly['Document']['Statement']):
-                  q['source'] = 'list_attached_role_policies'
-                  q['RoleName'] = RoleName
-                  q['PolicyName'] = PolicyName
-                  q['Entity'] = r['Arn']
-                  perm.append(q)
-         # -- do roles have inline policies?
-         if RoleName in self.cache['iam']['list_role_policies']:
-               for PolicyName in self.cache['iam']['list_role_policies'][RoleName]:
-                  
-                  for q in self.flattenStatements(self.cache['iam']['get_role_policy'][RoleName + ':' + PolicyName]['Statement']):
-                     q['source'] = 'get_role_policy'
+                  poly = self.cache['iam']['get_policy_version']['us-east-1'][PolicyName]['PolicyVersion']
+                  for q in self.flattenStatements(poly['Document']['Statement']):
+                     q['source'] = 'list_attached_role_policies'
                      q['RoleName'] = RoleName
                      q['PolicyName'] = PolicyName
                      q['Entity'] = r['Arn']
                      perm.append(q)
+            # -- do roles have inline policies?
+            if RoleName in self.cache['iam']['list_role_policies']['us-east-1']:
+                  for D in self.cache['iam']['list_role_policies']['us-east-1'][RoleName]:
+                     for PolicyName in D['PolicyNames']:
+                        for q in self.flattenStatements(self.cache['iam']['get_role_policy']['us-east-1'][RoleName + ':' + PolicyName]['PolicyDocument']['Statement']):
+                           q['source'] = 'get_role_policy'
+                           q['RoleName'] = RoleName
+                           q['PolicyName'] = PolicyName
+                           q['Entity'] = r['Arn']
+                           perm.append(q)
 
       return perm
 

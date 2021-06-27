@@ -98,7 +98,7 @@ def history(trackfile,c,p,slack = None):
    # -- are we tracking alerts - any changes to policies
    if trackfile:
 
-      account = c.cache['sts']['get_caller_identity']['Account']
+      account = c.cache['sts']['get_caller_identity']['us-east-1']['Account']
       datestamp = datetime.utcnow().strftime("%Y-%m-%d")
 
       currentDT = dt.datetime.utcnow()
@@ -204,7 +204,7 @@ def main():
 
          c.read_json(args.json)
 
-   account = c.cache['sts']['get_caller_identity']['Account']
+   account = c.cache['sts']['get_caller_identity']['us-east-1']['Account']
    print('AWS Account is ' + str(account))
    # the datestamp is fixed to Y-m-d - this is to allow for sorting, and having the newest first
    datestamp = datetime.utcnow().strftime("%Y-%m-%d")
@@ -288,7 +288,7 @@ def lambda_handler(event, context):
    c = collector(a,b,c)
    
    c.sts_get_caller_identity()
-   account = c.cache['sts']['get_caller_identity']['Account']
+   account = c.cache['sts']['get_caller_identity']['us-east-1']['Account']
 
    # You may want to read the old cache for testing purposes
    #c.cache = load_file('s3://' + s3_bucket + '/cache-' + str(account) + '.json')
