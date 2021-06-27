@@ -189,7 +189,8 @@ class collector:
       # == Startup
       self.cache_call('sts','get_caller_identity')
       self.cache_call('iam','generate_credential_report')
-      regionList = [x['RegionName'] for x in self.cache_call('ec2','describe_regions')['us-east-1']['Regions']]
+      r = self.cache_call('ec2','describe_regions')
+      regionList = [x['RegionName'] for x in r['us-east-1']['Regions']]
       
       # == Access Analyzer
       self.cache_call('accessanalyzer','list_analyzers',regionList)
