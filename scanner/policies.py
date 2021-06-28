@@ -653,7 +653,7 @@ class policies:
 
             evidence = { 'region' : region }
             if not 'S3BucketName' in ct:
-               compliance = False
+               compliance = True
                evidence['S3BucketName'] = '** No bucket defined ** '
             else:
                S3BucketName = ct.get('S3BucketName')

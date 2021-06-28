@@ -95,7 +95,7 @@ This document is classified as <b>strictly private and confidential</b>.
 <h3>Executive Summary</h3>
 <p>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known configuration issues.</p>
 {globalpcthtmlbar}
-<p><i>Note that the percentage reported is purey arbitrary.  It should be be used as an indicator.  Even solutions with above 90% scores can still be comprormised.</i></p>
+<p><i>DISCLAIMER : The reported percentage reported is purely arbitrary and should be be used as an indicator.  It should be noted that even solutions with above 90% scores can still be comprormised.</i></p>
 
 '''.format(
       date = self.cache['sts']['get_caller_identity']['us-east-1']['ResponseMetadata']['HTTPHeaders']['date'],
