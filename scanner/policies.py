@@ -49,6 +49,7 @@ class policies:
       
       p = self.cache
       regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions']['us-east-1']['Regions']]
+      accountId = self.cache.get('sts',{}).get('get_caller_identity',{})['us-east-1']['Account']
       
       # ------------------------------------------------------
       policy = {
@@ -353,13 +354,19 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=38'
          ]
       }
-      evidence = {
-         '<root_account>' : p['iam']['get_account_summary']['us-east-1']['SummaryMap']['AccountMFAEnabled']
-      }
       if p['iam']['get_account_summary']['us-east-1']['SummaryMap']['AccountMFAEnabled'] == 1:
-         self.finding(policy,1,evidence)
+         isVirtual = False
+         for q in p['iam']['list_virtual_mfa_devices']['us-east-1']:
+            for v in q['VirtualMFADevices']:
+               if 'arn:aws:iam::{accountId}:mfa/root-account-mfa-device'.format(accountId = accountId) == v['SerialNumber']:
+                  isVirtual = True
+         if isVirtual == False:
+            self.finding(policy,1,{'Result' : 'Hardware token found'})
+         else:
+            self.finding(policy,0,{'Result' : 'Virtual MFA device found - non-compliant'})
+
       else:
-         self.finding(policy,0,evidence)
+         self.finding(policy,0,{'Result' : 'No MFA found'})
 
       # ------------------------------------------------------
       policy = {
@@ -469,7 +476,7 @@ class policies:
 
                   # -- check the role
                   for D in self.cache['iam']['get_account_authorization_details']['us-east-1']:
-                     for aad in D['UserDetailList']:
+                     for aad in D['RoleDetailList']:
                         for amp in aad['AttachedManagedPolicies']:
                            if amp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
                                  evidence.append({'role' : aad['RoleName']})
@@ -990,16 +997,18 @@ class policies:
                               for e in self.cache['cloudtrail']['get_event_selectors'][region][ct['TrailARN']]['EventSelectors']:
                                  if e['IncludeManagementEvents'] == True:
                                        if e['ReadWriteType'] == 'All':
-                                          for f in self.cache['logs']['describe_metric_filters'][region]:
-                                             if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
-                                                   #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
-                                                   if f['filterPattern'] == POL['filterPattern']:
-                                                      for m in self.cache['cloudwatch']['describe_alarms'][region]:
-                                                         if f['filterName'] == m['MetricName']:
-                                                               for a in m['AlarmActions']:
-                                                                  for t in self.cache['sns']['list_topics'][region]:
-                                                                     if t['TopicArn'] == a:
-                                                                           compliant = True
+                                          for FF in self.cache['logs']['describe_metric_filters'][region]:
+                                             for f in FF['metricFilters']:
+                                                if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
+                                                      #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
+                                                      if f['filterPattern'] == POL['filterPattern']:
+                                                         for MM in self.cache['cloudwatch']['describe_alarms'][region]:
+                                                            for m in MM['MetricAlarms']:
+                                                               if f['filterName'] == m['MetricName']:
+                                                                     for a in m['AlarmActions']:
+                                                                        for t in self.cache['sns']['list_topics'][region]:
+                                                                           if t['TopicArn'] == a:
+                                                                                 compliant = True
          self.finding(POL,compliant,None) 
       
       # --------------------------------------
@@ -1156,6 +1165,62 @@ class policies:
                         compliance = 0
                                           
             self.finding(policy,compliance,list_roles['RoleName'])
+
+# --------------------------------------------------------
+      policy = {
+         'name' : 'IAM Roles with external access',
+         'description' : 'IAM Roles with external access describes that an external AWS account (potentially unknown to you) may have access to your account.',
+         'vulnerability' : 'An external account with access to your account could circumvent regular identify access management process, and gain unauthorised access to your account.',
+         'severity' : 'high',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html">AWS Best Practices</a> to restrict the roles.',
+         'references' : [
+               'ASI.IAM.004'
+         ],
+         'links' : [
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html',
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html'
+         ]
+      }
+      for LR in self.cache['iam']['get_account_authorization_details']['us-east-1']:
+         for roles in LR['RoleDetailList']:
+            compliance = 1
+            for statement in roles['AssumeRolePolicyDocument']['Statement']:
+               if statement['Effect'] == 'Allow':
+                  if type(statement['Principal']) == list:
+                     for p in statement['Principal']:
+                        if 'AWS' in p:
+                           compliance = 0
+                  else:
+                     if 'AWS' in statement['Principal']:
+                           compliance = 0
+               self.finding(policy,compliance,{ roles['RoleName'] : statement } )
+
+# --------------------------------------------------------
+      policy = {
+         'name' : 'IAM Groups with Admin Rights',
+         'description' : 'IAM groups should have least privilege defined in its execution role, and only be able to perform very specific tasks.',
+         'vulnerability' : 'If a group with high level access is compromised, it has the potential to cause severe business disruption to the AWS account.',
+         'severity' : 'high',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html">AWS Best Practices</a> to restrict the roles.',
+         'references' : [
+               'ASI.IAM.002'
+         ],
+         'links' : [
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html',
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html'
+         ]
+      }
+      
+      for LG in self.cache['iam']['list_groups']['us-east-1']:
+         for list_groups in LG['Groups']:
+
+            compliance = 1
+            for q in self.parsePermissions():
+                  if 'GroupName' in q:
+                     if q['GroupName'] == list_groups['GroupName'] and q['Effect'] == 'Allow' and q['Action'] == '*' and q['Resource'] == '*':
+                        compliance = 0
+                                          
+            self.finding(policy,compliance,list_groups['GroupName'])
 
       # --------------------------------------------------------
 

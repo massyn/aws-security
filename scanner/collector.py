@@ -153,6 +153,9 @@ class collector:
             print(' ----------------------------------------------------------------------------------------')
             output.append( { '_exception' : str(e) })
             self.errors += 1
+            if 'ExpiredToken' in str(e):
+               self.write_json()
+               exit(1)
 
          return output
       else:
@@ -179,6 +182,10 @@ class collector:
             print(' ----------------------------------------------------------------------------------------')
             print(' ** AWS ERROR ** ' + str(e))
             print(' ----------------------------------------------------------------------------------------')
+            if 'ExpiredToken' in str(e):
+               self.write_json()
+               exit(1)
+
             result = { '_exception' : str(e) }
             self.errors += 1
          return result
@@ -325,8 +332,8 @@ class collector:
       for region in x:
          for z in x[region]:
             for r in z['repositories']:
-               self.cache_call('ecr','get_repository_policy',region, { 'repositoryName' : r['repositoryName']}, self.cache_call('ecr','describe_images',regionList,{'repositoryName' : r['repositoryName']},r['repositoryName']))
-               self.cache_call('ecr','describe_images',regionList,{'repositoryName' : r['repositoryName']},r['repositoryName'])
+               self.cache_call('ecr','get_repository_policy',region, { 'repositoryName' : r['repositoryName'] , 'registryId' : r['registryId']}, r['repositoryName'])
+               self.cache_call('ecr','describe_images',region,{'repositoryName' : r['repositoryName']},r['repositoryName'])
       
       # == ECS
       x = self.cache_call('ecs','list_clusters',regionList)
@@ -420,11 +427,8 @@ class collector:
                self.cache_call('iam','get_policy_version',region,{ 'PolicyArn' : p['Arn'] , 'VersionId' : p['DefaultVersionId'] } ,p['PolicyName'])
 
       # == IAM
-      self.cache_call('iam','list_access_keys')
       self.cache_call('iam','list_server_certificates')
-      self.cache_call('iam','list_mfa_devices')
       self.cache_call('iam','list_virtual_mfa_devices')
-      self.cache_call('iam','list_ssh_public_keys')
       self.cache_call('iam','get_account_summary')
       self.cache_call('iam','get_account_authorization_details')
       x = self.cache_call('iam','list_saml_providers')
@@ -454,6 +458,9 @@ class collector:
       for region in x:
          for UU in x[region]:
             for u in UU['Users']:
+               self.cache_call('iam','list_mfa_devices',region,{'UserName' : u['UserName'] } ,u['UserName'])
+               self.cache_call('iam','list_ssh_public_keys',region,{'UserName' : u['UserName'] } ,u['UserName'])
+               self.cache_call('iam','list_access_keys',region,{'UserName' : u['UserName'] } ,u['UserName'])
                self.cache_call('iam','list_attached_user_policies',region,{'UserName' : u['UserName'] } ,u['UserName'])
                for p in self.cache_call('iam','list_user_policies',region,{'UserName' : u['UserName'] },u['UserName']):
                   for PolicyName in p['PolicyNames']:
@@ -498,7 +505,7 @@ class collector:
       self.cache_call('organizations','describe_organization')
       # -- only run this if you are the master account
       if 'describe_organization' in self.cache['organizations']:
-         if self.cache['sts']['get_caller_identity']['us-east-1']['Account'] == self.cache['organizations']['describe_organization']['us-east-1']['Organization']['MasterAccountId']:
+         if self.cache['sts']['get_caller_identity']['us-east-1']['Account'] == self.cache['organizations']['describe_organization']['us-east-1'].get('Organization',{}).get('MasterAccountId',{}):
             self.cache_call('organizations','list_accounts')
       
       # == RDS
@@ -522,7 +529,8 @@ class collector:
             self.cache_call('s3','get_bucket_acl',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_public_access_block',region,{'Bucket' : s['Name']},s['Name'])
             x = self.cache_call('s3','get_bucket_location',region,{'Bucket' : s['Name']},s['Name'])
-            self.cache_call('s3control','list_access_points',x['LocationConstraint'],{ 'AccountId' : self.cache['sts']['get_caller_identity']['us-east-1']['Account'],'Bucket' : s['Name']},s['Name'])
+            if x['LocationConstraint'] != None:
+               self.cache_call('s3control','list_access_points',x['LocationConstraint'],{ 'AccountId' : self.cache['sts']['get_caller_identity']['us-east-1']['Account'],'Bucket' : s['Name']},s['Name'])
     
          if not '_public_s3_bucket' in self.cache['s3']:
             self.cache['s3']['_public_s3_bucket'] = {}
