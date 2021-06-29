@@ -697,8 +697,6 @@ class policies:
             
          self.finding(policy,compliance,evidence)
 
-      
-
       # --------------------------------------------------------
       policy = {
          'name' : 'Ensure AWS Config is enabled in all regions',
@@ -725,6 +723,53 @@ class policies:
                            if s['recording'] == True and s['lastStatus'] == 'SUCCESS':
                               compliance = 1
          self.finding(policy,compliance,evidence)
+
+      # -------------------------------------------------------
+      policy = {
+         'name' : 'Ensure S3 bucket access logging is enabled on the CloudTrail S3 bucket',
+         'description' : 'S3 Bucket Access Logging generates a log that contains access records for each request made to your S3 bucket. An access log record contains details about the request, such as the request type, the resources specified in the request worked, and the time and date the request was processed. It is recommended that bucket access logging be enabled on the CloudTrail S3 bucket.',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html">AWS Best Practices</a> to enable S3 access logging.',
+         'vulnerability' : 'By enabling S3 bucket logging on target S3 buckets, it is possible to capture all events which may affect objects within an target buckets. Configuring logs to be placed in a separate bucket allows access to log information which can be useful in security and incident response workflows.',
+         'severity' : 'low',
+         'reference' : [
+               'AWS CIS v.1.2.0 - 2.6'
+         ],
+         'links' : [
+               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=75',
+               'https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html'
+         ]
+      }
+
+      for region in self.cache['cloudtrail']['describe_trails']:
+         compliance = 0
+         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+            if 'S3BucketName' in ct:
+               logging = self.cache['s3']['get_bucket_logging']['us-east-1'][ct['S3BucketName']].get('LoggingEnabled',{}).get('TargetBucket',None)
+               if logging != None:
+                  compliance = 1
+         self.finding(policy,compliance,region)
+      # -------------------------------------------------------
+      policy = {
+         'name' : 'Ensure CloudTrail logs are encrypted at rest using KMS CMKs',
+         'description' : 'AWS CloudTrail is a web service that records AWS API calls for an account and makes those logs available to users and resources in accordance with IAM policies. AWS Key Management Service (KMS) is a managed service that helps create and control the encryption keys used to encrypt account data, and uses Hardware Security Modules (HSMs) to protect the security of encryption keys. CloudTrail logs can be configured to leverage server side encryption (SSE) and KMS customer created master keys (CMK) to further protect CloudTrail logs. It is recommended that CloudTrail be configured to use SSE-KMS.',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html">AWS Best Practices</a> to enable S3 encryption.',
+         'vulnerability' : 'Configuring CloudTrail to use SSE-KMS provides additional confidentiality controls on log data as a given user must have S3 read permission on the corresponding log bucket and must be granted decrypt permission by the CMK policy.',
+         'severity' : 'low',
+         'reference' : [
+               'AWS CIS v.1.2.0 - 2.7'
+         ],
+         'links' : [
+               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=78',
+               'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html'
+         ]
+      }
+
+      for region in self.cache['cloudtrail']['describe_trails']:
+         compliance = 0
+         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+            if 'KmsKeyId' in ct:
+               compliance = 1
+         self.finding(policy,compliance,region)
 
       # -------------------------------------------------------
       policy = {
@@ -989,26 +1034,26 @@ class policies:
 
          # -- go through all the cloudtrail logs, and look for one that has IsMultiRegionTrail set to true
          for region in regionList:
-               for trail in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
-                  if compliant == False: 
-                     # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
-                     if trail['IsMultiRegionTrail'] == True:
-                           if self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['IsLogging'] == True:
-                              for e in self.cache['cloudtrail']['get_event_selectors'][region][ct['TrailARN']]['EventSelectors']:
-                                 if e['IncludeManagementEvents'] == True:
-                                       if e['ReadWriteType'] == 'All':
-                                          for FF in self.cache['logs']['describe_metric_filters'][region]:
-                                             for f in FF['metricFilters']:
-                                                if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
-                                                      #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
-                                                      if f['filterPattern'] == POL['filterPattern']:
-                                                         for MM in self.cache['cloudwatch']['describe_alarms'][region]:
-                                                            for m in MM['MetricAlarms']:
-                                                               if f['filterName'] == m['MetricName']:
-                                                                     for a in m['AlarmActions']:
-                                                                        for t in self.cache['sns']['list_topics'][region]:
-                                                                           if t['TopicArn'] == a:
-                                                                                 compliant = True
+            for trail in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+               if compliant == False: 
+                  # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
+                  if trail['IsMultiRegionTrail'] == True:
+                     if self.cache['cloudtrail']['get_trail_status'][region][trail['TrailARN']]['IsLogging'] == True:
+                        for e in self.cache['cloudtrail']['get_event_selectors'][region][trail['TrailARN']]['EventSelectors']:
+                           if e['IncludeManagementEvents'] == True:
+                                 if e['ReadWriteType'] == 'All':
+                                    for FF in self.cache['logs']['describe_metric_filters'][region]:
+                                       for f in FF['metricFilters']:
+                                          if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
+                                             #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
+                                             if f['filterPattern'] == POL['filterPattern']:
+                                                for MM in self.cache['cloudwatch']['describe_alarms'][region]:
+                                                   for m in MM['MetricAlarms']:
+                                                      if f['filterName'] == m['MetricName']:
+                                                            for a in m['AlarmActions']:
+                                                               for t in self.cache['sns']['list_topics'][region]:
+                                                                  if t['TopicArn'] == a:
+                                                                        compliant = True
          self.finding(POL,compliant,None) 
       
       # --------------------------------------
@@ -1213,7 +1258,6 @@ class policies:
       
       for LG in self.cache['iam']['list_groups']['us-east-1']:
          for list_groups in LG['Groups']:
-
             compliance = 1
             for q in self.parsePermissions():
                   if 'GroupName' in q:
@@ -1224,6 +1268,99 @@ class policies:
 
       # --------------------------------------------------------
 
+      policy = {
+         'name' : 'IAM entities with access to update Lambda functions',
+         'description' : 'Any entity that is capable of updating a Lambda function is capable of potentially executing code running as the Lambda function.',
+         'vulnerability' : 'Privilege escalation issues could occur if an unauthorised user is able to update a Lambda function.',
+         'severity' : 'medium',
+         'remediation' : 'Update the user or role permissions, by adjusting group memberships, or by adjusting the policies attached to the users, groups or roles.',
+         'references' : [
+               'ASI.IAM.005'
+         ],
+         'links' : [
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html'
+         ]
+      }
+
+      entities = {
+         'UserName' : {},
+         'RoleName' : {}
+      }
+
+      for LG in self.cache['iam']['list_users']['us-east-1']:
+         for list_users in LG['Users']:
+            UserName = list_users['UserName']
+            entities['UserName'][UserName] = 1
+      for LG in self.cache['iam']['list_roles']['us-east-1']:
+         for list_roles in LG['Roles']:
+            RoleName = list_roles['RoleName']
+            entities['RoleName'][RoleName] = 1
+
+      evidence = {}
+      for q in self.parsePermissions():
+         for e in entities:
+            for g in entities[e]:
+               if e in q:
+                  if not e in evidence:
+                     evidence[e] = {}
+                  if not g in evidence[e]:
+                     evidence[e][g] = []
+                  if q[e] == g and q['Effect'] == 'Allow' and (q['Action'] == '*' or q['Action'] == 'lambda:*' or q['Action'] == 'lambda:UpdateFunction'):
+                     entities[e][g] = 0
+                     evidence[e][g].append(q)
+
+      for e in entities:
+         for g in entities[e]:             
+            self.finding(policy,entities[e][g],evidence[e][g])
+
+      # --------------------------------------------------------
+
+      policy = {
+         'name' : 'IAM entities with access to update DynamoDB tables',
+         'description' : 'Any entity that is capable of updating a DynamoDB table is capable of potentially altering the integrity of data in the tables.',
+         'vulnerability' : 'Unauthorised access to DynamoDB tables can result in a loss of data (data breaches), or the modification of sensitive data.',
+         'severity' : 'medium',
+         'remediation' : 'Update the user or role permissions, by adjusting group memberships, or by adjusting the policies attached to the users, groups or roles.',
+         'references' : [
+               'ASI.IAM.006'
+         ],
+         'links' : [
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html'
+         ]
+      }
+
+      entities = {
+         'UserName' : {},
+         'RoleName' : {}
+      }
+
+      for LG in self.cache['iam']['list_users']['us-east-1']:
+         for list_users in LG['Users']:
+            UserName = list_users['UserName']
+            entities['UserName'][UserName] = 1
+      for LG in self.cache['iam']['list_roles']['us-east-1']:
+         for list_roles in LG['Roles']:
+            RoleName = list_roles['RoleName']
+            entities['RoleName'][RoleName] = 1
+
+      evidence = {}
+      for q in self.parsePermissions():
+         for e in entities:
+            for g in entities[e]:
+               if e in q:
+                  if not e in evidence:
+                     evidence[e] = {}
+                  if not g in evidence[e]:
+                     evidence[e][g] = []
+                  if q[e] == g and q['Effect'] == 'Allow' and (q['Action'] == '*' or q['Action'] == 'dynamodb:*' or q['Action'] in ['dynamodb:GetItem','dynamodb:GetRecords','dynamodb:UpdateItem','dynamodb:UpdateTable','dynamodb:PutItem','dynamodb:DeleteTable']):
+                     entities[e][g] = 0
+                     evidence[e][g].append(q)
+
+      for e in entities:
+         for g in entities[e]:             
+            self.finding(policy,entities[e][g],evidence[e][g])
+
+      # --------------------------------------------------------
       policy = {
          'name' : 'Subnets should not issue public IP addresses',
          'description' : 'Defence-in-depth suggests that multiple security controls must be implemented to properly protect a system.  Removing the assignment of public IP addresses is one strategy that can be deployed to reduce the risk.</p><p>By allocating public IP addresses in subnets, any new system being created (database or EC2 instance) could inadvertantly be exposed to the public internet.</p><p>Instead of simply giving EC2 instances public IP addresses, the solution must be designed in a way to utilize load balancers instead.  Note that the subnet where you place a load balancer will need to have the ability to issue public IP addresses. Consider creating a load balancer with a public IP before you remove the functionality.',

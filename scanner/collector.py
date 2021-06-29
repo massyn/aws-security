@@ -198,7 +198,7 @@ class collector:
       self.cache_call('iam','generate_credential_report')
       r = self.cache_call('ec2','describe_regions')
       regionList = [x['RegionName'] for x in r['us-east-1']['Regions']]
-      
+
       # == Access Analyzer
       self.cache_call('accessanalyzer','list_analyzers',regionList)
       
@@ -218,7 +218,10 @@ class collector:
                # TODO - something is a bit broken with the get_method function
                resources = self.cache_call('apigateway','get_resources',region,{ 'restApiId' : i['id' ]},i['id'])
                #root_id = [resource for resource in resources if resource["path"] == "/"][0]["id"]
-               #self.cache_call('apigateway','get_method',region,{ 'restApiId' : i['id' ], 'resourceId' : root_id, 'httpMethod' : 'GET'},r['name'])
+               #for r in resources:
+               #   for s in r['items']:
+               #      if s['path'] == '/':       
+               #         self.cache_call('apigateway','get_method',region,{ 'restApiId' : i['id' ], 'resourceId' : s['id'], 'httpMethod' : 'GET'},i['id'])
 
       self.cache_call('apigateway','get_client_certificates',regionList)
       
@@ -524,6 +527,7 @@ class collector:
       x = self.cache_call('s3','list_buckets')
       for region in x:
          for s in x[region]['Buckets']:
+            self.cache_call('s3','get_bucket_logging',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_bucket_policy',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_bucket_encryption',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_bucket_acl',region,{'Bucket' : s['Name']},s['Name'])

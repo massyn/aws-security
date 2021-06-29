@@ -162,7 +162,6 @@ def main():
    parser.add_argument('--nocollect',help='Do not run the collector -- just parse the json file', action='store_true')
    parser.add_argument('--track',help='Specify a file that is used to keep track of all findings, and send slack alerts for all new alerts.')
 
-   
    args = parser.parse_args()
    print ('--- Starting ---')
    
@@ -217,8 +216,7 @@ def main():
    if args.output or args.html:
       print('*** GENERATE REPORTS ***')
       
-
-      r = report(p.findings, c.cache)
+      r = report(p.findings, c.cache, True)
       if args.html:
          output = args.html.replace('%a',account).replace('%d',datestamp)
          print('Writing output html findings == ' + output) 
@@ -234,10 +232,8 @@ def main():
          print('Writing output json findings == ' + output)
          save_file(output,json.dumps(p.findings,indent = 4, default=convert_timestamp))
 
-   
    if args.track:
       history(args.track,c,p,args.slack)
-
 
    print ('--- Completed ---')
 

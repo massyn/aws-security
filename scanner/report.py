@@ -1,9 +1,10 @@
 import json
 
 class report:
-    def __init__(self,p,r):
+    def __init__(self,p,r,showall = False):
         self.data = p
         self.cache = r
+        self.showall = showall
 
     def htmlbar(self,pct):
         if pct < 80:
@@ -95,7 +96,7 @@ This document is classified as <b>strictly private and confidential</b>.
 <h3>Executive Summary</h3>
 <p>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known configuration issues.</p>
 {globalpcthtmlbar}
-<p><i>DISCLAIMER : The reported percentage reported is purely arbitrary and should be be used as an indicator.  It should be noted that even solutions with above 90% scores can still be comprormised.</i></p>
+<p><i>DISCLAIMER : The reported percentage reported is purely arbitrary and should only be used as an indicator.  It should be noted that even solutions with scores above 90% can still be comprormised.</i></p>
 
 '''.format(
       date = self.cache['sts']['get_caller_identity']['us-east-1']['ResponseMetadata']['HTTPHeaders']['date'],
@@ -170,7 +171,7 @@ AWS Security Info is provided free of charge under an open source model.  The on
             totalok = len(self.data[policy][1])
             pct = totalok / (totalok + totalerr) * 100
 
-            if pct != 100:
+            if pct != 100 or self.showall == True:
               content = content + '<tr>{sev}<td><a href="#{policy}">{policy}</a></td><td>{totalok} / {total}</td><td>{pct}</td></tr>'.format(policy = policy,
                   totalerr = totalerr,
                   totalok = totalok,
@@ -204,8 +205,7 @@ AWS Security Info is provided free of charge under an open source model.  The on
 
                 non = self.data[policy][0]
 
-                if pct != 100:
-                                
+                if pct != 100 or self.showall == True:
                   content = content + '''
                      
                       <table border=0><tr>{severityhtml}<td><h3 id="{policy}">{policy}</h3><p>{htmlbar}</p></td></tr></table>
