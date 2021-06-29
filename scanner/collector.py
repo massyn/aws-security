@@ -418,7 +418,15 @@ class collector:
             for cluster in e['Clusters']:
                self.cache_call('emr','list_instances',regionList, {'ClusterId' : cluster['Id']})
                self.cache_call('emr','describe_cluster',regionList, {'ClusterId' : cluster['Id']})
-               
+
+      # == Glacier
+      x = self.cache_call('glacier','list_vaults',regionList)
+      for region in x:
+         for g in x[region]:
+            for v in g['VaultList']:
+               self.cache_call('glacier','get_vault_access_policy',region,{ 'vaultName' : v['VaultName'] } , v['VaultName'])
+               self.cache_call('glacier','get_vault_lock',region,{ 'vaultName' : v['VaultName'] } , v['VaultName'])
+
       # == GuardDuty
       self.cache_call('guardduty','list_detectors',regionList)
       
