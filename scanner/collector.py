@@ -153,6 +153,11 @@ class collector:
             print(' ----------------------------------------------------------------------------------------')
             output.append( { '_exception' : str(e) })
             self.errors += 1
+            if 'ThrottlingException' in str(e):
+               print(' ** sleeping for 10 seconds, then try again **')
+               time.sleep(10)
+               return self.aws_call(client,function,region,parameter)
+
             if 'ExpiredToken' in str(e):
                self.write_json()
                exit(1)
@@ -182,6 +187,11 @@ class collector:
             print(' ----------------------------------------------------------------------------------------')
             print(' ** AWS ERROR ** ' + str(e))
             print(' ----------------------------------------------------------------------------------------')
+            if 'ThrottlingException' in str(e):
+               print(' ** sleeping for 10 seconds, then try again **')
+               time.sleep(10)
+               return self.aws_call(client,function,region,parameter)
+               
             if 'ExpiredToken' in str(e):
                self.write_json()
                exit(1)
@@ -197,7 +207,7 @@ class collector:
       self.cache_call('sts','get_caller_identity')
       self.cache_call('iam','generate_credential_report')
       r = self.cache_call('ec2','describe_regions')
-      regionList = [x['RegionName'] for x in r['us-east-1']['Regions']]
+      regionList = sorted([x['RegionName'] for x in r['us-east-1']['Regions']])
 
       # == Access Analyzer
       self.cache_call('accessanalyzer','list_analyzers',regionList)
