@@ -1,3 +1,4 @@
+.vscode
 deploy_lambda.py
 test.py
 # Byte-compiled / optimized / DLL files

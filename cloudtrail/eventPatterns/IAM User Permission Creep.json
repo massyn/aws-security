@@ -1,0 +1,10 @@
+{
+    "detail-type": [ "AWS API Call via CloudTrail" ],
+    "detail": {
+        "eventSource": [ "iam.amazonaws.com" ],
+        "eventName": [
+            "AddUserToGroup",
+            "AttachUserPolicy"
+        ]
+    }
+}
