@@ -101,8 +101,8 @@ Simply open an issue in (https://github.com/massyn/aws-security/issues|Github), 
 # CloudTrail to Slack alerting
 
 ## Prerequisits
-* (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-and-update-a-trail.html|CloudTrail must be enabled)
-* (https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html|CloudWatch Integration has to be enabled)
+* [CloudTrail must be enabled](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-and-update-a-trail.html)
+* [CloudWatch Integration has to be enabled](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html)
 
 ## Create Cloudformation Stack
 You can (https://console.aws.amazon.com/cloudformation/home?#/stacks/new?stackName=CloudTrail2Slack&templateURL=https://awssecurityinfo-resources.s3.ap-southeast-2.amazonaws.com/cloudtrail-slack.json|Launch a Stack) here, or install the latest CloudFormation from S3 https://awssecurityinfo-resources.s3.ap-southeast-2.amazonaws.com/cloudtrail-slack.json
