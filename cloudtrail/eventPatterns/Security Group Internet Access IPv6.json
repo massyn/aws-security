@@ -1,0 +1,23 @@
+{
+	"EventPattern" : {
+		"detail-type": ["AWS API Call via CloudTrail"],
+		"source": ["aws.ec2"],
+		"detail": {
+			"eventSource": ["ec2.amazonaws.com"],
+			"eventName": ["AuthorizeSecurityGroupIngress"],
+			"requestParameters": {
+				"ipPermissions": {
+					"items": {
+						"ipv6Ranges" : {
+							"items" : {
+								"cidrIpv6" : [ "::/0" ]
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID", "resource" : "$.detail.requestParameters.groupId" },
+	"InputTemplate" : "{ \"Message\" : \"Security group *<resource>* has ingress internet access\", \n \"Resource\" : \"https://<awsRegion>.console.aws.amazon.com/ec2/v2/home?region=<awsRegion>#SecurityGroup:groupId=<resource>\", \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}

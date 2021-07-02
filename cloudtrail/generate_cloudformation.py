@@ -72,20 +72,28 @@ def main():
 
     dir = 'eventPatterns'
     for f in os.listdir(dir):
-        print(f)
+        print(' -- ' + f)
         Description = f.replace('_',' ').replace('.json','')
         key = f.replace('_','').replace('.json','').replace(' ','')
         with open(dir + '/' + f ,'rt') as f:
-            EventPattern = json.load(f)
+            data = json.load(f)
 
         template["Resources"]["Rule" + key] = {
             "Type": "AWS::Events::Rule",
             "Properties": {
                 "Description": Description,
-                "EventPattern":  EventPattern,
+                "EventPattern":  data['EventPattern'],
                 "Name": { "Fn::Sub": "${AWS::StackName}-Rule-" + key  },
                 "State": "ENABLED",
-                "Targets": [{ "Arn": { "Fn::GetAtt": [ "LambdaFunction", "Arn" ] }, "Id" : { "Fn::Sub": "${AWS::StackName}-LambdaFunction" } } ]
+                "Targets": [{ 
+                    "Arn": { "Fn::GetAtt": [ "LambdaFunction", "Arn" ] },
+                    "Id" : { "Fn::Sub": "${AWS::StackName}-LambdaFunction" } ,
+                    "InputTransformer" : {
+                        "InputPathsMap" : data['InputPathsMap'],
+                        "InputTemplate" : data['InputTemplate']
+                    }
+
+                } ]
             }
         }
             
@@ -103,8 +111,13 @@ def main():
     with open(tmpfile,'wt') as f:
         f.write(json.dumps(template,indent=4))
         f.close()
-        
+    
+    BUCKET = 'awssecurityinfo-resources'
+    FILE = 'cloudtrail-slack.json'
     s3 = boto3.resource('s3')
-    s3.meta.client.upload_file(tmpfile, 'awssecurityinfo-resources', 'cloudtrail-slack.json')
+    print('Uploading to S3...')
+    s3.meta.client.upload_file(tmpfile, BUCKET, FILE)
+    print('-----------------------')
+    print('https://{BUCKET}.s3.ap-southeast-2.amazonaws.com/{FILE}'.format(BUCKET = BUCKET, FILE = FILE))
 
 main()

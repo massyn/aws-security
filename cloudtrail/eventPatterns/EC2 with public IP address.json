@@ -1,0 +1,19 @@
+{
+	"EventPattern" : {
+		"detail-type": ["AWS API Call via CloudTrail"],
+		"source": ["aws.ec2"],
+		"detail": {
+			"eventSource": ["ec2.amazonaws.com"],
+			"eventName": ["RunInstances"],
+			"requestParameters": {
+				"networkInterfaceSet": {
+					"items": {
+						"associatePublicIpAddress" : [ true ]
+					}
+				}
+			}
+		}
+	},
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID" },
+	"InputTemplate" : "{ \"Message\" : \"EC2 instance with a public IP address has been started on AWS account *<accountId>*\", \n \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}

@@ -54,7 +54,7 @@ $ python3 scanner/scanner.py --json tmp/site.json --html tmp/report.html --assum
 ```
 
 ### Option 5 - Lambda
-You have the option to run the code inside a Lambda function.
+You have the option to run the code inside a Lambda function.  *There is a known issue where Lambda can only offer a 15 minute execution time.  The current script may run more than 30 minutes, so it is unlikely it will complete on time.*
 
 * Create a role in IAM with the necessary permissions (TODO)
 * Create an S3 bucket and allow the Lambda function PutObject and GetObject access
@@ -95,14 +95,5 @@ The first is the _industry best practice_ category, and this is typically polici
 
 The second catory is _AWS Security Info Specific_, and there I am more than happy to entertain changes and tweaks to the policy.  
 
-### How to submit a change request
+## How to submit a change request
 Simply open an issue in [Github](https://github.com/massyn/aws-security/issues), and I'll review the request and include it into the solution.  You're also welcome to fork the solution, and submit a pull request to merge your own policies into the solution.
-
-# CloudTrail to Slack alerting
-
-## Prerequisits
-* [CloudTrail must be enabled](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-and-update-a-trail.html)
-* [CloudWatch Integration has to be enabled](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html)
-
-## Create Cloudformation Stack
-You can [Launch a Stack](https://console.aws.amazon.com/cloudformation/home?#/stacks/new?stackName=CloudTrail2Slack&templateURL=https://awssecurityinfo-resources.s3.ap-southeast-2.amazonaws.com/cloudtrail-slack.json) here, or install the latest CloudFormation from S3 https://awssecurityinfo-resources.s3.ap-southeast-2.amazonaws.com/cloudtrail-slack.json
