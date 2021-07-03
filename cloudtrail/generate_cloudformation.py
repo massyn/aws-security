@@ -74,7 +74,7 @@ def main():
     for f in os.listdir(dir):
         print(' -- ' + f)
         Description = f.replace('_',' ').replace('.json','')
-        key = f.replace('_','').replace('.json','').replace(' ','')
+        key = f.replace('_','').replace('.json','').replace(' ','').replace('.','')
         with open(dir + '/' + f ,'rt') as f:
             data = json.load(f)
 
@@ -113,7 +113,8 @@ def main():
         f.close()
     
     BUCKET = 'awssecurityinfo-resources'
-    FILE = 'cloudtrail-slack.json'
+    #FILE = 'cloudtrail-slack.json'
+    FILE = 'cloudtrail-slack-TEST.json'
     s3 = boto3.resource('s3')
     print('Uploading to S3...')
     s3.meta.client.upload_file(tmpfile, BUCKET, FILE)
