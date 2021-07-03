@@ -1,0 +1,14 @@
+{
+	"EventPattern" : {
+    "detail-type": ["AWS Console Sign In via CloudTrail"],
+    "detail": {
+      "userIdentity": {
+        "type": ["Root"],
+        "invokedBy": [ { "exists": false } ]
+      },
+      "eventType": [{ "anything-but": "AwsServiceEvent"}]
+    }
+  },
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID" },
+	"InputTemplate" : "{ \"Message\" : \"4.3 Usage of Root Account on AWS account *<accountId>*\", \n \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}

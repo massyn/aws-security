@@ -1,0 +1,24 @@
+{
+	"EventPattern" : {
+        "source": ["aws.ec2"],
+        "detail-type": ["AWS API Call via CloudTrail"],
+        "detail": {
+            "eventSource": ["ec2.amazonaws.com"],
+            "eventName": [
+                "CreateVpc",
+                "DeleteVpc",
+                "ModifyVpcAttribute",
+                "AcceptVpcPeeringConnection",
+                "CreateVpcPeeringConnection",
+                "DeleteVpcPeeringConnection",
+                "RejectVpcPeeringConnection",
+                "AttachClassicLinkVpc",
+                "DetachClassicLinkVpc",
+                "DisableVpcClassicLink",
+                "EnableVpcClassicLink"
+            ]
+        }
+    },
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID" },
+	"InputTemplate" : "{ \"Message\" : \"4.14 VPC Change Filter on AWS account *<accountId>*\", \n \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}

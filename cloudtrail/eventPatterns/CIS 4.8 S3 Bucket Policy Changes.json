@@ -1,0 +1,22 @@
+{
+	"EventPattern" : {
+        "source": ["aws.s3"],
+        "detail-type": ["AWS API Call via CloudTrail"],
+        "detail": {
+            "eventSource": ["s3.amazonaws.com"],
+            "eventName": [
+                "PutBucketAcl",
+                "PutBucketPolicy",
+                "PutBucketCors",
+                "PutBucketLifecycle",
+                "PutBucketReplication",
+                "DeleteBucketPolicy",
+                "DeleteBucketCors",
+                "DeleteBucketLifecycle",
+                "DeleteBucketReplication"
+          ]
+        }
+    },
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID" },
+	"InputTemplate" : "{ \"Message\" : \"4.8 S3 Bucket Policy Changes on AWS account *<accountId>*\", \n \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}

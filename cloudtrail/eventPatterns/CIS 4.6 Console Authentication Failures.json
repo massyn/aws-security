@@ -1,0 +1,12 @@
+{
+	"EventPattern" : {
+        "detail-type": ["AWS Console Sign In via CloudTrail"],
+        "detail": {
+            "responseElements": {
+                "ConsoleLogin": ["Failure"]
+            }
+        }
+    },
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID" },
+	"InputTemplate" : "{ \"Message\" : \"4.6 Console Authentication Failures on AWS account *<accountId>*\", \n \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}

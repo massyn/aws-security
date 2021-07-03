@@ -1,0 +1,17 @@
+{
+	"EventPattern" : {
+        "source": ["aws.config"],
+        "detail-type": ["AWS API Call via CloudTrail"],
+        "detail": {
+            "eventSource": ["config.amazonaws.com"],
+            "eventName": [
+                "StopConfigurationRecorder",
+                "DeleteDeliveryChannel",
+                "PutDeliveryChannel",
+                "PutConfigurationRecorder"
+            ]
+        }
+    },
+	"InputPathsMap" : { "awsRegion" : "$.detail.awsRegion", "accountId" : "$.detail.recipientAccountId", "eventID" : "$.detail.eventID" },
+	"InputTemplate" : "{ \"Message\" : \"4.9 AWS Config Configuration Changes on AWS account *<accountId>*\", \n \"accountId\" : <accountId>,\n \"awsRegion\" : <awsRegion>,\n \"More Information\" : \"https://<awsRegion>.console.aws.amazon.com/cloudtrail/home?region=<awsRegion>#/events/<eventID>\", \n \"ruleName\" : <aws.events.rule-name> \n }"
+}
