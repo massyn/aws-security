@@ -259,6 +259,7 @@ class collector:
       self.cache_call('cloudsearch','describe_domains')
       
       # == CloudTrail
+      self.cache_call('cloudtrail','list_trails',regionList)
       t = self.cache_call('cloudtrail','describe_trails',regionList)
       for region in t:
          for trail in t[region]['trailList']:
@@ -333,6 +334,7 @@ class collector:
       self.cache_call('ec2','describe_volumes',regionList)
       self.cache_call('ec2','describe_moving_addresses',regionList)
       self.cache_call('ec2','describe_vpc_endpoints',regionList)
+      self.cache_call('ec2','get_ebs_encryption_by_default',regionList)
       self.cache_call('ec2','describe_vpn_connections',regionList)
       self.cache_call('ec2','describe_vpn_gateways',regionList)
       self.cache_call('ec2','describe_dhcp_options',regionList)
@@ -546,6 +548,7 @@ class collector:
       for region in x:
          for s in x[region]['Buckets']:
             self.cache_call('s3','get_bucket_logging',region,{'Bucket' : s['Name']},s['Name'])
+            self.cache_call('s3','get_bucket_versioning',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_bucket_policy',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_bucket_encryption',region,{'Bucket' : s['Name']},s['Name'])
             self.cache_call('s3','get_bucket_acl',region,{'Bucket' : s['Name']},s['Name'])

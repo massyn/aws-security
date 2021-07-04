@@ -1,6 +1,7 @@
 import json
 import time
 import datetime as dt
+import dateutil
 
 class policies:
    
@@ -48,12 +49,12 @@ class policies:
       print('*** POLICIES ***')
       
       p = self.cache
-      regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions']['us-east-1']['Regions']]
-      accountId = self.cache.get('sts',{}).get('get_caller_identity',{})['us-east-1']['Account']
+      regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions'].get('us-east-1',{})['Regions']]
+      accountId = self.cache.get('sts',{}).get('get_caller_identity',{}).get('us-east-1',{})['Account']
       
       # ------------------------------------------------------
       policy = {
-         'name' : 'Avoid the use of the "root" account',
+         'name' : 'Eliminate use of the root user for administrative and daily tasks',
          'description' : 'The <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html">root user</a> is the highest privileged, unrestricted account within your AWS landscape.  Because of the sensitivity of this account, it should not be used for normal day-to-day operations.',
          'vulnerability' : 'The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner\'s expense.',
          'remediation' : 'Avoid using the root account, and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html">create a seperate IAM user</a> with the least-privilege policies applied.',
@@ -63,6 +64,7 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=11'
          ],
          'references' : [
+               'AWS CIS v1.4.0 - 1.7',
                'AWS CIS v1.2.0 - 1.1'
          ]
       }
@@ -70,7 +72,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['user'] == '<root_account>':
                   evidence = {
                      'password_last_used' : u['password_last_used']
@@ -79,6 +81,31 @@ class policies:
                      self.finding(policy,1,evidence)
                   else:
                      self.finding(policy,0,evidence)
+      # ---------------------------------------------------
+      policy = {
+         'name' : 'Ensure IAM users are managed centrally via identity federation or AWS Organizations for multi-account environments',
+         'description' : 'In multi-account environments, IAM user centralization facilitates greater user control. User access beyond the initial account is then provided via role assumption. Centralization of users can be accomplished through federation with an external identity provider or through the use of AWS Organizations',
+         'vulnerability' : 'Centralizing IAM user management to a single identity store reduces complexity and thus the likelihood of access management errors.',
+         'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html">AWS best practices</a> to configure MFA on your root account.',
+         'severity' : 'low',
+         'links' : [
+               
+         ],
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.21'
+         ]
+      }
+      if not 'get_credential_report' in p['iam']:
+         self.finding(policy,0,'credential report is not available')
+      else:
+         evidence = []
+         compliance = 1
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
+            if u['password_enabled'] == 'true':
+               evidence.append(u['user'])
+               compliance = 0
+         self.finding(policy,compliance,evidence)
+
       # ---------------------------------------------------
       policy = {
          'name' : 'Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password',
@@ -91,13 +118,14 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=13'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 1.10'
                'AWS CIS v.1.2.0 - 1.2'
          ]
       }
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['password_enabled'] == 'true':
                   evidence = {
                      'user' : u['user']                 
@@ -109,13 +137,13 @@ class policies:
 
       # ------------------------------------------------------
       policy = {
-         'name' : 'Ensure credentials unused for 90 days or greater are disabled',
+         'name' : 'Ensure credentials unused for 45 days or greater are disabled',
          'description' : 'Credentials refer to passwords or access keys.',
          'vulnerability' : 'Unused credentials indicate a user account that may not be in use.  Accounts that are not in use should be removed to reduce the risk of account compromise.',
          'severity' : 'high',
          'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html">AWS Best practices</a> to remove unused credentials',
          'references' : [
-               'AWS CIS v.1.2.0 - 1.3'
+               'AWS CIS v.1.4.0 - 1.12'
          ],
          'links' : [
                'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html',
@@ -125,14 +153,14 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             # -- console password
             if u['password_enabled'] == 'true':
                   evidence = {
                      'user' : u['user'],
                      'password_last_used' : u['password_last_used']
                   }
-                  if u['_password_last_used_age'] > 90 or u['_password_last_used_age'] == -1:
+                  if u['_password_last_used_age'] > 45 or u['_password_last_used_age'] == -1:
                      self.finding(policy,0,evidence)
                   else:
                      self.finding(policy,1,evidence)
@@ -143,7 +171,7 @@ class policies:
                      'user' : u['user'],
                      'access_key_1_last_used_date' : u['access_key_1_last_used_date']
                   }
-                  if u['_access_key_1_last_used_date_age'] > 90 or u['_access_key_1_last_used_date_age'] == -1:
+                  if u['_access_key_1_last_used_date_age'] > 45 or u['_access_key_1_last_used_date_age'] == -1:
                      self.finding(policy,0,evidence)
                   else:
                      self.finding(policy,1,evidence)
@@ -154,11 +182,267 @@ class policies:
                      'user' : u['user'],
                      'access_key_2_last_used_date' : u['access_key_2_last_used_date']
                   }
-                  if u['_access_key_2_last_used_date_age'] > 90 or u['_access_key_2_last_used_date_age'] == -1:
+                  if u['_access_key_2_last_used_date_age'] > 45 or u['_access_key_2_last_used_date_age'] == -1:
                      self.finding(policy,0,evidence)
                   else:
                      self.finding(policy,1,evidence)
 
+      # ------------------------------------------------------
+      policy = {
+         'name' : 'Ensure there is only one active access key available for any single IAM user',
+         'description' : 'Access keys are long-term credentials for an IAM user or the AWS account root user. You can use access keys to sign programmatic requests to the AWS CLI or AWS API (directly or using the AWS SDK).',
+         'vulnerability' : 'Access keys are long-term credentials for an IAM user or the AWS account root user. You can use access keys to sign programmatic requests to the AWS CLI or AWS API. One of the best ways to protect your account is to not allow users to have multiple access keys.',
+         'severity' : 'high',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html">AWS Best practices</a> to remove unused credentials',
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.13'
+         ],
+         'links' : [
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html'
+         ]
+      }
+
+      for U in p['iam']['list_users'].get('us-east-1',{}):
+         for u in U['Users']:
+            activeKeys = 0
+            evidence = []
+
+            for A in p['iam']['list_access_keys'].get('us-east-1',{})[u['UserName']]:
+               for a in A['AccessKeyMetadata']:
+                  evidence.append(a)
+                  if a['Status'] == 'Active':
+                     activeKeys += 1
+            self.finding(policy,activeKeys <= 1,evidence)
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure that all the expired SSL/TLS certificates stored in AWS IAM are removed',
+         'description' : 'To enable HTTPS connections to your website or application in AWS, you need an SSL/TLS server certificate. You can use ACM or IAM to store and deploy server certificates. Use IAM as a certificate manager only when you must support HTTPS connections in a region that is not supported by ACM. IAM securely encrypts your private keys and stores the encrypted version in IAM SSL certificate storage. IAM supports deploying server certificates in all regions, but you must obtain your certificate from an external provider for use with AWS. You cannot upload an ACM certificate to IAM. Additionally, you cannot manage your certificates from the IAM Console.',
+         'vulnerability' : 'Removing expired SSL/TLS certificates eliminates the risk that an invalid certificate will be deployed accidentally to a resource such as AWS Elastic Load Balancer (ELB), which can damage the credibility of the application/website behind the ELB. As a best practice, it is recommended to delete expired certificates.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/">AWS Best practices</a> to rotate access keys.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.19'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_server-certs.html',
+            'https://docs.aws.amazon.com/cli/latest/reference/iam/delete-server-certificate.html'
+         ]
+      }
+
+      for c in p['iam']['list_server_certificates']['us-east-1']:
+         for cert in c['ServerCertificateMetadataList']:
+            if (dateutil.parser.parse(cert['Expiration']) - dt.datetime.now().astimezone()).total_seconds() > 0:
+               self.finding(policy,1,cert)
+            else:
+               self.finding(policy,0,cert)
+
+      if not policy['name'] in self.findings:
+         self.finding(policy,1)
+
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure MFA Delete is enable on S3 buckets',
+         'description' : 'Once MFA Delete is enabled on your sensitive and classified S3 bucket it requires the user to have two forms of authentication.',
+         'vulnerability' : 'Adding MFA delete to an S3 bucket, requires additional authentication when you change the version state of your bucket or you delete and object version adding another layer of security in the event your security credentials are compromised or unauthorized access is granted.',
+         'severity' : 'low',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete">AWS Best practices</a> to enable MFA delete.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 2.1.3'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete',
+            'https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMFADelete.html',
+            'https://aws.amazon.com/blogs/security/securing-access-to-aws-using-mfa-part-3/',
+            'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_lost-or-broken.html'
+         ]
+      }
+      
+      for s3 in p['s3']['list_buckets'].get('us-east-1',{})['Buckets']:
+         self.finding(policy,p['s3']['get_bucket_versioning'].get('us-east-1',{}).get(s3['Name']).get('MFADelete') == 'Enabled',s3['Name'])
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure all S3 buckets employ encryption-at-rest',
+         'description' : 'Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.',
+         'vulnerability' : 'Amazon S3 buckets with default bucket encryption using SSE-KMS cannot be used as destination buckets for Amazon S3 server access logging. Only SSE-S3 default encryption is supported for server access log destination buckets.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html">AWS Best practices</a>.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 2.1.1'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html',
+            'https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-related-resources'
+         ]
+      }
+      
+      for s3 in p['s3']['list_buckets'].get('us-east-1',{})['Buckets']:
+         compliance = False
+         for rule in p['s3']['get_bucket_encryption']['us-east-1'][s3['Name']].get('ServerSideEncryptionConfiguration',{}).get('Rules',[]):
+            if rule['ApplyServerSideEncryptionByDefault']['SSEAlgorithm'] == 'AES256' or 'aws:kms' in rule['ApplyServerSideEncryptionByDefault']['SSEAlgorithm']:
+               compliance = 1
+         self.finding(policy,compliance,s3['Name'])
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure that S3 Buckets are configured with Block public access (bucket settings)',
+         'description' : 'Amazon S3 provides Block public access (bucket settings) and Block public access (account settings) to help you manage public access to Amazon S3 resources. By default, S3 buckets and objects are created with public access disabled. However, an IAM principal with sufficient S3 permissions can enable public access at the bucket and/or object level. While enabled, Block public access (bucket settings) prevents an individual bucket, and its contained objects, from becoming publicly accessible. Similarly, Block public access (account settings) prevents all buckets, and contained objects, from becoming publicly accessible across the entire account.',
+         'vulnerability' : 'Amazon S3 Block public access (bucket settings) prevents the accidental or malicious public exposure of data contained within the respective bucket(s). Amazon S3 Block public access (account settings) prevents the accidental or malicious public exposure of data contained within all buckets of the respective AWS account. Whether blocking public access to all or some buckets is an organizational decision that should be based on data sensitivity, least privilege, and use case.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete">AWS Best practices</a> to enable MFA delete.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 2.1.5'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access-account.html'
+         ]
+      }
+      
+      for s3 in p['s3']['list_buckets'].get('us-east-1',{})['Buckets']:
+         x = p['s3']['get_public_access_block'].get('us-east-1',{}).get(s3['Name']).get('PublicAccessBlockConfiguration',{})
+         ok = 0
+         for param in ['BlockPublicAcls','IgnorePublicAcls','BlockPublicPolicy','RestrictPublicBuckets']:
+            if x.get(param):
+               ok += 1
+         self.finding(policy,ok == 4,{ s3['Name'] : x })
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure EBS volume encryption is enabled',
+         'description' : 'Elastic Compute Cloud (EC2) supports encryption at rest when using the Elastic Block Store (EBS) service. While disabled by default, forcing encryption at EBS volume creation is supported.',
+         'vulnerability' : 'Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html">AWS Best practices</a>.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 2.2.1'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html',
+            'https://aws.amazon.com/blogs/aws/new-opt-in-to-default-encryption-for-new-ebs-volumes/'
+         ]
+      }
+      for region in regionList:
+         x = p['ec2']['get_ebs_encryption_by_default'][region]
+         self.finding(policy,x['EbsEncryptionByDefault'],region)
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure that Object-level logging for write events is enabled for S3 bucket',
+         'description' : 'S3 object-level API operations such as GetObject, DeleteObject, and PutObject are called data events. By default, CloudTrail trails don\'t log data events and so it is recommended to enable Object-level logging for S3 buckets.',
+         'vulnerability' : 'Enabling object-level logging will help you meet data compliance requirements within your organization, perform comprehensive security analysis, monitor specific patterns of user behavior in your AWS account or take immediate actions on any object-level API activity within your S3 Buckets using Amazon CloudWatch Events.',
+         'severity' : 'low',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/enable-cloudtrail-events.html">AWS Best practices</a>.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 3.10'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/enable-cloudtrail-events.html'
+         ]
+      }
+
+      s3List = {}
+      for s3 in p['s3']['list_buckets'].get('us-east-1',{})['Buckets']:
+         s3List['arn:aws:s3:::' + s3['Name'] + '/'] = 0
+
+      for region in regionList:
+         for c in p['cloudtrail']['list_trails'][region]:
+            for t in c['Trails']:
+               for e in p['cloudtrail']['get_event_selectors'][region][t['TrailARN']]['EventSelectors']:
+                  if e['ReadWriteType'] in ['All','WriteOnly']:
+                     for x in e['DataResources']:
+                        if x['Type'] == 'AWS::S3::Object':
+                           for y in x['Values']:
+                              if y == 'arn:aws:s3':
+                                 for s in s3List:
+                                    s3List[s] = 1
+                              else:
+                                 s3List[y] = 1
+      for s in s3List:
+         self.finding(policy,s3List[s],s)
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure that Object-level logging for read events is enabled for S3 bucket',
+         'description' : 'S3 object-level API operations such as GetObject, DeleteObject, and PutObject are called data events. By default, CloudTrail trails don\'t log data events and so it is recommended to enable Object-level logging for S3 buckets.',
+         'vulnerability' : 'Enabling object-level logging will help you meet data compliance requirements within your organization, perform comprehensive security analysis, monitor specific patterns of user behavior in your AWS account or take immediate actions on any object-level API activity using Amazon CloudWatch Events.',
+         'severity' : 'low',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/enable-cloudtrail-events.html">AWS Best practices</a>.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 3.11'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AmazonS3/latest/user-guide/enable-cloudtrail-events.html'
+         ]
+      }
+
+      s3List = {}
+      for s3 in p['s3']['list_buckets'].get('us-east-1',{})['Buckets']:
+         s3List['arn:aws:s3:::' + s3['Name'] + '/'] = 0
+
+      for region in regionList:
+         for c in p['cloudtrail']['list_trails'][region]:
+            for t in c['Trails']:
+               for e in p['cloudtrail']['get_event_selectors'][region][t['TrailARN']]['EventSelectors']:
+                  if e['ReadWriteType'] in ['All','ReadOnly']:
+                     for x in e['DataResources']:
+                        if x['Type'] == 'AWS::S3::Object':
+                           for y in x['Values']:
+                              if y == 'arn:aws:s3':
+                                 for s in s3List:
+                                    s3List[s] = 1
+                              else:
+                                 s3List[y] = 1
+      for s in s3List:
+         self.finding(policy,s3List[s],s)
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure that IAM Access analyzer is enabled for all regions',
+         'description' : 'IAM Access Analyzer is a technology introduced at AWS reinvent 2019. After the Analyzer is enabled in IAM, scan results are displayed on the console showing the accessible resources. Scans show resources that other accounts and federated users can access, such as KMS keys and IAM roles. So the results allow you to determine if an unintended user is allowed, making it easier for administrators to monitor least privileges access. Access Analyzer analyzes only policies that are applied to resources in the same AWS Region.',
+         'vulnerability' : 'AWS IAM Access Analyzer helps you identify the resources in your organization and accounts, such as Amazon S3 buckets or IAM roles, that are shared with an external entity. This lets you identify unintended access to your resources and data. Access Analyzer identifies resources that are shared with external principals by using logic-based reasoning to analyze the resource-based policies in your AWS environment. IAM Access Analyzer continuously monitors all policies for S3 bucket, IAM roles, KMS(Key Management Service) keys, AWS Lambda functions, and Amazon SQS(Simple Queue Service) queues.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html">AWS Best practices</a> to enable access analyzer.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.20'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html',
+            'https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html',
+            'https://docs.aws.amazon.com/cli/latest/reference/accessanalyzer/get-analyzer.html',
+            'https://docs.aws.amazon.com/cli/latest/reference/accessanalyzer/create-analyzer.html'
+         ]
+      }
+      for region in regionList:
+         status = 'UNKNOWN'
+         for AA in p['accessanalyzer']['list_analyzers'][region]:
+            for a in AA['analyzers']:
+               status = a['status']
+         self.finding(policy,status == 'ACTIVE', region)
+
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure that encryption is enabled for RDS Instances',
+         'description' : 'Amazon RDS encrypted DB instances use the industry standard AES-256 encryption algorithm to encrypt your data on the server that hosts your Amazon RDS DB instances. After your data is encrypted, Amazon RDS handles authentication of access and decryption of your data transparently with a minimal impact on performance.',
+         'vulnerability' : 'Databases are likely to hold sensitive and critical data, it is highly recommended to implement encryption in order to protect your data from unauthorized access or disclosure. With RDS encryption enabled, the data stored on the instance\'s underlying storage, the automated backups, read replicas, and snapshots, are all encrypted.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html">AWS Best practices</a> to enable database encryption.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 2.3.1'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html',
+            'https://aws.amazon.com/blogs/database/selecting-the-right-encryption-options-for-amazon-rds-and-amazon-aurora-database-engines/',
+            'https://aws.amazon.com/rds/features/security/'
+
+         ]
+      }
+      for region in regionList:
+         for r in p['rds']['describe_db_instances'][region]:
+            for i in r['DBInstances']:
+               self.finding(policy,i['StorageEncrypted'],{ 'DBInstanceIdentifier' : i['DBInstanceIdentifier'], 'DbiResourceId' : i['DbiResourceId'] })
+      
       # ------------------------------------------------------
       policy = {
          'name'  : 'Ensure access keys are rotated every 90 days or less',
@@ -167,6 +451,7 @@ class policies:
          'severity' : 'medium',
          'remediation' : 'Follow <a href="https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/">AWS Best practices</a> to rotate access keys.',
          'references' : [
+               'AWS CIS v.1.4.0 - 1.14',
                'AWS CIS v.1.2.0 - 1.4'
          ],
          'links' : [
@@ -178,7 +463,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             # -- access key 1
             if u['access_key_1_active'] == 'true':
                   evidence = {
@@ -202,6 +487,58 @@ class policies:
                      self.finding(policy,1,evidence)
       # ------------------------------------------------------
       policy = {
+         'name' : 'Ensure IAM password policy requires minimum length of 14 or greater',
+         'description' : 'IAM Password Policy specifies the password complexity requirements for the AWS IAM users.',
+         'vulnerability' : 'Weak password policies will cause users to select weak, easy to guess passwords.',
+         'severity' : 'medium',
+         'remediation' : '''Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html">AWS Best Practices</a> to set an IAM Password Policy.<ul>
+         
+         ''',
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.8',
+               'AWS CIS v.1.2.0 - 1.9',
+         ],
+         'links' : [
+               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=20',
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html'
+         ]
+      }
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('minimum_password_length') == None:
+         self.finding(policy,0,{ 'minimum_password_length' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('minimum_password_length') })
+      else:
+         if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('minimum_password_length') >= 14:
+               self.finding(policy,1,{ 'minimum_password_length' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('minimum_password_length') })
+         else:
+               self.finding(policy,0,{ 'minimum_password_length' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('minimum_password_length') })
+      
+      # ------------------------------------------------------
+      policy = {
+         'name' : 'Ensure IAM password policy prevents password reuse',
+         'description' : 'IAM Password Policy specifies the password complexity requirements for the AWS IAM users.',
+         'vulnerability' : 'Weak password policies will cause users to select weak, easy to guess passwords.',
+         'severity' : 'medium',
+         'remediation' : '''Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html">AWS Best Practices</a> to set an IAM Password Policy.<ul>
+         
+         ''',
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.9',
+               'AWS CIS v.1.2.0 - 1.10',
+         ],
+         'links' : [
+               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=20',
+               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html'
+         ]
+      }
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('password_reuse_prevention') == None:
+         self.finding(policy,0,{ 'password_reuse_prevention' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('password_reuse_prevention') })
+      else:
+         if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('password_reuse_prevention') >= 24:
+               self.finding(policy,1,{ 'password_reuse_prevention' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('password_reuse_prevention') })
+         else:
+               self.finding(policy,0,{ 'password_reuse_prevention' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('password_reuse_prevention') })
+      
+      # ------------------------------------------------------
+      policy = {
          'name' : 'Ensure IAM password policy is set to a strong password',
          'description' : 'IAM Password Policy specifies the password complexity requirements for the AWS IAM users.',
          'vulnerability' : 'Weak password policies will cause users to select weak, easy to guess passwords.',
@@ -212,8 +549,6 @@ class policies:
          <li>1.6 Ensure IAM password policy require at least one lowercase letter</li>
          <li>1.7 Ensure IAM password policy require at least one symbol</li>
          <li>1.8 Ensure IAM password policy require at least one number</li>
-         <li>1.9 Ensure IAM password policy requires minimum length of 14 or greater</li>
-         <li>1.10 Ensure IAM password policy prevents password reuse (set to at least 24)</li>
          <li>1.11 Ensure IAM password policy expires passwords within 90 days or less</li>
 
          </ul>''',
@@ -222,8 +557,6 @@ class policies:
                'AWS CIS v.1.2.0 - 1.6',
                'AWS CIS v.1.2.0 - 1.7',
                'AWS CIS v.1.2.0 - 1.8',
-               'AWS CIS v.1.2.0 - 1.9',
-               'AWS CIS v.1.2.0 - 1.10',
                'AWS CIS v.1.2.0 - 1.11'
          ],
          'links' : [
@@ -232,49 +565,33 @@ class policies:
          ]
       }
       
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_uppercase_characters']:
-         self.finding(policy,1,{ 'require_uppercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_uppercase_characters'] })
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_uppercase_characters'):
+         self.finding(policy,1,{ 'require_uppercase_characters' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_uppercase_characters') })
       else:
-         self.finding(policy,0,{ 'require_uppercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_uppercase_characters'] })
+         self.finding(policy,0,{ 'require_uppercase_characters' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_uppercase_characters') })
 
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_lowercase_characters']:
-         self.finding(policy,1,{ 'require_lowercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_lowercase_characters'] })
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_lowercase_characters'):
+         self.finding(policy,1,{ 'require_lowercase_characters' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_lowercase_characters') })
       else:
-         self.finding(policy,0,{ 'require_lowercase_characters' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_lowercase_characters'] })
+         self.finding(policy,0,{ 'require_lowercase_characters' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_lowercase_characters') })
 
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_symbols']:
-         self.finding(policy,1,{ 'require_symbols' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_symbols'] })
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_symbols'):
+         self.finding(policy,1,{ 'require_symbols' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_symbols') })
       else:
-         self.finding(policy,0,{ 'require_symbols' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_symbols'] })
+         self.finding(policy,0,{ 'require_symbols' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_symbols') })
 
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['require_numbers']:
-         self.finding(policy,1,{ 'require_numbers' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_numbers'] })
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_numbers'):
+         self.finding(policy,1,{ 'require_numbers' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_numbers') })
       else:
-         self.finding(policy,0,{ 'require_numbers' : p['iam']['AccountPasswordPolicy']['us-east-1']['require_numbers'] })
+         self.finding(policy,0,{ 'require_numbers' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('require_numbers') })
 
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] == None:
-         self.finding(policy,0,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] })
+      if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('max_password_age') == None:
+         self.finding(policy,0,{ 'max_password_age' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('max_password_age') })
       else:
-         if p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] >= 14:
-               self.finding(policy,1,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] })
+         if p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('max_password_age') <= 90:
+               self.finding(policy,1,{ 'max_password_age' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('max_password_age') })
          else:
-               self.finding(policy,0,{ 'minimum_password_length' : p['iam']['AccountPasswordPolicy']['us-east-1']['minimum_password_length'] })
-
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] == None:
-         self.finding(policy,0,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] })
-      else:
-         if p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] >= 24:
-               self.finding(policy,1,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] })
-         else:
-               self.finding(policy,0,{ 'password_reuse_prevention' : p['iam']['AccountPasswordPolicy']['us-east-1']['password_reuse_prevention'] })
-
-      if p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] == None:
-         self.finding(policy,0,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] })
-      else:
-         if p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] <= 90:
-               self.finding(policy,1,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] })
-         else:
-               self.finding(policy,0,{ 'max_password_age' : p['iam']['AccountPasswordPolicy']['us-east-1']['max_password_age'] })
+               self.finding(policy,0,{ 'max_password_age' : p['iam'].get('AccountPasswordPolicy',{}).get('us-east-1',{}).get('max_password_age') })
 
       # ------------------------------------------------------
       policy = {
@@ -284,7 +601,8 @@ class policies:
          'vulnerability' : 'Access keys provide access to the AWS account without having to use a password or multi-factor authentication.  They can end up in source code, and pose a significant risk if not managed correctly.',
          'severity' : 'critical',
          'references' : [
-               "AWS CIS v.1.2.0 - 1.12"
+               'AWS CIS v.1.4.0 - 1.4'
+               'AWS CIS v.1.2.0 - 1.12'
          ],
          'links' : [
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=34',
@@ -294,7 +612,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['user'] == '<root_account>':
                   evidence = {
                      'key'   : '1',
@@ -326,6 +644,7 @@ class policies:
                'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 1.5',
                'AWS CIS v.1.2.0 - 1.13',
                'Trusted Advisor - Multi-factor authentication on root account'
          ]
@@ -333,7 +652,7 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['user'] == '<root_account>':
                   if u['mfa_active'] == 'true':
                      self.finding(policy,1)
@@ -348,15 +667,16 @@ class policies:
          'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa">AWS best practices</a> to configure MFA on your root account.',
          'severity' : 'high',
          'references' : [
+               'AWS CIS v.1.4.0 - 1.6',
                'AWS CIS v.1.2.0 - 1.14'
          ],
          'links' : [
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=38'
          ]
       }
-      if p['iam']['get_account_summary']['us-east-1']['SummaryMap']['AccountMFAEnabled'] == 1:
+      if p['iam']['get_account_summary'].get('us-east-1',{})['SummaryMap']['AccountMFAEnabled'] == 1:
          isVirtual = False
-         for q in p['iam']['list_virtual_mfa_devices']['us-east-1']:
+         for q in p['iam']['list_virtual_mfa_devices'].get('us-east-1',{}):
             for v in q['VirtualMFADevices']:
                if 'arn:aws:iam::{accountId}:mfa/root-account-mfa-device'.format(accountId = accountId) == v['SerialNumber']:
                   isVirtual = True
@@ -370,13 +690,14 @@ class policies:
 
       # ------------------------------------------------------
       policy = {
-         'name' : 'Ensure IAM policies are attached only to groups or roles',
+         'name' : 'Ensure IAM Users Receive Permissions Only Through Groups',
          'description' : 'Controlling access for users should be done through groups.',
          'vulnerability' : 'Attaching policies directly to user accounts will obfuscate the access a user will have, and can result in permission creep.',
          'remediation' : 'Create IAM groups for each job function, and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups_manage_add-remove-users.html">add the users to the groups</a>.',
          'severity' : 'low',
 
          'references' : [
+               'AWS CIS v.1.4.0 - 1.15',
                'AWS CIS v.1.2.0 - 1.16'
          ],
          'links' : [
@@ -387,16 +708,16 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['user'] != '<root_account>':
                   
                   evidence = {
                      u['user'] : {
-                        'list_user_policies' : p['iam']['list_user_policies']['us-east-1'].get(u['user']),
-                        'list_attached_user_policies' : p['iam']['list_attached_user_policies']['us-east-1'][u['user']]
+                        'list_user_policies' : p['iam']['list_user_policies'].get('us-east-1',{}).get(u['user']),
+                        'list_attached_user_policies' : p['iam']['list_attached_user_policies'].get('us-east-1',{})[u['user']]
                      }
                   }
-                  if len(p['iam']['list_user_policies']['us-east-1'].get(u['user'],[])) + len(p['iam']['list_attached_user_policies']['us-east-1'].get(u['user'],[])) == 0:
+                  if len(p['iam']['list_user_policies'].get('us-east-1',{}).get(u['user'],[])) + len(p['iam']['list_attached_user_policies'].get('us-east-1',{}).get(u['user'],[])) == 0:
                      self.finding(policy,1,evidence)
                   else:
                      self.finding(policy,0,evidence)
@@ -413,6 +734,7 @@ class policies:
                'https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 1.18'
                'AWS CIS v.1.2.0 - 1.19'
          ]
       }
@@ -444,6 +766,7 @@ class policies:
                'https://docs.aws.amazon.com/awssupport/latest/user/accessing-support.html#iam'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 1.17',
                'AWS CIS v.1.2.0 - 1.20'
          ]
       }
@@ -454,28 +777,28 @@ class policies:
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['user'] != '<root_account>':
                   # -- check the user's attached policies
-                  for A in self.cache['iam']['list_attached_user_policies']['us-east-1'][u['user']]:
+                  for A in self.cache['iam']['list_attached_user_policies'].get('us-east-1',{})[u['user']]:
                      for aup in A['AttachedPolicies']:
                         if aup['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
                            evidence.append({'user' : u['user']})
                            compliance = 1
 
                   # -- check the user's groups
-                  for B in self.cache['iam']['get_account_authorization_details']['us-east-1']: 
+                  for B in self.cache['iam']['get_account_authorization_details'].get('us-east-1',{}): 
                      for aad in B['UserDetailList']:
                         if aad['UserName'] == u['user']:
                            for g in aad['GroupList']:
-                                 for C in self.cache['iam']['list_attached_group_policies']['us-east-1'][g]:
+                                 for C in self.cache['iam']['list_attached_group_policies'].get('us-east-1',{})[g]:
                                     for agp in C['AttachedPolicies']:
                                        if agp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
                                           compliance = 1
                                           evidence.append({ 'user' : u['user'], 'group' : g})
 
                   # -- check the role
-                  for D in self.cache['iam']['get_account_authorization_details']['us-east-1']:
+                  for D in self.cache['iam']['get_account_authorization_details'].get('us-east-1',{}):
                      for aad in D['RoleDetailList']:
                         for amp in aad['AttachedManagedPolicies']:
                            if amp['PolicyArn'] == 'arn:aws:iam::aws:policy/AWSSupportAccess':
@@ -495,13 +818,14 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=54'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 1.11',
                'AWS CIS v.1.2.0 - 1.21'
          ]
       }
       if not 'get_credential_report' in p['iam']:
          self.finding(policy,0,'credential report is not available')
       else:
-         for u in p['iam']['get_credential_report']['us-east-1']:
+         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
             if u['user'] != '<root_account>':
                   evidence = {
                      'user'                          : u['user'],
@@ -529,6 +853,7 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=57'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 1.16',
                'AWS CIS v.1.2.0 - 1.22'
          ]
       }
@@ -566,6 +891,7 @@ class policies:
                'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
          ],
          'references' : [
+               'AWS CIS v.1.4.0 - 3.1',
                'AWS CIS v.1.2.0 - 2.1',
                'Trusted Advisor - AWS Cloudtrail logging'
          ]
@@ -617,7 +943,8 @@ class policies:
                'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-enabling.html'
          ],
          'references' : [
-               'AWS CIS v.2.2'
+               'AWS CIS v.1.4.0 - 3.2',
+               'AWS CIS v.1.2.0 - 2.2'
          ]
       }
 
@@ -643,7 +970,8 @@ class policies:
                'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html'
          ],
          'references' : [
-               'AWS CIS v.2.3'
+               'AWS CIS v.1.4.0 - 3.3',
+               'AWS CIS v 1.2.0 - 2.3'
          ]
       }
       
@@ -674,6 +1002,7 @@ class policies:
          'severity' : 'low',
          'remediation' : 'Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/send-cloudtrail-events-to-cloudwatch-logs.html">AWS Best practices</a> to configure CloudTrail to CloudWatch integration.',
          'reference' : [
+               'AWS CIS v.1.4.0 - 3.4',
                'AWS CIS v.1.2.0 - 2.4'
          ],
          'links' : [
@@ -705,6 +1034,7 @@ class policies:
          'vulnerability' : 'Without AWS Config enabled, technical teams will struggle to identify the historical changes to resources when the need arise for forensic investigation.',
          'severity' : 'low',
          'reference' : [
+               'AWS CIS v.1.4.0 - 3.5',
                'AWS CIS v.1.2.0 - 2.5'
          ],
          'links' : [
@@ -732,6 +1062,7 @@ class policies:
          'vulnerability' : 'By enabling S3 bucket logging on target S3 buckets, it is possible to capture all events which may affect objects within an target buckets. Configuring logs to be placed in a separate bucket allows access to log information which can be useful in security and incident response workflows.',
          'severity' : 'low',
          'reference' : [
+               'AWS CIS v.1.4.0 - 3.6',
                'AWS CIS v.1.2.0 - 2.6'
          ],
          'links' : [
@@ -744,7 +1075,7 @@ class policies:
          compliance = 0
          for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
             if 'S3BucketName' in ct:
-               logging = self.cache['s3']['get_bucket_logging']['us-east-1'][ct['S3BucketName']].get('LoggingEnabled',{}).get('TargetBucket',None)
+               logging = self.cache['s3']['get_bucket_logging'].get('us-east-1',{})[ct['S3BucketName']].get('LoggingEnabled',{}).get('TargetBucket',None)
                if logging != None:
                   compliance = 1
          self.finding(policy,compliance,region)
@@ -756,6 +1087,7 @@ class policies:
          'vulnerability' : 'Configuring CloudTrail to use SSE-KMS provides additional confidentiality controls on log data as a given user must have S3 read permission on the corresponding log bucket and must be granted decrypt permission by the CMK policy.',
          'severity' : 'low',
          'reference' : [
+               'AWS CIS v.1.4.0 - 3.7',
                'AWS CIS v.1.2.0 - 2.7'
          ],
          'links' : [
@@ -775,6 +1107,7 @@ class policies:
       policy = {
          'name' : 'Ensure rotation for customer created CMKs is enabled',
          'references' : [
+               'AWS CIS v.1.4.0 - 3.8',
                'AWS CIS v.1.2.0 - 2.8'
          ],
          'description' : 'Rotating encryption keys helps reduce the potential impact of a compromised key as data encrypted with a new key cannot be accessed with a previous key that may have been exposed.',
@@ -804,6 +1137,7 @@ class policies:
          'remediation' : 'Follow <a href="https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html">AWS Best Practices</a> to enable VPC Flow Logs.',
          'severity' : 'low',
          'reference' : [
+               'AWS CIS v.1.4.0 - 3.9',
                'AWS CIS v.1.2.0 - 2.9'
          ],
          'links' : [
@@ -836,6 +1170,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=88'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.1',
                   'AWS CIS v.1.2.0 - 3.1'
                ],
                'filterPattern' : '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }'
@@ -850,6 +1185,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=92'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.2',
                   'AWS CIS v.1.2.0 - 3.2'
                ],
                'filterPattern' : '{ ($.eventName = "ConsoleLogin") && ($.additionalEventData.MFAUsed != "Yes") }'
@@ -864,6 +1200,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=96'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.3',
                   'AWS CIS v.1.2.0 - 3.3'
                ],
                'filterPattern' : '{ $.userIdentity.type = "Root" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != "AwsServiceEvent" }'
@@ -878,12 +1215,13 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=100'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.4',
                   'AWS CIS v.1.2.0 - 3.4'
                ],
                'filterPattern' : "{ ($.eventName=DeleteGroupPolicy)||($.eventName=DeleteRolePolicy)||($.eventName=DeleteUserPolicy)||($.eventName=PutGroupPolicy)||($.eventName=PutRolePolicy)||($.eventName=PutUserPolicy)||($.eventName=CreatePolicy)||($.eventName=DeletePolicy)||($.eventName=CreatePolicyVersion)||($.eventName=DeletePolicyVersion)||($.eventName=AttachRolePolicy)||($.eventName=DetachRolePolicy)||($.eventName=AttachUserPolicy)||($.eventName=DetachUserPolicy)||($.eventName=AttachGroupPolicy)||($.eventName=DetachGroupPolicy) }"
          },
          {
-               'name' : 'Ensure a log metric filter and alarm exist for IAM policy changes',
+               'name' : 'Ensure a log metric filter and alarm exist for CloudTrail configuration changes',
                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for detecting changes to CloudTrail\'s configurations.',
                'vulnerability' : 'Monitoring changes to CloudTrail\'s configuration will help ensure sustained visibility to activities performed in the AWS account.',
                'remediation' : 'Follow the steps in the CIS Benchmark paper',
@@ -892,6 +1230,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=104'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.5',
                   'AWS CIS v.1.2.0 - 3.5'
                ],
                'filterPattern' : "{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }"
@@ -906,13 +1245,11 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=108'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.6',
                   'AWS CIS v.1.2.0 - 3.6'
                ],
                'filterPattern' : "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
          },
-
-
-
          {
                'name' : 'Ensure a log metric filter and alarm exist for disabling or scheduled deletion of customer created CMKs ',
                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for customer created CMKs which have changed state to disabled or scheduled deletion.',
@@ -923,6 +1260,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=112'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.7',
                   'AWS CIS v.1.2.0 - 3.7'
                ],
                'filterPattern' : "{ ($.eventSource = kms.amazonaws.com) && (($.eventName=DisableKey)||($.eventName=ScheduleKeyDeletion)) }"
@@ -938,6 +1276,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=108'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.8',
                   'AWS CIS v.1.2.0 - 3.8'
                ],
                'filterPattern' : "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
@@ -952,6 +1291,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=120'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.9',
                   'AWS CIS v.1.2.0 - 3.9'
                ],
                'filterPattern' : "{ ($.eventSource = config.amazonaws.com) && (($.eventName=StopConfigurationRecorder)||($.eventName=DeleteDeliveryChannel)||($.eventName=PutDeliveryChannel)||($.eventName=PutConfigurationRecorder)) }}"
@@ -966,6 +1306,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=124'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.10',
                   'AWS CIS v.1.2.0 - 3.10'
                ],
                'filterPattern' : "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }"
@@ -980,6 +1321,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=128'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.11',
                   'AWS CIS v.1.2.0 - 3.11'
                ],
                'filterPattern' : "{ ($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation) }"
@@ -994,6 +1336,7 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=132'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.12',
                   'AWS CIS v.1.2.0 - 3.12'
                ],
                'filterPattern' : "{ ($.eventName = CreateCustomerGateway) || ($.eventName = DeleteCustomerGateway) || ($.eventName = AttachInternetGateway) || ($.eventName = CreateInternetGateway) || ($.eventName = DeleteInternetGateway) || ($.eventName = DetachInternetGateway) }"
@@ -1008,12 +1351,13 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=136'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.13',
                   'AWS CIS v.1.2.0 - 3.13'
                ],
                'filterPattern' : "{ ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = ReplaceRoute) || ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DeleteRouteTable) || ($.eventName = DeleteRoute) || ($.eventName = DisassociateRouteTable) }"
          },
          {
-               'name' : 'Ensure a log metric filter and alarm exist for VPC changes ',
+               'name' : 'Ensure a log metric filter and alarm exist for VPC changes',
                'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is possible to have more than 1 VPC within an account, in addition it is also possible to create a peer connection between 2 VPCs enabling network traffic to route between VPCs. It is recommended that a metric filter and alarm be established for changes made to VPCs.',
                'vulnerability' : 'Monitoring changes to IAM policies will help ensure authentication and authorization controls remain intact',
                'remediation' : 'Follow the steps in the CIS Benchmark paper',
@@ -1022,11 +1366,27 @@ class policies:
                   'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=140'
                ],
                'references' : [
+                  'AWS CIS v.1.4.0 - 4.14',
                   'AWS CIS v.1.2.0 - 3.14'
                ],
                'filterPattern' : "{ ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) || ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) || ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) || ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) || ($.eventName = EnableVpcClassicLink) }"
+         },
+         {
+               'name' : 'Ensure a log metric filter and alarm exists for AWS Organizations changes',
+               'description' : 'Real-time monitoring of API calls can be achieved by directing CloudTrail Logs to CloudWatch Logs and establishing corresponding metric filters and alarms. It is recommended that a metric filter and alarm be established for AWS Organizations changes made in the master AWS Account.',
+               'vulnerability' : 'Monitoring AWS Organizations changes can help you prevent any unwanted, accidental or intentional modifications that may lead to unauthorized access or other security breaches. This monitoring technique helps you to ensure that any unexpected changes performed within your AWS Organizations can be investigated and any unwanted changes can be rolled back.',
+               'remediation' : 'Follow the steps in the CIS Benchmark paper',
+               'severity' : 'info',
+               'links' : [
+                  'https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html',
+                  'https://docs.aws.amazon.com/organizations/latest/userguide/orgs_security_incident-response.html'
+               ],
+               'references' : [
+                  'AWS CIS v.1.4.0 - 4.15'
+                  
+               ],
+               'filterPattern' : "'{ ($.eventSource = organizations.amazonaws.com) && (($.eventName = AcceptHandshake) || ($.eventName = AttachPolicy) || ($.eventName = CreateAccount) || ($.eventName = CreateOrganizationalUnit) || ($.eventName = CreatePolicy) || ($.eventName = DeclineHandshake) || ($.eventName = DeleteOrganization) || ($.eventName = DeleteOrganizationalUnit) || ($.eventName = DeletePolicy) || ($.eventName = DetachPolicy) || ($.eventName = DisablePolicyType) || ($.eventName = EnablePolicyType) || ($.eventName = InviteAccountToOrganization) || ($.eventName = LeaveOrganization) || ($.eventName = MoveAccount) || ($.eventName = RemoveAccountFromOrganization) || ($.eventName = UpdatePolicy) || ($.eventName = UpdateOrganizationalUnit)) }'"
          }
-
       ]
       
       for POL in POLICIES:
@@ -1041,24 +1401,52 @@ class policies:
                      if self.cache['cloudtrail']['get_trail_status'][region][trail['TrailARN']]['IsLogging'] == True:
                         for e in self.cache['cloudtrail']['get_event_selectors'][region][trail['TrailARN']]['EventSelectors']:
                            if e['IncludeManagementEvents'] == True:
-                                 if e['ReadWriteType'] == 'All':
-                                    for FF in self.cache['logs']['describe_metric_filters'][region]:
-                                       for f in FF['metricFilters']:
-                                          if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
-                                             #if f['filterPattern'] == '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }':
-                                             if f['filterPattern'] == POL['filterPattern']:
-                                                for MM in self.cache['cloudwatch']['describe_alarms'][region]:
-                                                   for m in MM['MetricAlarms']:
-                                                      if f['filterName'] == m['MetricName']:
-                                                            for a in m['AlarmActions']:
-                                                               for t in self.cache['sns']['list_topics'][region]:
-                                                                  if t['TopicArn'] == a:
-                                                                        compliant = True
+                              if e['ReadWriteType'] == 'All':
+                                 for FF in self.cache['logs']['describe_metric_filters'][region]:
+                                    for f in FF['metricFilters']:
+                                       print(f)
+                                       if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
+                                          print(f['filterPattern'])
+                                          if f['filterPattern'] == POL['filterPattern']:
+                                             for MM in self.cache['cloudwatch']['describe_alarms'][region]:
+                                                for m in MM['MetricAlarms']:
+                                                   if f['filterName'] == m['MetricName']:
+                                                         for a in m['AlarmActions']:
+                                                            for t in self.cache['sns']['list_topics'][region]:
+                                                               if t['TopicArn'] == a:
+                                                                     compliant = True
          self.finding(POL,compliant,None) 
       
       # --------------------------------------
       policy = {
-         'name' : 'Ensure no security groups allow ingress from 0.0.0.0/0 to port 22',
+         'name' : 'Ensure no Network ACLs allow ingress from 0.0.0.0/0 to remote server administration ports',
+         'description' : 'The Network Access Control List (NACL) function provide stateless filtering of ingress and egress network traffic to AWS resources. It is recommended that no NACL allows unrestricted ingress access to remote server administration ports, such as SSH to port 22 and RDP to port 3389.',
+         'vulnerability' : 'Public access to remote server administration ports, such as 22 and 3389, increases resource attack surface and unnecessarily raises the risk of resource compromise.',
+         'remediation' : 'Restrict the incomping IP ranges of the network access control to a smaller IP range.',
+         'severity' : 'low',
+         'links' : [
+               'https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html#nacl-rules'
+         ],
+         'references' : [
+               'AWS CIS v.1.4.0 - 5.1'
+         ]
+      }
+
+      for region in regionList:
+         for N in p['ec2']['describe_network_acls'][region]:
+            for n in N['NetworkAcls']:
+               for e in n['Entries']:
+                  FromPort = e.get('PortRange',{}).get('FromPort',0)
+                  ToPort = e.get('PortRange',{}).get('ToPort',65535)
+                  
+                  if e['Egress'] == False and e['RuleAction'] == 'allow' and e['CidrBlock'] in ['0.0.0.0/0','::/0'] and ((FromPort <= 22 and ToPort >= 22) or (FromPort <= 3389 and ToPort >= 3389)):
+                     self.finding(policy,0,{ 'region' : region, 'NetworkAclId' : n['NetworkAclId'], 'Entries' : e })
+                  else:
+                     self.finding(policy,1,{ 'region' : region, 'NetworkAclId' : n['NetworkAclId'], 'Entries' : e })
+
+      # --------------------------------------
+      policy = {
+         'name' : 'Ensure no security groups allow ingress from 0.0.0.0/0 to remote server administration ports',
          'description' : 'Security groups that are configured to allow port 22 (SSH) from the internet.',
          'vulnerability' : 'Removing unfettered connectivity to remote console services, such as SSH, reduces a server''s exposure to risk',
          'remediation' : 'Restrict the incomping IP ranges of the security groups to a smaller IP range, or alternatively, remove the security group.',
@@ -1067,35 +1455,19 @@ class policies:
                'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=144'
          ],
          'references' : [
-               'AWS CIS v.1.2.0 - 4.1'
+               'AWS CIS v.1.4.0 - 5.2',
+               'AWS CIS v.1.2.0 - 4.1',
+               'AWS CIS v.1.2.0 - 4.2',
          ]
       }
       for region in regionList:
          for s in self.security_groups('IpPermissions',region):
-               if (s['FromPort'] >= 22 and s['ToPort'] <= 22) and s['IpRange'] in ('0.0.0.0/0','::/0'):
-                  self.finding(policy,0,s)
-               else:
-                  self.finding(policy,1,s)
-      # --------------------------------------
-      policy = {
-         'name' : 'Ensure no security groups allow ingress from 0.0.0.0/0 to port 3389',
-         'description' : 'Security groups that are configured to allow port 3389 (RDP) from the internet.',
-         'vulnerability' : 'Removing unfettered connectivity to remote console services, such as RDP, reduces a server''s exposure to risk',
-         'remediation' : 'Restrict the incomping IP ranges of the security groups to a smaller IP range, or alternatively, remove the security group.',
-         'severity' : 'high',
-         'links' : [
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=146'
-         ],
-         'references' : [
-               'AWS CIS v.1.2.0 - 4.2'
-         ]
-      }
-      for region in regionList:
-         for s in self.security_groups('IpPermissions',region):
-               if (s['FromPort'] >= 3389 and s['ToPort'] <= 3389) and s['IpRange'] in ('0.0.0.0/0','::/0'):
-                  self.finding(policy,0,s)
-               else:
-                  self.finding(policy,1,s)
+            FromPort = s['FromPort']
+            ToPort = s['ToPort']
+            if ((FromPort <= 22 and ToPort >= 22) or (FromPort <= 3389 and ToPort >= 3389)) and s['IpRange'] in ['0.0.0.0/0','::/0']:
+               self.finding(policy,0,s)
+            else:
+               self.finding(policy,1,s)
 
       # -----------------------------
       policy = {
@@ -1105,6 +1477,7 @@ class policies:
          'remediation' : 'Remove any rules from the default security group.',
          'severity' : 'low',
          'references' : [
+               'AWS CIS v.1.4.0 - 5.3',
                'AWS CIS v.1.2.0 - 4.3'
          ],
          'links' : [
@@ -1127,6 +1500,31 @@ class policies:
 
       # --------------------------------------------------------
       policy = {
+         'name' : 'Ensure S3 Bucket Policy is set to deny HTTP requests',
+         'description' : 'At the Amazon S3 bucket level, you can configure permissions through a bucket policy making the objects accessible only through HTTPS.',
+         'vulnerability' : 'By default, Amazon S3 allows both HTTP and HTTPS requests. To achieve only allowing access to Amazon S3 objects through HTTPS you also have to explicitly deny access to HTTP requests. Bucket policies that allow HTTPS requests without explicitly denying HTTP requests will not comply with this recommendation.',
+         'remediation' : 'Follow <a href="https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-policy-for-config-rule/">AWS Best Practices</a>.',
+         'severity' : 'medium',
+         'reference' : [
+               'AWS CIS v1.4.0 - 2.1.2',
+         ],
+         'links' : [
+            'https://aws.amazon.com/premiumsupport/knowledge-center/s3-bucket-policy-for-config-rule/',
+            'https://aws.amazon.com/blogs/security/how-to-use-bucket-policies-and-apply-defense-in-depth-to-help-secure-your-amazon-s3-data/',
+            'https://awscli.amazonaws.com/v2/documentation/api/latest/reference/s3api/get-bucket-policy.html'
+         ]
+      }
+      for bucket in self.cache['s3']['get_bucket_policy'].get('us-east-1',{}):
+         compliance = 0
+         bucket_policy = json.loads(self.cache['s3']['get_bucket_policy'].get('us-east-1',{})[bucket].get('Policy','{}'))
+         for s in bucket_policy.get('Statement',[]):
+            if s['Effect'] == 'Deny' and s['Principal'] == '*' and s['Action'] in ['s3:*','s3:GetObject'] and s.get('Condition',{}).get('Bool',{}).get('aws:SecureTransport','true') == 'false':
+               compliance = 1
+
+         self.finding(policy,compliance,bucket)
+
+      # --------------------------------------------------------
+      policy = {
          'name' : 'S3 buckets must not be publicly accessible',
          'description' : '<a href="https://aws.amazon.com/s3/">S3</a> is a core storage solution from AWS.  It is used in most services, and provides an secure and scalable storage solution for your application.  If configured correctly, S3 can host highly sensitive information.  Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket',
          'vulnerability' : 'Data within the bucket could be exposed, resulting in a loss of confidentiality.  When other files (for example web site images) are stored, there is a risk that another website may be using your resources by linking to the public bucket, incurring additional charges to your account.  An attacker may be able to modify sensitive data (for example updating an invoice to be paid with new bank details).  An attacker may be able to inject their own data into the bucket (for example submitting a fake order through an EDI system).  An attacker may be able to delete sensitive data, resulting in a system outage.',
@@ -1141,10 +1539,10 @@ class policies:
                'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
          ]
       }
-      for bucket in self.cache['s3']['get_bucket_policy']['us-east-1']:
+      for bucket in self.cache['s3']['get_bucket_policy'].get('us-east-1',{}):
          evidence = []
          compliance = 1
-         bucket_policy = json.loads(self.cache['s3']['get_bucket_policy']['us-east-1'][bucket].get('Policy','{}'))
+         bucket_policy = json.loads(self.cache['s3']['get_bucket_policy'].get('us-east-1',{})[bucket].get('Policy','{}'))
          for s in bucket_policy.get('Statement',[]):
             for Effect in self.lister(s['Effect']):
                for Principal in self.lister(s['Principal']):
@@ -1155,7 +1553,7 @@ class policies:
                         evidence.append({bucket : bucket_policy.get('Statement',[]) })
                         compliance = 0
 
-         for g in self.cache['s3']['get_bucket_acl']['us-east-1'][bucket].get('Grants',[]):
+         for g in self.cache['s3']['get_bucket_acl'].get('us-east-1',{})[bucket].get('Grants',[]):
                if g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/AllUsers' or g['Grantee'].get('URI') == 'http://acs.amazonaws.com/groups/global/Authenticated Users':
                   compliance = 0
                   evidence.append({bucket : g })
@@ -1201,7 +1599,7 @@ class policies:
          ]
       }
       
-      for LR in self.cache['iam']['list_roles']['us-east-1']:
+      for LR in self.cache['iam']['list_roles'].get('us-east-1',{}):
          for list_roles in LR['Roles']:
             compliance = 1
             for q in self.parsePermissions():
@@ -1226,7 +1624,7 @@ class policies:
                'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html'
          ]
       }
-      for LR in self.cache['iam']['get_account_authorization_details']['us-east-1']:
+      for LR in self.cache['iam']['get_account_authorization_details'].get('us-east-1',{}):
          for roles in LR['RoleDetailList']:
             compliance = 1
             for statement in roles['AssumeRolePolicyDocument']['Statement']:
@@ -1256,7 +1654,7 @@ class policies:
          ]
       }
       
-      for LG in self.cache['iam']['list_groups']['us-east-1']:
+      for LG in self.cache['iam']['list_groups'].get('us-east-1',{}):
          for list_groups in LG['Groups']:
             compliance = 1
             for q in self.parsePermissions():
@@ -1287,11 +1685,11 @@ class policies:
          'RoleName' : {}
       }
 
-      for LG in self.cache['iam']['list_users']['us-east-1']:
+      for LG in self.cache['iam']['list_users'].get('us-east-1',{}):
          for list_users in LG['Users']:
             UserName = list_users['UserName']
             entities['UserName'][UserName] = 1
-      for LG in self.cache['iam']['list_roles']['us-east-1']:
+      for LG in self.cache['iam']['list_roles'].get('us-east-1',{}):
          for list_roles in LG['Roles']:
             RoleName = list_roles['RoleName']
             entities['RoleName'][RoleName] = 1
@@ -1334,11 +1732,11 @@ class policies:
          'RoleName' : {}
       }
 
-      for LG in self.cache['iam']['list_users']['us-east-1']:
+      for LG in self.cache['iam']['list_users'].get('us-east-1',{}):
          for list_users in LG['Users']:
             UserName = list_users['UserName']
             entities['UserName'][UserName] = 1
-      for LG in self.cache['iam']['list_roles']['us-east-1']:
+      for LG in self.cache['iam']['list_roles'].get('us-east-1',{}):
          for list_roles in LG['Roles']:
             RoleName = list_roles['RoleName']
             entities['RoleName'][RoleName] = 1
@@ -1464,16 +1862,16 @@ class policies:
       perm = []
 
       # == cycle through all users ==
-      for UU in self.cache['iam']['list_users']['us-east-1']:
+      for UU in self.cache['iam']['list_users'].get('us-east-1',{}):
          for u in UU['Users']:
             UserName = u['UserName']
             # -- find all inline policies
-            if UserName in self.cache['iam']['list_user_policies']['us-east-1']:
+            if UserName in self.cache['iam']['list_user_policies'].get('us-east-1',{}):
                   
-                  for P in self.cache['iam']['list_user_policies']['us-east-1'][UserName]:
+                  for P in self.cache['iam']['list_user_policies'].get('us-east-1',{})[UserName]:
                      for PolicyName in P['PolicyNames']:
 
-                        for q in self.flattenStatements(self.cache['iam']['get_user_policy']['us-east-1'][UserName + ':' + PolicyName]['PolicyDocument']['Statement']):
+                        for q in self.flattenStatements(self.cache['iam']['get_user_policy'].get('us-east-1',{})[UserName + ':' + PolicyName]['PolicyDocument']['Statement']):
                            q['source'] = 'get_user_policy'
                            q['UserName'] = UserName
                            q['PolicyName'] = PolicyName
@@ -1481,10 +1879,10 @@ class policies:
                            perm.append(q)
 
             # -- find all policies attached
-            for PP in self.cache['iam']['list_attached_user_policies']['us-east-1'][UserName]:
+            for PP in self.cache['iam']['list_attached_user_policies'].get('us-east-1',{})[UserName]:
                for p in PP['AttachedPolicies']:
                   PolicyName = p['PolicyName']
-                  poly = self.cache['iam']['get_policy_version']['us-east-1'][PolicyName]['PolicyVersion']
+                  poly = self.cache['iam']['get_policy_version'].get('us-east-1',{})[PolicyName]['PolicyVersion']
                   for q in self.flattenStatements(poly['Document']['Statement']):
                      q['source'] = 'list_attached_user_policies'
                      q['UserName'] = UserName
@@ -1493,17 +1891,17 @@ class policies:
                      perm.append(q)
 
             # -- find all groups
-            for LG in self.cache['iam']['list_groups']['us-east-1']:
+            for LG in self.cache['iam']['list_groups'].get('us-east-1',{}):
                for list_groups in LG['Groups']:
                   GroupName = list_groups['GroupName']
-                  for GG in self.cache['iam']['get_group']['us-east-1'][GroupName]:
+                  for GG in self.cache['iam']['get_group'].get('us-east-1',{})[GroupName]:
                      for g in GG['Users']:
                         if UserName == g['UserName']:
                            # -- find all policies attached to the groups
-                           for PP in self.cache['iam']['list_attached_group_policies']['us-east-1'][GroupName]:
+                           for PP in self.cache['iam']['list_attached_group_policies'].get('us-east-1',{})[GroupName]:
                               for p in PP['AttachedPolicies']:
                                  PolicyName = p['PolicyName']
-                                 poly = self.cache['iam']['get_policy_version']['us-east-1'][PolicyName]['PolicyVersion']
+                                 poly = self.cache['iam']['get_policy_version'].get('us-east-1',{})[PolicyName]['PolicyVersion']
                                  for q in self.flattenStatements(poly['Document']['Statement']):
                                     q['source'] = 'list_attached_group_policies'
                                     q['GroupName'] = GroupName
@@ -1515,7 +1913,7 @@ class policies:
                            # -- do groups have inline policies?
                            if GroupName in self.cache['iam']['list_group_policies']:
                                  for PolicyName in self.cache['iam']['list_group_policies'][GroupName]:                            
-                                    for q in self.flattenStatements(self.cache['iam']['get_group_policy']['us-east-1'][GroupName + ':' + PolicyName]['Statement']):
+                                    for q in self.flattenStatements(self.cache['iam']['get_group_policy'].get('us-east-1',{})[GroupName + ':' + PolicyName]['Statement']):
                                        q['source'] = 'get_group_policy'
                                        q['GroupName'] = GroupName
                                        q['UserName'] = UserName
@@ -1524,17 +1922,17 @@ class policies:
                                        perm.append(q)
 
       # == cycle through all roles
-      for R in self.cache['iam']['list_roles']['us-east-1']:
+      for R in self.cache['iam']['list_roles'].get('us-east-1',{}):
          for r in R['Roles']:
             
             RoleName = r['RoleName']
 
             # -- find all policies attached to the roles
-            for S in self.cache['iam']['list_attached_role_policies']['us-east-1'][RoleName]:
+            for S in self.cache['iam']['list_attached_role_policies'].get('us-east-1',{})[RoleName]:
                for p in S['AttachedPolicies']:
                   PolicyName = p['PolicyName']
 
-                  poly = self.cache['iam']['get_policy_version']['us-east-1'][PolicyName]['PolicyVersion']
+                  poly = self.cache['iam']['get_policy_version'].get('us-east-1',{})[PolicyName]['PolicyVersion']
                   for q in self.flattenStatements(poly['Document']['Statement']):
                      q['source'] = 'list_attached_role_policies'
                      q['RoleName'] = RoleName
@@ -1542,10 +1940,10 @@ class policies:
                      q['Entity'] = r['Arn']
                      perm.append(q)
             # -- do roles have inline policies?
-            if RoleName in self.cache['iam']['list_role_policies']['us-east-1']:
-                  for D in self.cache['iam']['list_role_policies']['us-east-1'][RoleName]:
+            if RoleName in self.cache['iam']['list_role_policies'].get('us-east-1',{}):
+                  for D in self.cache['iam']['list_role_policies'].get('us-east-1',{})[RoleName]:
                      for PolicyName in D['PolicyNames']:
-                        for q in self.flattenStatements(self.cache['iam']['get_role_policy']['us-east-1'][RoleName + ':' + PolicyName]['PolicyDocument']['Statement']):
+                        for q in self.flattenStatements(self.cache['iam']['get_role_policy'].get('us-east-1',{})[RoleName + ':' + PolicyName]['PolicyDocument']['Statement']):
                            q['source'] = 'get_role_policy'
                            q['RoleName'] = RoleName
                            q['PolicyName'] = PolicyName
