@@ -1075,7 +1075,7 @@ class policies:
          compliance = 0
          for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
             if 'S3BucketName' in ct:
-               logging = self.cache['s3']['get_bucket_logging'].get('us-east-1',{})[ct['S3BucketName']].get('LoggingEnabled',{}).get('TargetBucket',None)
+               logging = self.cache['s3']['get_bucket_logging'].get('us-east-1',{}).get(ct['S3BucketName'],{}).get('LoggingEnabled',{}).get('TargetBucket',None)
                if logging != None:
                   compliance = 1
          self.finding(policy,compliance,region)
@@ -1404,9 +1404,7 @@ class policies:
                               if e['ReadWriteType'] == 'All':
                                  for FF in self.cache['logs']['describe_metric_filters'][region]:
                                     for f in FF['metricFilters']:
-                                       print(f)
                                        if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
-                                          print(f['filterPattern'])
                                           if f['filterPattern'] == POL['filterPattern']:
                                              for MM in self.cache['cloudwatch']['describe_alarms'][region]:
                                                 for m in MM['MetricAlarms']:

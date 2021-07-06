@@ -24,7 +24,21 @@ class collector:
    def convert_timestamp(self,item_date_object):
       if isinstance(item_date_object, (dt.date,dt.datetime)):
          return item_date_object.timestamp()
-              
+
+   def checkVersion(self,x):
+      b = boto3.__version__.split('.')
+      if x.split('.') == b:
+         return True
+      c = 0
+      for z in x.split('.'):
+         if z > b[c]:
+            return True
+         elif z < b[c]:
+            return False
+         else:
+            c += 1
+      return False              
+
    def write_json(self,action = False):
       if self.data_file:
          if action or not 's3:' in self.data_file:
@@ -253,7 +267,10 @@ class collector:
       self.cache_call('cloudfront','list_distributions',regionList)
       self.cache_call('cloudfront','list_cloud_front_origin_access_identities',regionList)
       self.cache_call('cloudfront','list_streaming_distributions',regionList)
-      self.cache_call('cloudfront','list_functions',regionList)
+      if self.checkVersion('1.17.101'):
+         self.cache_call('cloudfront','list_functions',regionList)
+      else:
+         print(' ** YOU SHOULD UPGRADE BOTO3 TO THE LATEST VERSION!! **')
       
       # == Cloudsearch
       self.cache_call('cloudsearch','describe_domains')
