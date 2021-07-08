@@ -47,10 +47,19 @@
             "filter" : "[?_password_last_used_age < `90`].[user , password_last_used]"
       },
       {
-            "name" : "NEW - sso",
+            "name" : "Ensure IAM users are managed centrally via identity federation or AWS Organizations for multi-account environments",
+            "description" : "In multi-account environments, IAM user centralization facilitates greater user control. User access beyond the initial account is then provided via role assumption. Centralization of users can be accomplished through federation with an external identity provider or through the use of AWS Organizations",
+            "vulnerability" : "Centralizing IAM user management to a single identity store reduces complexity and thus the likelihood of access management errors.",
+            "remediation" : "Follow the <a href=\"https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html\">AWS best practices</a> to setup SSO.",
+            "severity" : "low",
+            "links" : [
+                  "https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html"
+            ],
+            "references" : [
+                  "AWS CIS v.1.4.0 - 1.21"
+            ],
             "source" : "iam.get_credential_report[?user != `<root_account>`]",
             "filter" : "[?password_enabled == 'true'].[user , password_enabled , password_last_used]"
-
-      
+    
       }
 ]
