@@ -1,0 +1,56 @@
+[
+      {
+            "name" : "Subnets should not issue public IP addresses",
+            "description" : "Defence-in-depth suggests that multiple security controls must be implemented to properly protect a system.  Removing the assignment of public IP addresses is one strategy that can be deployed to reduce the risk.</p><p>By allocating public IP addresses in subnets, any new system being created (database or EC2 instance) could inadvertantly be exposed to the public internet.</p><p>Instead of simply giving EC2 instances public IP addresses, the solution must be designed in a way to utilize load balancers instead.  Note that the subnet where you place a load balancer will need to have the ability to issue public IP addresses. Consider creating a load balancer with a public IP before you remove the functionality.",
+            "vulnerability" : "Automated issuing of public IP addresses increases the risk of internet exposure to your instances.",
+            "severity" : "info",
+            "remediation" : "Execute the <a href=\"https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py\">remediation script</a> within your AWS account to remediate all subnets.</p><p><b>WARNING:</b> The script will cause all subnets in all regions to stop issuing public IP addresses.  If you need this functionality for things like autoscaling, this script can potentially break your solution.",
+            "references" : [
+                  "ASI.NET.001"
+            ],
+            "links" : [
+                  "https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet"
+            ],
+            "source" : "ec2.describe_subnets",
+            "filter" : "[?MapPublicIpOnLaunch == `true`].[SubnetId, AvailabilityZone]"
+      },
+      {
+            "name" : "Lambda functions with depreciated runtimes",
+            "description" : "Lambda will no longer apply security patches and other updates to the runtime used by Lambda functions. In addition, functions using the runtime will no longer be eligible for technical support. You will no longer be able to create new Lambda functions using the runtime.",
+            "vulnerability" : "AWS strongly recommends that you migrate functions to a supported runtime version so that you continue to receive security patches and remain eligible for technical support.",
+            "severity" : "medium",
+            "remediation" : "Follow <a href=\"https://docs.aws.amazon.com/lambda/latest/dg/configuration-console.html\">AWS Best Practices</a> to update the Lambda runtime.",
+            "references" : [
+                  "ASI.INF.001"
+            ],
+            "links" : [
+                  "https://docs.aws.amazon.com/lambda/latest/dg/runtime-support-policy.html"
+            ],
+            "source" : "lambda.list_functions",
+            "filter" : "[?Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`].[FunctionName,Runtime,_region]"
+      },
+      {
+            "name" : "Eliminate use of the root user for administrative and daily tasks",
+            "description" : "The <a href=\"https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html\">root user</a> is the highest privileged, unrestricted account within your AWS landscape.  Because of the sensitivity of this account, it should not be used for normal day-to-day operations.",
+            "vulnerability" : "The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner\"s expense.",
+            "remediation" : "Avoid using the root account, and <a href=\"https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html\">create a seperate IAM user</a> with the least-privilege policies applied.",
+            "severity" : "high",
+            "links" : [
+                  "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html",
+                  "https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=11"
+            ],
+            "references" : [
+                  "AWS CIS v1.4.0 - 1.7",
+                  "AWS CIS v1.2.0 - 1.1"
+            ],
+            "source" : "iam.get_credential_report[?user == `<root_account>`]",
+            "filter" : "[?_password_last_used_age < `90`].[user , password_last_used]"
+      },
+      {
+            "name" : "NEW - sso",
+            "source" : "iam.get_credential_report[?user != `<root_account>`]",
+            "filter" : "[?password_enabled == 'true'].[user , password_enabled , password_last_used]"
+
+      
+      }
+]

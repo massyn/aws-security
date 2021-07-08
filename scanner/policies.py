@@ -2,6 +2,8 @@ import json
 import time
 import datetime as dt
 import dateutil
+import jmespath
+import os
 
 class policies:
    
@@ -45,68 +47,80 @@ class policies:
                      flat.append(cp)
       return flat
 
+   def flatten(self,client,function,key = None):
+      '''
+      Use case 1 - lambda / list_functions / region /  Functions
+
+      Use case 2 - ec2 / describe_instances / region / ['Reservations' , 'Instances' ]
+
+      Use case 3 - iam / get_credential_report / region
+
+      '''
+      result = []
+      for region in self.cache[client][function]:
+         for data in self.cache[client][function][region]:
+            if key == None:
+               result.append(data)
+            else:
+               if type(key) == list:
+                  for d in data[key[0]]:
+                     if key[1] in d:
+                        for e in d[key[1]]:
+                           e['_region'] = region
+                           result.append(e)
+               else:
+                  for d in data[key]:
+                     d['_region'] = region
+                     result.append(d)
+      return result
+
+   def processor(self):
+      '''
+         Change the collected data into a more flattened structure that is better suited for jmespath
+      '''
+      result = {}
+      parameters = [
+         [ 'lambda'  ,'list_functions'       , 'Functions'                 ],
+         [ 'ec2'     ,'describe_instances'   ,['Reservations','Instances'] ],
+         [ 'ec2'     ,'describe_subnets'     , 'Subnets'                   ],
+         [ 'iam'     ,'get_credential_report' , None]
+      ]
+      for (client,function,key) in parameters:
+         if not client in result:
+            result[client] = {}
+         result[client][function] = self.flatten(client,function,key)
+      return result
+
    def execute(self):
       print('*** POLICIES ***')
-      
+
+      # -- process our policies from the json file
+      processed_data = self.processor()
+
+      with open (__file__ + '.json','rt') as f:
+         pj = json.load(f)
+
+         for pl in pj:
+            print(pl['name'])
+            source = jmespath.search(pl['source'],processed_data)
+            broken = jmespath.search(pl['filter'],source)
+
+            for b in broken:
+               self.finding(pl,0,b)
+
+            for a in range(0,len(source)-len(broken)):
+               self.finding(pl,1,None)
+            
+            #print(json.dumps(source,indent=4))
+            
+      # == continue with the legacy policies
+
       p = self.cache
       regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions'].get('us-east-1',{})['Regions']]
       accountId = self.cache.get('sts',{}).get('get_caller_identity',{}).get('us-east-1',{})['Account']
       
-      # ------------------------------------------------------
-      policy = {
-         'name' : 'Eliminate use of the root user for administrative and daily tasks',
-         'description' : 'The <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html">root user</a> is the highest privileged, unrestricted account within your AWS landscape.  Because of the sensitivity of this account, it should not be used for normal day-to-day operations.',
-         'vulnerability' : 'The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner\'s expense.',
-         'remediation' : 'Avoid using the root account, and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html">create a seperate IAM user</a> with the least-privilege policies applied.',
-         'severity' : 'high',
-         'links' : [
-               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html',
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=11'
-         ],
-         'references' : [
-               'AWS CIS v1.4.0 - 1.7',
-               'AWS CIS v1.2.0 - 1.1'
-         ]
-      }
+      # ---------------------------------------------------
       
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['user'] == '<root_account>':
-                  evidence = {
-                     'password_last_used' : u['password_last_used']
-                  }
-                  if u['_password_last_used_age'] > 90:
-                     self.finding(policy,1,evidence)
-                  else:
-                     self.finding(policy,0,evidence)
-      # ---------------------------------------------------
-      policy = {
-         'name' : 'Ensure IAM users are managed centrally via identity federation or AWS Organizations for multi-account environments',
-         'description' : 'In multi-account environments, IAM user centralization facilitates greater user control. User access beyond the initial account is then provided via role assumption. Centralization of users can be accomplished through federation with an external identity provider or through the use of AWS Organizations',
-         'vulnerability' : 'Centralizing IAM user management to a single identity store reduces complexity and thus the likelihood of access management errors.',
-         'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html">AWS best practices</a> to configure MFA on your root account.',
-         'severity' : 'low',
-         'links' : [
-               
-         ],
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.21'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         evidence = []
-         compliance = 1
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['password_enabled'] == 'true':
-               evidence.append(u['user'])
-               compliance = 0
-         self.finding(policy,compliance,evidence)
-
-      # ---------------------------------------------------
       policy = {
          'name' : 'Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password',
          'description' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.',
@@ -1756,29 +1770,6 @@ class policies:
          for g in entities[e]:             
             self.finding(policy,entities[e][g],evidence[e][g])
 
-      # --------------------------------------------------------
-      policy = {
-         'name' : 'Subnets should not issue public IP addresses',
-         'description' : 'Defence-in-depth suggests that multiple security controls must be implemented to properly protect a system.  Removing the assignment of public IP addresses is one strategy that can be deployed to reduce the risk.</p><p>By allocating public IP addresses in subnets, any new system being created (database or EC2 instance) could inadvertantly be exposed to the public internet.</p><p>Instead of simply giving EC2 instances public IP addresses, the solution must be designed in a way to utilize load balancers instead.  Note that the subnet where you place a load balancer will need to have the ability to issue public IP addresses. Consider creating a load balancer with a public IP before you remove the functionality.',
-         'vulnerability' : 'Automated issuing of public IP addresses increases the risk of internet exposure to your instances.',
-         'severity' : 'info',
-         'remediation' : 'Execute the <a href="https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py">remediation script</a> within your AWS account to remediate all subnets.</p><p><b>WARNING:</b> The script will cause all subnets in all regions to stop issuing public IP addresses.  If you need this functionality for things like autoscaling, this script can potentially break your solution.',
-         'references' : [
-               'ASI.NET.001'
-         ],
-         'links' : [
-               'https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet'
-         ]
-      }
-      
-      for region in regionList:
-         for SS in self.cache['ec2']['describe_subnets'][region]:
-            for subnet in SS['Subnets']:
-               if subnet['MapPublicIpOnLaunch'] == False:
-                  compliance = 1
-               else:
-                  compliance = 0
-               self.finding(policy,compliance,{ 'region' : region, 'SubnetId' : subnet['SubnetId']})
       # --------------------------------------------------------
       policy = {
          'name' : 'Application Load Balancer (ALB) listener allows connections over HTTP',
