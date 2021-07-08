@@ -101,10 +101,8 @@ class policies:
          pj = json.load(f)
 
          for pl in pj:
-            print(pl['name'])
             source = jmespath.search(pl['source'],processed_data)
             broken = jmespath.search(pl['filter'],source)
-
             for b in broken:
                self.finding(pl,0,b)
 
@@ -112,7 +110,7 @@ class policies:
                self.finding(pl,1,None)
             
             #print(json.dumps(source,indent=4))
-            
+
       # == continue with the legacy policies
 
       p = self.cache
