@@ -101,6 +101,7 @@ class policies:
          pj = json.load(f)
 
          for pl in pj:
+            pl['name'] = pl.get('references',['NO REFERENCE'])[0] + ' - ' + pl['name']
             source = jmespath.search(pl['source'],processed_data)
             broken = jmespath.search(pl['filter'],source)
             for b in broken:
@@ -109,7 +110,12 @@ class policies:
             for a in range(0,len(source)-len(broken)):
                self.finding(pl,1,None)
             
-            #print(json.dumps(source,indent=4))
+            if pl['name'] == 'NO REFERENCE - DEBUG':
+               print('********** SOURCE ************')
+               print(json.dumps(source,indent=4))
+               
+               print('********** BROKEN ************')
+               print(json.dumps(broken,indent=4))
 
       # == continue with the legacy policies
 
@@ -119,35 +125,6 @@ class policies:
       
       # ---------------------------------------------------
       
-      policy = {
-         'name' : 'Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password',
-         'description' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.',
-         'vulnerability' : 'Without MFA, there is a higher probability of the account being compromised.',
-         'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html">AWS best practices</a> to configure MFA on your root account.',
-         'severity' : 'high',
-         'links' : [
-               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html',
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=13'
-         ],
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.10'
-               'AWS CIS v.1.2.0 - 1.2'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['password_enabled'] == 'true':
-                  evidence = {
-                     'user' : u['user']                 
-                  }
-                  if u['mfa_active'] == 'true':
-                     self.finding(policy,1,evidence)
-                  else:
-                     self.finding(policy,0,evidence)
-
-      # ------------------------------------------------------
       policy = {
          'name' : 'Ensure credentials unused for 45 days or greater are disabled',
          'description' : 'Credentials refer to passwords or access keys.',

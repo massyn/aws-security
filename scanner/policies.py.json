@@ -12,7 +12,7 @@
                   "https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet"
             ],
             "source" : "ec2.describe_subnets",
-            "filter" : "[?MapPublicIpOnLaunch == `true`].[SubnetId, AvailabilityZone]"
+            "filter" : "[?MapPublicIpOnLaunch == `true`].[{ SubnetId :SubnetId, AvailabilityZone : AvailabilityZone }]"
       },
       {
             "name" : "Lambda functions with depreciated runtimes",
@@ -27,7 +27,7 @@
                   "https://docs.aws.amazon.com/lambda/latest/dg/runtime-support-policy.html"
             ],
             "source" : "lambda.list_functions",
-            "filter" : "[?Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`].[FunctionName,Runtime,_region]"
+            "filter" : "[?Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`].[{ FunctionName : FunctionName, Runtime : Runtime, Region : _region }]"
       },
       {
             "name" : "Eliminate use of the root user for administrative and daily tasks",
@@ -44,7 +44,7 @@
                   "AWS CIS v1.2.0 - 1.1"
             ],
             "source" : "iam.get_credential_report[?user == `<root_account>`]",
-            "filter" : "[?_password_last_used_age < `90`].[user , password_last_used]"
+            "filter" : "[?_password_last_used_age < `90`].[{ UserName : user , password_last_used : password_last_used }]"
       },
       {
             "name" : "Ensure IAM users are managed centrally via identity federation or AWS Organizations for multi-account environments",
@@ -59,7 +59,38 @@
                   "AWS CIS v.1.4.0 - 1.21"
             ],
             "source" : "iam.get_credential_report[?user != `<root_account>`]",
-            "filter" : "[?password_enabled == 'true'].[user , password_enabled , password_last_used]"
-    
+            "filter" : "[?password_enabled == 'true'].[{ UserName : user , password_enabled : password_enabled , password_last_used : password_last_used }]"
+      },
+      {
+            "name" : "Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password",
+            "description" : "MFA (or <a href=\"https://en.wikipedia.org/wiki/Multi-factor_authentication\">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.",
+            "vulnerability" : "Without MFA, there is a higher probability of the account being compromised.",
+            "remediation" : "Follow the <a href=\"https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html\">AWS best practices</a> to configure MFA on your root account.",
+            "severity" : "high",
+            "links" : [
+                  "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html",
+                  "https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=13"
+            ],
+            "references" : [
+                  "AWS CIS v.1.4.0 - 1.10",
+                  "AWS CIS v.1.2.0 - 1.2"
+            ],
+            "source" : "iam.get_credential_report[?user != `<root_account>` && password_enabled == 'true']",
+            "filter" : "[?mfa_active != 'true'].[{ UserName : user , mfa_active : mfa_active , password_last_used : password_last_used }]"
+      },
+      {
+            "name" : "EC2 instance with a public IP address",
+            "description" : "EC2 instances with public IP addresses are more exposed to the internet.  Even when a system only has limited ports open, the protection then shifts to the application.",
+            "vulnerability" : "By not restricting an EC2 instance behind a load balancer, the entire subnet is being put at risk in the event of a system or application compromise.",
+            "remediation" : "Implement a secure design, placing all EC2 instances in private subnets, and segregate the internet access with a load balancer and (or) a WAF",
+            "links" : [
+                  "https://aws.amazon.com/architecture/well-architected/"
+            ],
+            "references" : [
+                  "ASI.NET.004"
+            ],
+            "source" : "ec2.describe_instances[?State.Name == 'running']",
+            "filter" : "[?PublicIpAddress != `null`][ {InstanceId : InstanceId , AvailabilityZone : Placement.AvailabilityZone, PublicIpAddress : PublicIpAddress}]"
       }
+
 ]
