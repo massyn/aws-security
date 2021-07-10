@@ -80,15 +80,63 @@ class policies:
       '''
       result = {}
       parameters = [
-         [ 'lambda'  ,'list_functions'       , 'Functions'                 ],
-         [ 'ec2'     ,'describe_instances'   ,['Reservations','Instances'] ],
-         [ 'ec2'     ,'describe_subnets'     , 'Subnets'                   ],
-         [ 'iam'     ,'get_credential_report' , None]
+         #  client     function                       key to filter on           item indexed
+         [ 'lambda'  ,'list_functions'             , 'Functions'                 ,False],
+         [ 'ec2'     ,'describe_instances'         ,['Reservations','Instances'] ,False],
+         [ 'ec2'     ,'describe_subnets'           , 'Subnets'                   ,False],
+         [ 'iam'     ,'get_credential_report'      , None                        ,False],
+         [ 'iam'     ,'list_virtual_mfa_devices'   ,'VirtualMFADevices'          ,False],
+         [ 'iam'     ,'list_user_policies'         , 'PolicyNames'               ,True],
+         [ 'iam'     ,'list_attached_user_policies', 'AttachedPolicies'          ,True]
+         
       ]
-      for (client,function,key) in parameters:
+      for (client,function,key,item) in parameters:
          if not client in result:
             result[client] = {}
-         result[client][function] = self.flatten(client,function,key)
+         if item == False:
+            result[client][function] = self.flatten(client,function,key)
+         else:
+            if function not in result[client]:
+               result[client][function] = {}
+
+            for region in self.cache[client][function]:
+               for itemKey in self.cache[client][function][region]:
+                  if not itemKey in result[client][function]:
+                     result[client][function][itemKey] = []
+                  for x in self.cache[client][function][region][itemKey]:
+                     for y in x[key]:
+                        result[client][function][itemKey].append(y)
+
+      # == merging
+      parameters = [
+         [ 'iam'     ,  'get_credential_report' , 'arn' ,               'iam','list_virtual_mfa_devices','[?User.Arn==\'%KEY%\']']
+      ]
+      for (client,function,key,joined_client,joined_function,onKey) in parameters:
+         new = []
+         for blob in result[client][function]:
+            theKey = jmespath.search(key,blob)
+            myKey = onKey.replace('%KEY%',theKey)
+            r = jmespath.search(myKey,result[joined_client][joined_function])
+            if len(r) >= 1:
+               blob[joined_function] = r[0]
+            else:
+               blob[joined_function] = {}
+
+            new.append(blob)
+         result[client][function] = new
+
+      # == merge user accounts
+      new = []
+      for blob in result['iam']['get_credential_report']:
+         blob['list_user_policies'] = result['iam']['list_user_policies'].get(blob['user'],{})
+         blob['_list_user_policies_count'] = len(blob['list_user_policies'])
+         blob['list_attached_user_policies'] = result['iam']['list_attached_user_policies'].get(blob['user'],{})
+         blob['_list_attached_user_policies_count'] = len(blob['list_attached_user_policies'])
+         new.append(blob)
+
+      result['iam']['get_credential_report'] = new
+
+      #print(json.dumps(result,indent=4))
       return result
 
    def execute(self):
@@ -110,7 +158,8 @@ class policies:
             for a in range(0,len(source)-len(broken)):
                self.finding(pl,1,None)
             
-            if pl['name'] == 'NO REFERENCE - DEBUG':
+            # == this DEBUG code only exists to help troubleshoot new policy rules
+            if 'DEBUG' in pl['name']:
                print('********** SOURCE ************')
                print(json.dumps(source,indent=4))
                
@@ -123,113 +172,6 @@ class policies:
       regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions'].get('us-east-1',{})['Regions']]
       accountId = self.cache.get('sts',{}).get('get_caller_identity',{}).get('us-east-1',{})['Account']
       
-      # ---------------------------------------------------
-      
-      policy = {
-         'name' : 'Ensure credentials unused for 45 days or greater are disabled',
-         'description' : 'Credentials refer to passwords or access keys.',
-         'vulnerability' : 'Unused credentials indicate a user account that may not be in use.  Accounts that are not in use should be removed to reduce the risk of account compromise.',
-         'severity' : 'high',
-         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html">AWS Best practices</a> to remove unused credentials',
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.12'
-         ],
-         'links' : [
-               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html',
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=16'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            # -- console password
-            if u['password_enabled'] == 'true':
-                  evidence = {
-                     'user' : u['user'],
-                     'password_last_used' : u['password_last_used']
-                  }
-                  if u['_password_last_used_age'] > 45 or u['_password_last_used_age'] == -1:
-                     self.finding(policy,0,evidence)
-                  else:
-                     self.finding(policy,1,evidence)
-
-            # -- access key 1
-            if u['access_key_1_active'] == 'true':
-                  evidence = {
-                     'user' : u['user'],
-                     'access_key_1_last_used_date' : u['access_key_1_last_used_date']
-                  }
-                  if u['_access_key_1_last_used_date_age'] > 45 or u['_access_key_1_last_used_date_age'] == -1:
-                     self.finding(policy,0,evidence)
-                  else:
-                     self.finding(policy,1,evidence)
-
-            # -- access key 2
-            if u['access_key_2_active'] == 'true':
-                  evidence = {
-                     'user' : u['user'],
-                     'access_key_2_last_used_date' : u['access_key_2_last_used_date']
-                  }
-                  if u['_access_key_2_last_used_date_age'] > 45 or u['_access_key_2_last_used_date_age'] == -1:
-                     self.finding(policy,0,evidence)
-                  else:
-                     self.finding(policy,1,evidence)
-
-      # ------------------------------------------------------
-      policy = {
-         'name' : 'Ensure there is only one active access key available for any single IAM user',
-         'description' : 'Access keys are long-term credentials for an IAM user or the AWS account root user. You can use access keys to sign programmatic requests to the AWS CLI or AWS API (directly or using the AWS SDK).',
-         'vulnerability' : 'Access keys are long-term credentials for an IAM user or the AWS account root user. You can use access keys to sign programmatic requests to the AWS CLI or AWS API. One of the best ways to protect your account is to not allow users to have multiple access keys.',
-         'severity' : 'high',
-         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html">AWS Best practices</a> to remove unused credentials',
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.13'
-         ],
-         'links' : [
-               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html'
-         ]
-      }
-
-      for U in p['iam']['list_users'].get('us-east-1',{}):
-         for u in U['Users']:
-            activeKeys = 0
-            evidence = []
-
-            for A in p['iam']['list_access_keys'].get('us-east-1',{})[u['UserName']]:
-               for a in A['AccessKeyMetadata']:
-                  evidence.append(a)
-                  if a['Status'] == 'Active':
-                     activeKeys += 1
-            self.finding(policy,activeKeys <= 1,evidence)
-
-      # ------------------------------------------------------
-      policy = {
-         'name'  : 'Ensure that all the expired SSL/TLS certificates stored in AWS IAM are removed',
-         'description' : 'To enable HTTPS connections to your website or application in AWS, you need an SSL/TLS server certificate. You can use ACM or IAM to store and deploy server certificates. Use IAM as a certificate manager only when you must support HTTPS connections in a region that is not supported by ACM. IAM securely encrypts your private keys and stores the encrypted version in IAM SSL certificate storage. IAM supports deploying server certificates in all regions, but you must obtain your certificate from an external provider for use with AWS. You cannot upload an ACM certificate to IAM. Additionally, you cannot manage your certificates from the IAM Console.',
-         'vulnerability' : 'Removing expired SSL/TLS certificates eliminates the risk that an invalid certificate will be deployed accidentally to a resource such as AWS Elastic Load Balancer (ELB), which can damage the credibility of the application/website behind the ELB. As a best practice, it is recommended to delete expired certificates.',
-         'severity' : 'medium',
-         'remediation' : 'Follow <a href="https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/">AWS Best practices</a> to rotate access keys.',
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.19'
-         ],
-         'links' : [
-            'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_server-certs.html',
-            'https://docs.aws.amazon.com/cli/latest/reference/iam/delete-server-certificate.html'
-         ]
-      }
-
-      for c in p['iam']['list_server_certificates']['us-east-1']:
-         for cert in c['ServerCertificateMetadataList']:
-            if (dateutil.parser.parse(cert['Expiration']) - dt.datetime.now().astimezone()).total_seconds() > 0:
-               self.finding(policy,1,cert)
-            else:
-               self.finding(policy,0,cert)
-
-      if not policy['name'] in self.findings:
-         self.finding(policy,1)
-
-
       # ------------------------------------------------------
       policy = {
          'name'  : 'Ensure MFA Delete is enable on S3 buckets',
@@ -434,48 +376,6 @@ class policies:
       
       # ------------------------------------------------------
       policy = {
-         'name'  : 'Ensure access keys are rotated every 90 days or less',
-         'description' : 'Rotating access keys is a security best practice to reduce the likelihood of account compromise.',
-         'vulnerability' : 'Aging access keys, just like passwords, need to be rotated to reduce the risk of credentials leaking to unauthorised users, resulting in account compromise.',
-         'severity' : 'medium',
-         'remediation' : 'Follow <a href="https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/">AWS Best practices</a> to rotate access keys.',
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.14',
-               'AWS CIS v.1.2.0 - 1.4'
-         ],
-         'links' : [
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=18',
-               'https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/'
-         ]
-      }
-
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            # -- access key 1
-            if u['access_key_1_active'] == 'true':
-                  evidence = {
-                     'user' : u['user'],
-                     'access_key_1_last_rotated' : u['access_key_1_last_rotated']
-                  }
-                  if u['_access_key_1_last_rotated_age'] > 90 or u['_access_key_1_last_rotated_age'] == -1:
-                     self.finding(policy,0,evidence)
-                  else:
-                     self.finding(policy,1,evidence)
-
-            # -- access key 2
-            if u['access_key_2_active'] == 'true':
-                  evidence = {
-                     'user' : u['user'],
-                     'access_key_2_last_rotated' : u['access_key_2_last_rotated']
-                  }
-                  if u['_access_key_2_last_rotated_age'] > 90 or u['_access_key_2_last_rotated_age'] == -1:
-                     self.finding(policy,0,evidence)
-                  else:
-                     self.finding(policy,1,evidence)
-      # ------------------------------------------------------
-      policy = {
          'name' : 'Ensure IAM password policy requires minimum length of 14 or greater',
          'description' : 'IAM Password Policy specifies the password complexity requirements for the AWS IAM users.',
          'vulnerability' : 'Weak password policies will cause users to select weak, easy to guess passwords.',
@@ -584,135 +484,6 @@ class policies:
 
       # ------------------------------------------------------
       policy = {
-         'name' : 'Ensure no root account access key exists',
-         'description' : '<a href="https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html">Access keys</a> allow programatic access to your AWS account.  When the access keys are not well protected, it can allow unauthorised access to your AWS account.',
-         'remediation' : 'Remove the root access keys.  <a href="https://docs.aws.amazon.com/general/latest/gr/managing-aws-access-keys.html">More information</a>',
-         'vulnerability' : 'Access keys provide access to the AWS account without having to use a password or multi-factor authentication.  They can end up in source code, and pose a significant risk if not managed correctly.',
-         'severity' : 'critical',
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.4'
-               'AWS CIS v.1.2.0 - 1.12'
-         ],
-         'links' : [
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=34',
-               'https://docs.aws.amazon.com/general/latest/gr/managing-aws-access-keys.html'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['user'] == '<root_account>':
-                  evidence = {
-                     'key'   : '1',
-                     'access_key_1_last_rotated' : u['access_key_1_last_rotated']
-                  }
-                  if u['access_key_1_last_rotated'] == 'N/A':
-                     self.finding(policy,1,evidence)
-                  else:
-                     self.finding(policy,0,evidence)
-
-                  evidence = {
-                     'key'   : '2',
-                     'access_key_1_last_rotated' : u['access_key_1_last_rotated']
-                  }
-                  if u['access_key_2_last_rotated'] == 'N/A':
-                     self.finding(policy,1,evidence)
-                  else:
-                     self.finding(policy,0,evidence)
-
-      # ------------------------------------------------------
-      policy = {
-         'name' : 'Ensure MFA is enabled for the "root" account',
-         'description' : 'The <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html">root user</a> is the highest privileged, unrestricted account within your AWS landscape.  It has to be securely protected.',
-         'vulnerability' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.  This reduces the likelihood of the account being compromised due to the loss of the root username and password.',
-         'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa">AWS best practices</a> to configure MFA on your root account.',
-         'severity' : 'critical',
-         'links' : [
-               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_enable_virtual.html#enable-virt-mfa-for-root',
-               'https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security'
-         ],
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.5',
-               'AWS CIS v.1.2.0 - 1.13',
-               'Trusted Advisor - Multi-factor authentication on root account'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['user'] == '<root_account>':
-                  if u['mfa_active'] == 'true':
-                     self.finding(policy,1)
-                  else:
-                     self.finding(policy,0)
-
-      # ------------------------------------------------------
-      policy = {
-         'name' : 'Ensure hardware MFA is enabled for the "root" account',
-         'description' : 'Protecting the root account with a hardware MFA token to increase security with protecting the credentials.',
-         'vulnerability' : 'MFA (or <a href="https://en.wikipedia.org/wiki/Multi-factor_authentication">multi factor authentication</a>) refers to using an additional factor (like a security fob or a one-time password), in addition to the regular username and password to gain access to an account.  This reduces the likelihood of the account being compromised due to the loss of the root username and password.',
-         'remediation' : 'Follow the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa">AWS best practices</a> to configure MFA on your root account.',
-         'severity' : 'high',
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.6',
-               'AWS CIS v.1.2.0 - 1.14'
-         ],
-         'links' : [
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=38'
-         ]
-      }
-      if p['iam']['get_account_summary'].get('us-east-1',{})['SummaryMap']['AccountMFAEnabled'] == 1:
-         isVirtual = False
-         for q in p['iam']['list_virtual_mfa_devices'].get('us-east-1',{}):
-            for v in q['VirtualMFADevices']:
-               if 'arn:aws:iam::{accountId}:mfa/root-account-mfa-device'.format(accountId = accountId) == v['SerialNumber']:
-                  isVirtual = True
-         if isVirtual == False:
-            self.finding(policy,1,{'Result' : 'Hardware token found'})
-         else:
-            self.finding(policy,0,{'Result' : 'Virtual MFA device found - non-compliant'})
-
-      else:
-         self.finding(policy,0,{'Result' : 'No MFA found'})
-
-      # ------------------------------------------------------
-      policy = {
-         'name' : 'Ensure IAM Users Receive Permissions Only Through Groups',
-         'description' : 'Controlling access for users should be done through groups.',
-         'vulnerability' : 'Attaching policies directly to user accounts will obfuscate the access a user will have, and can result in permission creep.',
-         'remediation' : 'Create IAM groups for each job function, and <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups_manage_add-remove-users.html">add the users to the groups</a>.',
-         'severity' : 'low',
-
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.15',
-               'AWS CIS v.1.2.0 - 1.16'
-         ],
-         'links' : [
-               'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups_manage_add-remove-users.html',
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=43'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['user'] != '<root_account>':
-                  
-                  evidence = {
-                     u['user'] : {
-                        'list_user_policies' : p['iam']['list_user_policies'].get('us-east-1',{}).get(u['user']),
-                        'list_attached_user_policies' : p['iam']['list_attached_user_policies'].get('us-east-1',{})[u['user']]
-                     }
-                  }
-                  if len(p['iam']['list_user_policies'].get('us-east-1',{}).get(u['user'],[])) + len(p['iam']['list_attached_user_policies'].get('us-east-1',{}).get(u['user'],[])) == 0:
-                     self.finding(policy,1,evidence)
-                  else:
-                     self.finding(policy,0,evidence)
-
-      # ------------------------------------------------------
-      policy = {
          'name' : 'Ensure IAM instance roles are used for AWS resource access from instances',
          'description' : 'AWS IAM roles reduce the risks associated with sharing and rotating credentials that can be used outside of AWS itself. If credentials are compromised, they can be used from outside of the AWS account they give access to. In contrast, in order to leverage role permissions an attacker would need to gain and maintain access to a specific instance to use the privileges associated with it.',
          'vulnerability' : 'AWS access from within AWS instances can be done by either encoding AWS keys into AWS API calls or by assigning the instance to a role which has an appropriate permissions policy for the required access. "AWS Access" means accessing the APIs of AWS in order to access AWS resources or manage AWS account resources.',
@@ -723,24 +494,22 @@ class policies:
                'https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html'
          ],
          'references' : [
-               'AWS CIS v.1.4.0 - 1.18'
+               'AWS CIS v.1.4.0 - 1.18',
                'AWS CIS v.1.2.0 - 1.19'
          ]
       }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for region in regionList:
-            for e in self.cache['ec2']['describe_instances'][region]:
-               for R in e['Reservations']:
-                  for ec2 in R['Instances']:
-                     compliance = 0
-                     evidence = {region : ec2['InstanceId']}
-                     for II in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
-                        for ia in II['IamInstanceProfileAssociations']:
-                           if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
-                              compliance = 1   
-                        self.finding(policy,compliance,evidence)
+      
+      for region in regionList:
+         for e in self.cache['ec2']['describe_instances'][region]:
+            for R in e['Reservations']:
+               for ec2 in R['Instances']:
+                  compliance = 0
+                  evidence = {region : ec2['InstanceId']}
+                  for II in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
+                     for ia in II['IamInstanceProfileAssociations']:
+                        if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
+                           compliance = 1   
+                     self.finding(policy,compliance,evidence)
       # ------------------------------------------------------
       policy = {
          'name'  : 'Ensure a support role has been created to manage incidents with AWS Support',
@@ -796,41 +565,7 @@ class policies:
                                  compliance = 1
 
          self.finding(policy,compliance,evidence)
-      # ------------------------------------------------------
-      policy = {
-         'name'  : 'Do not setup access keys during initial user setup for all IAM users that have a console password',
-         'description' : 'IAM users can have multiple credentials, for example passwords, or access keys.',
-         'severity' : 'high',
-         'vulnerability' : 'Access to the AWS account needs to be restricted to avoid the account being compromised.  While having an access key is not strictly an issue, having access keys, and a console password would raise concerns on the multiple ways a user can gain access to the system, resulting in a potential breach if the credentials are not properly managed.  <b>Note</b> that while AWS CIS v.1.20 is specifically checking access keys created with user created, AWS Security Info will check for any console user that also has access keys.',
-         'remediation' : 'To remediate this issue, either remove the console password, or remove the access keys.',
-         'links' : [
-               'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=54'
-         ],
-         'references' : [
-               'AWS CIS v.1.4.0 - 1.11',
-               'AWS CIS v.1.2.0 - 1.21'
-         ]
-      }
-      if not 'get_credential_report' in p['iam']:
-         self.finding(policy,0,'credential report is not available')
-      else:
-         for u in p['iam']['get_credential_report'].get('us-east-1',{}):
-            if u['user'] != '<root_account>':
-                  evidence = {
-                     'user'                          : u['user'],
-                     'password_enabled'              : u['password_enabled'],
-                     'access_key_1_active'           : u['access_key_1_active'],
-                     'access_key_1_last_used_date'   : u['access_key_1_last_used_date'],
-                     'access_key_2_active'           : u['access_key_2_active'],
-                     'access_key_2_last_used_date'   : u['access_key_2_last_used_date']
-                  }
-
-                  if u['password_enabled'] == 'true' and (u['access_key_1_active'] == 'true' or u['access_key_2_active'] == 'true'):
-                     self.finding(policy,0,evidence)
-                  else:
-                     self.finding(policy,1,evidence)
-                     
-
+     
       # ------------------------------------------------------
       policy = {
          'name' : 'Ensure IAM policies that allow full "*:*" administrative privileges are not created',
@@ -1811,11 +1546,32 @@ class policies:
 
                               self.finding(policy, compliance , {'region' : region, 'type' : 'elbv2', 'LoadBalancerName' : elbv2['LoadBalancerName'] ,'SslPolicy' : listener.get('SslPolicy','')})
 
-      
-      
-      #print(json.dumps(self.findings,indent = 4,default=self.convert_timestamp))                    
-      # --------------------------------------------------------
+      # ----------------------------------
 
+      policy = {
+         'name'  : 'Ensure that all the expired SSL/TLS certificates stored in AWS IAM are removed',
+         'description' : 'To enable HTTPS connections to your website or application in AWS, you need an SSL/TLS server certificate. You can use ACM or IAM to store and deploy server certificates. Use IAM as a certificate manager only when you must support HTTPS connections in a region that is not supported by ACM. IAM securely encrypts your private keys and stores the encrypted version in IAM SSL certificate storage. IAM supports deploying server certificates in all regions, but you must obtain your certificate from an external provider for use with AWS. You cannot upload an ACM certificate to IAM. Additionally, you cannot manage your certificates from the IAM Console.',
+         'vulnerability' : 'Removing expired SSL/TLS certificates eliminates the risk that an invalid certificate will be deployed accidentally to a resource such as AWS Elastic Load Balancer (ELB), which can damage the credibility of the application/website behind the ELB. As a best practice, it is recommended to delete expired certificates.',
+         'severity' : 'medium',
+         'remediation' : 'Follow <a href="https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/">AWS Best practices</a> to rotate access keys.',
+         'references' : [
+               'AWS CIS v.1.4.0 - 1.19'
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_server-certs.html',
+            'https://docs.aws.amazon.com/cli/latest/reference/iam/delete-server-certificate.html'
+         ]
+      }
+
+      for c in p['iam']['list_server_certificates']['us-east-1']:
+         for cert in c['ServerCertificateMetadataList']:
+            if (dateutil.parser.parse(cert['Expiration']) - dt.datetime.now().astimezone()).total_seconds() > 0:
+               self.finding(policy,1,cert)
+            else:
+               self.finding(policy,0,cert)
+
+      if not policy['name'] in self.findings:
+         self.finding(policy,1)
 
    # ======================================================================================
    def parsePermissions(self):

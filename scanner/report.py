@@ -96,7 +96,7 @@ This document is classified as <b>strictly private and confidential</b>.
 <h3>Executive Summary</h3>
 <p>Total of <b>{globalok}</b> out of <b>{globaltotal}</b> resources do not have any known configuration issues.</p>
 {globalpcthtmlbar}
-<p><i>DISCLAIMER : The reported percentage reported is purely arbitrary and should only be used as an indicator.  It should be noted that even solutions with scores above 90% can still be comprormised.</i></p>
+<p><i>DISCLAIMER : The reported percentage reported is purely arbitrary and should only be used as an indicator.  It should be noted that even solutions with scores above 90% may still be at risk of being comprormised.</i></p>
 
 '''.format(
       date = self.cache['sts']['get_caller_identity']['us-east-1']['ResponseMetadata']['HTTPHeaders']['date'],
@@ -111,40 +111,55 @@ This document is classified as <b>strictly private and confidential</b>.
       severities = {
         'critical' : {
           'html' : '<td width={w} bgcolor=#000000 style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>CRITICAL</font></td>'.format(w=w),
-          'count' : 0
+          'count' : 0, 'ok' : 0
         },
         'high' : {
           'html' : '<td width={w} bgcolor=#C00000 style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>HIGH</font></td>'.format(w=w),
-          'count' : 0
+          'count' : 0, 'ok' : 0
         },
         'medium' : {
           'html' : '<td width={w} bgcolor=#CCCC00 style="text-align: center; vertical-align: middle;"><font color=#000000>MEDIUM</font></td>'.format(w=w),
-          'count' : 0
+          'count' : 0, 'ok' : 0
         },
         'low' : {
           'html' : '<td width={w} bgcolor=#0066CC style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>LOW</font></td>'.format(w=w),
-          'count' : 0
+          'count' : 0, 'ok' : 0
         },
         'info' : {
           'html'  : '<td width={w} bgcolor=#00CCFF style="text-align: center; vertical-align: middle;"><font color=#000000>INFO</font></td>'.format(w=w),
-          'count' : 0
+          'count' : 0, 'ok' : 0
+        },
+        'ok' : {
+          'html'  : '<td width={w} bgcolor=#00B050 style="text-align: center; vertical-align: middle;"><font color=#FFFFFF>OK</font></td>'.format(w=w),
+          'count' : 0, 'ok' : 0
         }
+
       }
 
-      content = content + '<h3>Criticality count</h3>'
-      content = content + '<table>'
+      content += '<h3>Criticality count</h3>'
+      content += '<table>'
+      content += '<tr><th>Severity</th><th>OK count</th><th>Issue count</th><th>Impact</th></tr>'
 
       for s in severities:
             for policy in self.data:
                   if self.data[policy]['severity'] == s:
-                    severities[s]['count'] += len(self.data[policy][0])
-                    
-      for s in severities:                    
-        content = content + '<tr>' + severities[s]['html'] + '<td>' + str(severities[s]['count']) + '</td><td>' + self.htmlbar(severities[s]['count'] / globalerr * 100) + '</td></tr>'
-            
-      content = content + '<table>'
+                    totalerr = len(self.data[policy][0])
+                    totalok = len(self.data[policy][1])
+                    pct = totalok / (totalok + totalerr) * 100
+                    if pct == 100:
+                      severities['ok']['count'] += len(self.data[policy][0])
+                      severities['ok']['ok'] += len(self.data[policy][1])
+                    else:
+                      severities[s]['count'] += len(self.data[policy][0])
+                      severities[s]['ok'] += len(self.data[policy][1])
 
-      content = content + '''
+      
+      for s in severities:                    
+        content += '<tr>' + severities[s]['html'] + '<td>' + str(severities[s]['ok']) + '</td><td>' + str(severities[s]['count']) + '</td><td>' + self.htmlbar(severities[s]['count'] / globalerr * 100) + '</td></tr>'
+            
+      content += '<table>'
+
+      content += '''
       <h2>Disclaimer</h2>
 <p>The AWS cloud vulnerability test that existed as of <b>{date}</b>. Information security threats are continually changing, with new vulnerabilities discovered on a daily basis, and no solution or cloud account can ever be 100% secure no matter how much security testing is conducted. 
 This report is intended only to provide documentation on potential issues that may exist in AWS account <b>{account}</b>.  It is still the account owner's responsibility to perform any triage and remediation actions based on the recommendations in this report.</p>
@@ -162,8 +177,9 @@ AWS Security Info is provided free of charge under an open source model.  The on
       account = self.cache['sts']['get_caller_identity']['us-east-1']['Account'])
 
       # -- table
-      content = content + '<h2 id="top">Summary</h2>'
-      content = content + '<table border=1>'
+      content += '<h2 id="top">Summary</h2>'
+      content += '<table border=1>'
+      content_ok = ''
       for severity in severities:
         for policy in self.data:
           if self.data[policy]['severity'] == severity:
@@ -171,19 +187,25 @@ AWS Security Info is provided free of charge under an open source model.  The on
             totalok = len(self.data[policy][1])
             pct = totalok / (totalok + totalerr) * 100
 
-            if pct != 100 or self.showall == True:
-              content = content + '<tr>{sev}<td><a href="#{policy}">{policy}</a></td><td>{totalok} / {total}</td><td>{pct}</td></tr>'.format(policy = policy,
-                  totalerr = totalerr,
-                  totalok = totalok,
-                  total = totalok + totalerr,
-                  pct = self.htmlbar(pct),
-                  sev = severities[self.data[policy]['severity']]['html']
-              )
-      content = content + '</table>'
+            line = '<tr>{sev}<td><a href="#{policy}">{policy}</a></td><td>{totalok} / {total}</td><td>{pct}</td></tr>'.format(policy = policy,
+                totalerr = totalerr,
+                totalok = totalok,
+                total = totalok + totalerr,
+                pct = self.htmlbar(pct),
+                sev = severities[self.data[policy]['severity']]['html'] if pct < 100 else severities['ok']['html']
+            )
 
-      content = content + '<h2>Detail</h2>'
+            if pct != 100 or self.showall == True:
+              if pct == 100:
+                content_ok += line
+              else:
+                content += line
+
+      content += content_ok + '</table>'
+
+      content += '<h2>Detail</h2>'
       for severity in severities:
-        #content = content + '<table border=1><tr>' + severities[severity]['html'] + '</tr></table>'
+        #content += '<table border=1><tr>' + severities[severity]['html'] + '</tr></table>'
 
         for policy in self.data:
               if self.data[policy]['severity'] == severity:
@@ -206,7 +228,7 @@ AWS Security Info is provided free of charge under an open source model.  The on
                 non = self.data[policy][0]
 
                 if pct != 100 or self.showall == True:
-                  content = content + '''
+                  content += '''
                      
                       <table border=0><tr>{severityhtml}<td><h3 id="{policy}">{policy}</h3><p>{htmlbar}</p></td></tr></table>
                       
