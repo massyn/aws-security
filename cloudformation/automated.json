@@ -15,7 +15,8 @@
         "s3Bucket" : {
             "Type" : "String",
             "Default" : "Replace this with a unique S3 bucket name",
-            "Description" : "Create a new S3 bucket where the reports will be stored."
+            "Description" : "Create a new S3 bucket where the reports will be stored.",
+            "AllowedPattern" : ".+"
         },
         "ImageId" : {
             "Type" : "String",
@@ -25,6 +26,16 @@
         "SlackWebhook" : {
             "Type" : "String",
             "Description" : "Provide a Slack Webhook if you want to get feedback through a Slack channel on the outcome of the scanner."
+        },
+        "cron" : {
+            "Type" : "String",
+            "Default" : "cron(0 12 * * ? *)",
+            "Description" : "Specify the schedule at which the event will trigger."
+        },
+        "additional" : {
+            "Type" : "String",
+            "Default" : "--organization OrganizationAccountAccessRole --regions ap-southeast-2",
+            "Description" : "You can specify some additional paramaters to pass to the script.  Empty this out if you don't want any additional options."
         }
     },
     "Resources" : {
@@ -202,9 +213,10 @@
                 "Role": { "Fn::GetAtt": [ "myLambdaExecutionRole", "Arn" ] },
                 "Description" : "AWS Security Info - spawn a spot instance",
                 "Code": {
-                    "ZipFile": "# This is the code embedded in the automated Lambda function\nimport boto3\nimport base64\nimport os\nimport json\ndef lambda_handler(event, context):\n    \n    IamInstanceProfile  = os.environ['IamInstanceProfile']\n    ImageId             = os.environ['ImageId']\n    SecurityGroup       = os.environ['SecurityGroup']\n    SubnetId            = os.environ['SubnetId']\n    S3Bucket            = os.environ['S3Bucket']\n    SlackWebhook        = os.environ['SlackWebhook']\n    \n    print('IamInstanceProfile   = ' + IamInstanceProfile)\n    print('ImageId              = ' + ImageId)\n    print('SecurityGroup        = ' + SecurityGroup)\n    print('SubnetId             = ' + SubnetId)\n    print('S3Bucket             = ' + S3Bucket)\n    print('SlackWebhook         = ' + SlackWebhook)\n    UserData = '''#!/bin/bash\nexport instanceId=`curl -q http://169.254.169.254/latest/dynamic/instance-identity/document |grep instanceId | awk {'print \\$3'} | cut -b 2-20`\n[[ ! -z \"{SlackWebhook}\" ]] && /usr/bin/curl -X POST -H 'Content-type: application/json' --data '{\"text\":\":racing_motorcycle: AWS Security Info instance $instanceId has been created.\"}' {SlackWebhook}\nexport dte=`date '+%Y/%m/%d'`\nyum update -y\nyum install python3 -y\nyum install git -y\nyum install awscli -y\npip3 install boto3\ncd /tmp\nmkdir /tmp/secreport\ngit clone http://github.com/massyn/aws-security\npython3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html /tmp/secreport/%a.html --slack {SlackWebhook} > /tmp/secreport/output.log 2>&1\naws s3 cp /tmp/secreport/ s3://{S3Bucket}/$dte/ --recursive\n# -- do a shutdown now\n#shutdown now\n'''.format(S3Bucket = S3Bucket, SlackWebhook = SlackWebhook)\n    instance = boto3.client(\n        'ec2',\n        region_name = 'us-east-1'\n    ).request_spot_instances(\n        InstanceCount=1,\n        LaunchSpecification={\n            'BlockDeviceMappings': [\n                {\n                    'DeviceName' : '/dev/xvda',\n                    'Ebs': {\n                        'DeleteOnTermination': True,\n                        'VolumeSize': 8,\n                        'VolumeType': 'gp2'\n                    }\n                }\n            ],\n            'IamInstanceProfile': { 'Name': IamInstanceProfile },\n            'ImageId': ImageId,\n            'InstanceType': 't2.micro',\n            'NetworkInterfaces': [\n                {\n                    'DeviceIndex' : 0,\n                    'AssociatePublicIpAddress': True,\n                    'DeleteOnTermination': True,\n                    'Groups': [ SecurityGroup ],\n                    'SubnetId' : SubnetId\n                },\n            ],\n            'Placement': { 'Tenancy': 'default' },\n            'UserData': base64.b64encode(UserData.encode('ascii')).decode('ascii'),\n        },\n        Type='one-time',\n        InstanceInterruptionBehavior='terminate'\n    )\n    print(instance)\n    return { 'statusCode': 200, 'body': 'ok' }\n"
+                    "ZipFile": "# This is the code embedded in the automated Lambda function\nimport boto3\nimport base64\nimport os\nimport json\ndef lambda_handler(event, context):\n    \n    IamInstanceProfile  = os.environ['IamInstanceProfile']\n    ImageId             = os.environ['ImageId']\n    SecurityGroup       = os.environ['SecurityGroup']\n    SubnetId            = os.environ['SubnetId']\n    S3Bucket            = os.environ['S3Bucket']\n    SlackWebhook        = os.environ['SlackWebhook']\n    additional          = os.environ['additional']\n    \n    print('IamInstanceProfile   = ' + IamInstanceProfile)\n    print('ImageId              = ' + ImageId)\n    print('SecurityGroup        = ' + SecurityGroup)\n    print('SubnetId             = ' + SubnetId)\n    print('S3Bucket             = ' + S3Bucket)\n    print('SlackWebhook         = ' + SlackWebhook)\n    print('additional           = ' + additional)\n    print('')\n    UserData = '''#!/bin/bash\nexport dte=`date '+%Y/%m/%d'`\nyum update -y\nyum install python3 git awscli -y\npip3 install boto3\ncd /tmp\nmkdir /tmp/secreport\ngit clone http://github.com/massyn/aws-security\npython3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html s3://{S3Bucket}/$dte/%a.html --slack {SlackWebhook} {additional}> /tmp/secreport/output.log 2>&1\naws s3 cp /tmp/secreport/ s3://{S3Bucket}/$dte/ --recursive\n# -- do a shutdown now\nshutdown now\n'''.format(S3Bucket = S3Bucket, SlackWebhook = SlackWebhook, additional = additional)\n    instance = boto3.client(\n        'ec2',\n        region_name = 'us-east-1'\n    ).request_spot_instances(\n        InstanceCount=1,\n        LaunchSpecification={\n            'BlockDeviceMappings': [\n                {\n                    'DeviceName' : '/dev/xvda',\n                    'Ebs': {\n                        'DeleteOnTermination': True,\n                        'VolumeSize': 8,\n                        'VolumeType': 'gp2'\n                    }\n                }\n            ],\n            'IamInstanceProfile': { 'Name': IamInstanceProfile },\n            'ImageId': ImageId,\n            'InstanceType': 't2.micro',\n            'NetworkInterfaces': [\n                {\n                    'DeviceIndex' : 0,\n                    'AssociatePublicIpAddress': True,\n                    'DeleteOnTermination': True,\n                    'Groups': [ SecurityGroup ],\n                    'SubnetId' : SubnetId\n                },\n            ],\n            'Placement': { 'Tenancy': 'default' },\n            'UserData': base64.b64encode(UserData.encode('ascii')).decode('ascii'),\n        },\n        Type='one-time',\n        InstanceInterruptionBehavior='terminate'\n    )\n    print(instance)\n    return { 'statusCode': 200, 'body': 'ok' }\n"
                 },
                 "Runtime": "python3.8",
+                "FunctionName": { "Fn::Sub": "${AWS::StackName}-AWSSecurityTrigger" },
                 "Timeout": 25,
                 "TracingConfig": { "Mode": "Active" },
                 "Environment" : {
@@ -214,9 +226,31 @@
                         "S3Bucket"              : { "Ref" : "s3Bucket" },
                         "IamInstanceProfile"    : { "Ref" : "myEC2InstanceProfile"},
                         "SecurityGroup"         : { "Ref" : "mySecurityGroup" },
-                        "SubnetId"              : { "Ref" : "mySubnet"}
+                        "SubnetId"              : { "Ref" : "mySubnet"},
+                        "additional"            : { "Ref" : "additional"}
                     }
                 }
+            }
+        },
+        "myEventSchedule" : {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "Scheduled event to trigger the Lambda function",
+                "ScheduleExpression" : { "Ref" : "cron" },
+                "State": "ENABLED",
+                "Targets": [{ 
+                    "Arn": { "Fn::GetAtt": [ "myLambdaFunction", "Arn" ] },
+                    "Id" : { "Fn::Sub": "${AWS::StackName}-AWSSecurityTrigger" }
+                } ]
+            }
+        },
+        "myEventPermissions" : {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": { "Ref": "myLambdaFunction" },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": { "Fn::GetAtt": ["myEventSchedule", "Arn"] }
             }
         }
     }

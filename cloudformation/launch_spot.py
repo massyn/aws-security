@@ -13,6 +13,7 @@ def lambda_handler(event, context):
     SubnetId            = os.environ['SubnetId']
     S3Bucket            = os.environ['S3Bucket']
     SlackWebhook        = os.environ['SlackWebhook']
+    additional          = os.environ['additional']
     
     print('IamInstanceProfile   = ' + IamInstanceProfile)
     print('ImageId              = ' + ImageId)
@@ -20,29 +21,26 @@ def lambda_handler(event, context):
     print('SubnetId             = ' + SubnetId)
     print('S3Bucket             = ' + S3Bucket)
     print('SlackWebhook         = ' + SlackWebhook)
+    print('additional           = ' + additional)
+    print('')
 
     UserData = '''#!/bin/bash
-export instanceId=`curl -q http://169.254.169.254/latest/dynamic/instance-identity/document |grep instanceId | awk {'print \$3'} | cut -b 2-20`
-[[ ! -z "{SlackWebhook}" ]] && /usr/bin/curl -X POST -H 'Content-type: application/json' --data '{"text":":racing_motorcycle: AWS Security Info instance $instanceId has been created."}' {SlackWebhook}
-
 export dte=`date '+%Y/%m/%d'`
 
 yum update -y
-yum install python3 -y
-yum install git -y
-yum install awscli -y
+yum install python3 git awscli -y
 pip3 install boto3
 
 cd /tmp
 mkdir /tmp/secreport
 git clone http://github.com/massyn/aws-security
 
-python3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html /tmp/secreport/%a.html --slack {SlackWebhook} > /tmp/secreport/output.log 2>&1
+python3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html s3://{S3Bucket}/$dte/%a.html --slack {SlackWebhook} {additional}> /tmp/secreport/output.log 2>&1
 aws s3 cp /tmp/secreport/ s3://{S3Bucket}/$dte/ --recursive
 
 # -- do a shutdown now
-#shutdown now
-'''.format(S3Bucket = S3Bucket, SlackWebhook = SlackWebhook)
+shutdown now
+'''.format(S3Bucket = S3Bucket, SlackWebhook = SlackWebhook, additional = additional)
 
     instance = boto3.client(
         'ec2',
