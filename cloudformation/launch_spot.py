@@ -5,6 +5,7 @@ import base64
 import os
 import json
 
+
 def lambda_handler(event, context):
     
     IamInstanceProfile  = os.environ['IamInstanceProfile']
@@ -12,6 +13,12 @@ def lambda_handler(event, context):
     SecurityGroup       = os.environ['SecurityGroup']
     SubnetId            = os.environ['SubnetId']
     S3Bucket            = os.environ['S3Bucket']
+    
+    print('IamInstanceProfile   = ' + IamInstanceProfile)
+    print('ImageId              = ' + ImageId)
+    print('SecurityGroup        = ' + SecurityGroup)
+    print('SubnetId             = ' + SubnetId)
+    print('S3Bucket             = ' + S3Bucket)
 
     UserData = '#!/bin/bash\n'
     UserData += 'export BUCKET=' + S3Bucket + '\n'
@@ -24,6 +31,7 @@ yum install python3 -y
 yum install git -y
 yum install awscli -y
 pip3 install boto3
+
 cd /tmp
 mkdir /tmp/secreport
 git clone http://github.com/massyn/aws-security
@@ -35,6 +43,7 @@ aws s3 cp /tmp/secreport/* s3://$BUCKET/$dte/
 #shutdown now
 '''
 
+    
     instance = boto3.client(
         'ec2',
         region_name = 'us-east-1'
@@ -64,12 +73,18 @@ aws s3 cp /tmp/secreport/* s3://$BUCKET/$dte/
                 },
             ],
             'Placement': { 'Tenancy': 'default' },
-            'UserData': base64.b64encode(UserData.encode('ascii')).decode('ascii')
+            'UserData': base64.b64encode(UserData.encode('ascii')).decode('ascii'),
+            
+            
+            'KeyName': 'us-east-1',
+            
+            
         },
         Type='one-time',
         InstanceInterruptionBehavior='terminate'
     )
+    print(instance)
 
-    return { 'statusCode': 200, 'body': json.dumps(instance) }
+    return { 'statusCode': 200, 'body': 'ok' }
 
 

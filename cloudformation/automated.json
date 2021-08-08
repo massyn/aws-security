@@ -28,6 +28,10 @@
         }
     },
     "Resources" : {
+        "myIGW" : {
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {}
+         },
         "myVPC" : {
             "Type" : "AWS::EC2::VPC",
             "Properties" : {
@@ -37,13 +41,45 @@
                 "InstanceTenancy" : "default"
             }
         },
+        "myIGWtoVPCattachment" : {
+            "Type" : "AWS::EC2::VPCGatewayAttachment",
+            "DependsOn" : "myVPC",
+            "Properties" : {
+                "InternetGatewayId" : { "Ref" : "myIGW"},
+                "VpcId" : { "Ref" : "myVPC"}
+            }
+        },
+        "myRouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "DependsOn" : "myVPC",
+            "Properties" : {
+               "VpcId" : { "Ref" : "myVPC" }
+            }
+        },
+        "myRoute" : {
+            "Type" : "AWS::EC2::Route",
+            "DependsOn" : "myIGW",
+            "Properties" : {
+               "RouteTableId" : { "Ref" : "myRouteTable" },
+               "DestinationCidrBlock" : "0.0.0.0/0",
+               "GatewayId" : { "Ref" : "myIGW"}
+            }
+        },
         "mySubnet" : {
             "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "myVPC",
             "Properties" : {
                 "CidrBlock" : { "Ref" : "subnetCIDR"},
                 "MapPublicIpOnLaunch" : true,
                 "VpcId" : { "Ref" : "myVPC"}
             }
+        },
+        "mySubnetRouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "myRouteTable" },
+                "SubnetId" : { "Ref" : "mySubnet" }
+              }
         },
         "myEC2Role": {
             "Type": "AWS::IAM::Role",
@@ -138,7 +174,7 @@
                         "Version": "2012-10-17",
                         "Statement": [
                             { "Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream" , "logs:PutLogEvents"], "Resource": "arn:aws:logs:*:*:*" },
-                            { "Effect": "Allow", "Action": ["ec2:RequestSpotInstances" ] , "Resource" : "*" }
+                            { "Effect": "Allow", "Action": ["ec2:RequestSpotInstances", "iam:PassRole" ] , "Resource" : "*" }
                         ]
                     }
                 }]
