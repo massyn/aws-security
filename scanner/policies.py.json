@@ -27,7 +27,7 @@
                   "https://docs.aws.amazon.com/lambda/latest/dg/runtime-support-policy.html"
             ],
             "source" : "lambda.list_functions",
-            "filter" : "[?Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`].[{ FunctionName : FunctionName, Runtime : Runtime, Region : _region }]"
+            "filter" : "[?Runtime == `nodejs10.x` || Runtime == `ruby2.5` || Runtime == `python2.7` || Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`].[{ FunctionName : FunctionName, Runtime : Runtime, Region : _region }]"
       },
       {
             "name" : "Eliminate use of the root user for administrative and daily tasks",

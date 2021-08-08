@@ -25,19 +25,19 @@ class collector:
       if isinstance(item_date_object, (dt.date,dt.datetime)):
          return item_date_object.timestamp()
 
-   def checkVersion(self,x):
+   def checkVersion(self,xi):
+      def cv_a(z,t):
+         v = int(z[t] if t < len(z) else 0)
+         m = 1000 ** (4 - t)
+         return v * m
+
       b = boto3.__version__.split('.')
-      if x.split('.') == b:
-         return True
-      c = 0
-      for z in x.split('.'):
-         if z > b[c]:
-            return True
-         elif z < b[c]:
-            return False
-         else:
-            c += 1
-      return False              
+      x = xi.split('.')
+
+      bv = cv_a(b,0) + cv_a(b,1) + cv_a(b,2) + cv_a(b,3)
+      xv = cv_a(x,0) + cv_a(x,1) + cv_a(x,2) + cv_a(x,3)
+
+      return bv >= xv           
 
    def write_json(self,action = False):
       if self.data_file:
@@ -214,14 +214,25 @@ class collector:
             self.errors += 1
          return result
 
-   def collect_all(self):
+   def collect_all(self,regions):
       print('*** COLLECTOR ***')
       
       # == Startup
       self.cache_call('sts','get_caller_identity')
       self.cache_call('iam','generate_credential_report')
       r = self.cache_call('ec2','describe_regions')
-      regionList = sorted([x['RegionName'] for x in r['us-east-1']['Regions']])
+
+      core_regionList = sorted([x['RegionName'] for x in r['us-east-1']['Regions']])
+      if regions == None:
+         regionList = core_regionList
+      else:
+         regionList = [ 'us-east-1' ]  # us-east-1 must always be included - it contains our core IAM functions.
+
+         for r in regions.split(','):
+            if r in core_regionList and r not in regionList:   # it's a valid region, and not added yet
+               regionList.append(r)
+            else:
+               print('WARNING - invalid region specified - ' + r)
 
       # == Access Analyzer
       self.cache_call('accessanalyzer','list_analyzers',regionList)
@@ -420,7 +431,6 @@ class collector:
       self.cache_call('elb','describe_load_balancers',regionList)
       
       # == ELBv2
-      
       e = self.cache_call('elbv2','describe_ssl_policies',regionList)
       e = self.cache_call('elbv2','describe_load_balancers',regionList)
       for region in e:
@@ -642,6 +652,33 @@ class collector:
       #   for z in x[region]:
       #      for y in z['DocumentIdentifiers']:
       #         self.cache_call('ssm','describe_document',region, {'Name' : y['Name']}, y['Name'])
+
+      # == SSO
+      x = self.cache_call('sso-admin','list_instances',regionList)
+      for region in x:
+         for y in x[region]:
+            for t in y.get('Instances',[]):
+               p = self.cache_call('sso-admin','list_permission_sets',region,{'InstanceArn' : t['InstanceArn']},t['InstanceArn']) #[region]
+
+               # This is a work in progress - I need to fix up the parsing of the multi-layer parameters.
+               #self.cache_call('identitystore','list_users',region,{'IdentityStoreId' : t['IdentityStoreId'], 'Filters' : [{ 'AttributePath' : 'UserName','AttributeValue': '' }] })
+               
+               for q in p:
+                  for ps in q['PermissionSets']:
+                     self.cache_call('sso-admin','describe_permission_set',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps} ,ps)
+                     self.cache_call('sso-admin','get_inline_policy_for_permission_set',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps},ps)
+                     self.cache_call('sso-admin','list_managed_policies_in_permission_set',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps},ps)
+                     
+                     a = self.cache_call('sso-admin','list_accounts_for_provisioned_permission_set',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps},ps)
+                     
+
+                     for h in a:
+                        for aid in h['AccountIds']:
+                           self.cache_call('sso-admin','list_account_assignments',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps, 'AccountId' : aid},ps + '/' + aid)
+                           
+
+               
+
 
       # == WAF (Global) - Classic
       x = self.cache_call('waf','list_web_acls')

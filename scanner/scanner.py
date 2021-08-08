@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import boto3
 import urllib.request
 import urllib.parse
+import sys
 
 def slackMe(webHook = None,message = None):
    if webHook != None:
@@ -144,6 +145,24 @@ def history(trackfile,c,p,slack = None):
 
       save_file(file,json.dumps(newhistory,indent = 4, default=convert_timestamp))
 
+def create_managed_policy_cache(c,file):
+   if not os.path.exists(file):
+      print(' ** creating cached managed policies : ' + file)
+      new = { 'iam' : { 'get_policy_version' : { 'us-east-1' : {} }}}
+
+      # -- Find the AWS managed policies
+      for i in c.cache['iam']['list_policies']['us-east-1']:
+         for p in i['Policies']:
+            if 'arn:aws:iam::aws:' in p['Arn']:
+               # -- now find the get_policy_version
+               pv = c.cache['iam']['get_policy_version']['us-east-1'][p['PolicyName']]
+
+               new['iam']['get_policy_version']['us-east-1'][p['PolicyName']] = pv
+      
+      with open(file,'wt') as f:
+         f.write(json.dumps(new,indent=4))
+         f.close()
+
 def main():
    parser = argparse.ArgumentParser(description='AWS Security Info - Security Scanner')
 
@@ -151,7 +170,6 @@ def main():
    parser.add_argument('--aws_secret_access_key', help='aws_secret_access_key', default = None)
    parser.add_argument('--aws_session_token', help='aws_session_token', default = None)
 
-   
    parser.add_argument('--assumerole',help='The role name you are trying to switch to',default=False)
    parser.add_argument('--account',help='The AWS Account number you are trying to switch to')
    parser.add_argument('--externalid',help='The external ID required to complete the assume role')
@@ -161,9 +179,14 @@ def main():
    parser.add_argument('--slack',help='Provide a Slack webhook for status reporting')
    parser.add_argument('--nocollect',help='Do not run the collector -- just parse the json file', action='store_true')
    parser.add_argument('--track',help='Specify a file that is used to keep track of all findings, and send slack alerts for all new alerts.')
+   parser.add_argument('--organization',help='Specify your Organization account access role.  If this is found, the script will continue to find all child accounts, and try to switch the role to the child accounts')
+   parser.add_argument('--regions',help='By default, all regions will be queried.  If you only operate in one (or a few) regions, you can limit the scope to only those regions. Specify --region region1,region2,retion3 etc.  Note that us-east-1 is always included.')
 
    args = parser.parse_args()
    print ('--- Starting ---')
+   
+   # -- what is the initial data load file?
+   initial = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/initial.json'
    
    s = sts()
 
@@ -182,17 +205,7 @@ def main():
                print('!!! UNABLE TO SWITCH ROLE !!!')
                exit(1)
 
-      c = collector(a,b,c)
-      c.cache_call('sts','get_caller_identity')
-
-      if args.json:
-         try:
-            c.read_json(args.json)
-         except:
-            print(' ** unable to read the json file **')
-      c.collect_all()
-      if args.json:
-         c.write_json()
+      c = collect_account(a,b,c, json = args.json, html = args.html, output = args.output, track = args.track, slack = args.slack ,regions = args.regions, initial = initial)
 
    else:
       c = collector(a,b,c)
@@ -203,8 +216,51 @@ def main():
 
          c.read_json(args.json)
 
+   create_managed_policy_cache(c,initial)   # add the AWS managed policies to a cache file -- this helps to reduce the time to collect stuff that should already be there
+
    account = c.cache['sts']['get_caller_identity']['us-east-1']['Account']
-   print('AWS Account is ' + str(account))
+   
+   # -- is there an organization?
+   if args.organization:
+      print(' Organization flag received')
+      for f in c.cache['organizations']['list_accounts']['us-east-1']:
+         for i in f['Accounts']:
+            if i['Status'] == 'ACTIVE' and i['Id'] != account:
+               accountId = i['Id']
+               print(accountId)
+               print (' - Trying to switch role...')
+               try:
+                  (a,b,c) = s.assume_role(a,b,c,accountId,args.organization,None)
+                  if a == None:
+                     print('!!! UNABLE TO SWITCH ROLE !!!')
+                  else:
+                     collect_account(a,b,c,json = args.json, html = args.html, output = args.output, track = args.track, slack = args.slack,regions = args.regions, initial = initial )
+               except:
+                  print('!!! UNABLE TO SWITCH ROLE !!!')
+               
+
+   print ('--- Completed ---')
+
+def collect_account(a,b,c,**KW):
+   # == collect the data
+   c = collector(a,b,c)
+   if KW['initial'] != None:
+      print(' -- reading the initial file...')
+      c.read_json(KW['initial'])
+
+   c.cache_call('sts','get_caller_identity')
+
+   if KW['json'] != None:
+      c.read_json(KW['json'])
+   
+   c.collect_all(KW['regions'])
+   if KW['json'] != None:
+      c.write_json()
+   
+   account = c.cache['sts']['get_caller_identity']['us-east-1']['Account']
+   slackMe(KW['slack'],':white_check_mark: Security collection for *{account}* is now complete.'.format(account = account))
+
+   # == write the reports
    # the datestamp is fixed to Y-m-d - this is to allow for sorting, and having the newest first
    datestamp = datetime.utcnow().strftime("%Y-%m-%d")
 
@@ -213,29 +269,29 @@ def main():
    p.execute()
 
    # -- if we need to generate some output, then we go through this section
-   if args.output or args.html:
+   if KW['output'] or KW['html']:
       print('*** GENERATE REPORTS ***')
       
       r = report(p.findings, c.cache, True)
-      if args.html:
-         output = args.html.replace('%a',account).replace('%d',datestamp)
+      if KW['html']:
+         output = KW['html'].replace('%a',account).replace('%d',datestamp)
          print('Writing output html findings == ' + output) 
          out = r.generate()
 
          url = save_file(output,out,True)
          if url:
                print('Report URL will be valid for 24 hours ==> ' + url)
-               slackMe(args.slack,':checkered_flag: Security audit report for <{url}|{account}> is now complete.'.format(account = account, url = url))
+               slackMe(KW['slack'],':checkered_flag: Security audit report for <{url}|{account}> is now complete.'.format(account = account, url = url))
 
-      if args.output:
-         output = args.output.replace('%a',account).replace('%d',datestamp)
+      if KW['output']:
+         output = KW['output'].replace('%a',account).replace('%d',datestamp)
          print('Writing output json findings == ' + output)
          save_file(output,json.dumps(p.findings,indent = 4, default=convert_timestamp))
 
-   if args.track:
-      history(args.track,c,p,args.slack)
-
-   print ('--- Completed ---')
+   if KW['track']:
+      history(KW['track'],c,p,KW['slack'])
+   
+   return c
 
 def lambda_handler(event, context):
 

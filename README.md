@@ -53,7 +53,15 @@ You can [deploy](cloudformation/readonly.json) the read-only stackset on the tar
 $ python3 scanner/scanner.py --json tmp/site.json --html tmp/report.html --assumerole AWSSecurityInfoReadOnlyRole --account _target AWS account ID_ --externalid 717CF4D0BF1E46C3CD59B0B8BF85D11314896814C522CE67D59CBE6F58DA1866
 ```
 
-### Option 5 - Lambda
+### Option 5 - Run on all accounts in the Organization
+If you're running an AWS Organization, and you'd like to run the report against all accounts in the organization, do the following :
+* Run the script against the Master account (using credentials, Cloud Shell, or any of the other options listed above)
+* Make sure the --json tag is using the %a option
+* Run the scanner command with the --organization flag, and specify your cross organization account.
+```python3 scanner/scanner.py --json tmp/%a.json --organization OrganizationAccountAccessRole```
+### Caveats
+Assume-role will typically issue a 1 hour session for your account.  If the credentials expire before the script is complete, it will likely timeout and crash.  Provided your are saving the json file, you can restart the script, and it will continue where you left off.  I would recommend you run the script from the us-east-1 region, which is where the majority of global services reside.  The script will typically run must quicker when being spawned from that region.
+### Option 6 - Lambda
 You have the option to run the code inside a Lambda function.  *There is a known issue where Lambda can only offer a 15 minute execution time.  The current script may run more than 30 minutes, so it is unlikely it will complete on time.*
 
 * Create a role in IAM with the necessary permissions (TODO)

@@ -20,7 +20,7 @@ class policies:
       flat = []
       grp = {}
       
-      for SS in self.cache['ec2']['describe_security_groups'][region]:
+      for SS in self.cache['ec2']['describe_security_groups'].get(region,{}):
          for sg in SS['SecurityGroups']:
             grp['GroupId'] = sg['GroupId']
             grp['GroupName'] = sg['GroupName']
@@ -58,7 +58,7 @@ class policies:
       '''
       result = []
       for region in self.cache[client][function]:
-         for data in self.cache[client][function][region]:
+         for data in self.cache[client][function].get(region,{}):
             if key == None:
                result.append(data)
             else:
@@ -80,14 +80,15 @@ class policies:
       '''
       result = {}
       parameters = [
-         #  client     function                       key to filter on           item indexed
-         [ 'lambda'  ,'list_functions'             , 'Functions'                 ,False],
-         [ 'ec2'     ,'describe_instances'         ,['Reservations','Instances'] ,False],
-         [ 'ec2'     ,'describe_subnets'           , 'Subnets'                   ,False],
-         [ 'iam'     ,'get_credential_report'      , None                        ,False],
-         [ 'iam'     ,'list_virtual_mfa_devices'   ,'VirtualMFADevices'          ,False],
-         [ 'iam'     ,'list_user_policies'         , 'PolicyNames'               ,True],
-         [ 'iam'     ,'list_attached_user_policies', 'AttachedPolicies'          ,True]
+         #  client     function                       key to filter on             item indexed
+         [ 'lambda' ,'list_functions'                ,'Functions'                  ,False ],
+         [ 'ec2'    ,'describe_instances'            ,['Reservations','Instances'] ,False ],
+         [ 'ec2'    ,'describe_subnets'              ,'Subnets'                    ,False ],
+         [ 'iam'    ,'get_credential_report'         ,None                         ,False ],
+         [ 'iam'    ,'list_virtual_mfa_devices'      ,'VirtualMFADevices'          ,False ],
+         [ 'iam'    ,'list_user_policies'            ,'PolicyNames'                ,True  ],
+         [ 'iam'    ,'list_attached_user_policies'   ,'AttachedPolicies'           ,True  ],
+         [ 'ssm'    ,'describe_instance_information' ,'InstanceInformationList'    ,False ]
          
       ]
       for (client,function,key,item) in parameters:
@@ -99,11 +100,11 @@ class policies:
             if function not in result[client]:
                result[client][function] = {}
 
-            for region in self.cache[client][function]:
-               for itemKey in self.cache[client][function][region]:
+            for region in self.cache[client].get(function,{}):
+               for itemKey in self.cache[client][function].get(region,{}):
                   if not itemKey in result[client][function]:
                      result[client][function][itemKey] = []
-                  for x in self.cache[client][function][region][itemKey]:
+                  for x in self.cache[client][function].get(region,{})[itemKey]:
                      for y in x[key]:
                         result[client][function][itemKey].append(y)
 
@@ -171,6 +172,42 @@ class policies:
       p = self.cache
       regionList = [x['RegionName'] for x in self.cache['ec2']['describe_regions'].get('us-east-1',{})['Regions']]
       accountId = self.cache.get('sts',{}).get('get_caller_identity',{}).get('us-east-1',{})['Account']
+      
+      # ------------------------------------------------------
+      policy = {
+         'name'  : 'Ensure SSM is enabled on all EC2 instances',
+         'description' : 'AWS Systems Manager allows for the management of EC2 instances, allowing you to scale operations like patching across the entire EC2 fleet.',
+         'vulnerability' : 'By not having SSM, operational teams will spend manual effort to patch and manage the environment.',
+         'severity' : 'low',
+         'remediation' : 'Follow <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete">AWS Best practices</a> to enable MFA delete.',
+         'references' : [
+               ''
+         ],
+         'links' : [
+            'https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html'
+         ]
+      }
+      ssm_i = []
+      for i in processed_data['ssm']['describe_instance_information']:
+         ssm_i.append(i['InstanceId'])
+
+      for i in processed_data['ec2']['describe_instances']:
+         if i['State']['Name'] == 'running':
+            # -- find the name
+            Name = ''
+            for t in i['Tags']:
+               if t['Key'] == 'Name':
+                  Name = t['Value']
+
+            # -- build the evidence blob
+            evidence = {
+               'InstanceId'         : i['InstanceId'],
+               'Region'             : i['_region'],
+               'PrivateIpAddress'   : i['PrivateIpAddress'],
+               'Name'               : Name
+            }
+            
+            self.finding(policy,i['InstanceId'] in ssm_i,evidence)
       
       # ------------------------------------------------------
       policy = {
@@ -255,8 +292,8 @@ class policies:
          ]
       }
       for region in regionList:
-         x = p['ec2']['get_ebs_encryption_by_default'][region]
-         self.finding(policy,x['EbsEncryptionByDefault'],region)
+         x = p['ec2']['get_ebs_encryption_by_default'].get(region,{})
+         self.finding(policy,x.get('EbsEncryptionByDefault',False),region)
 
       # ------------------------------------------------------
       policy = {
@@ -278,9 +315,9 @@ class policies:
          s3List['arn:aws:s3:::' + s3['Name'] + '/'] = 0
 
       for region in regionList:
-         for c in p['cloudtrail']['list_trails'][region]:
+         for c in p['cloudtrail']['list_trails'].get(region,{}):
             for t in c['Trails']:
-               for e in p['cloudtrail']['get_event_selectors'][region][t['TrailARN']]['EventSelectors']:
+               for e in p['cloudtrail']['get_event_selectors'].get(region,{})[t['TrailARN']]['EventSelectors']:
                   if e['ReadWriteType'] in ['All','WriteOnly']:
                      for x in e['DataResources']:
                         if x['Type'] == 'AWS::S3::Object':
@@ -313,9 +350,9 @@ class policies:
          s3List['arn:aws:s3:::' + s3['Name'] + '/'] = 0
 
       for region in regionList:
-         for c in p['cloudtrail']['list_trails'][region]:
+         for c in p['cloudtrail']['list_trails'].get(region,{}):
             for t in c['Trails']:
-               for e in p['cloudtrail']['get_event_selectors'][region][t['TrailARN']]['EventSelectors']:
+               for e in p['cloudtrail']['get_event_selectors'].get(region,{})[t['TrailARN']]['EventSelectors']:
                   if e['ReadWriteType'] in ['All','ReadOnly']:
                      for x in e['DataResources']:
                         if x['Type'] == 'AWS::S3::Object':
@@ -347,7 +384,7 @@ class policies:
       }
       for region in regionList:
          status = 'UNKNOWN'
-         for AA in p['accessanalyzer']['list_analyzers'][region]:
+         for AA in p['accessanalyzer']['list_analyzers'].get(region,{}):
             for a in AA['analyzers']:
                status = a['status']
          self.finding(policy,status == 'ACTIVE', region)
@@ -370,7 +407,7 @@ class policies:
          ]
       }
       for region in regionList:
-         for r in p['rds']['describe_db_instances'][region]:
+         for r in p['rds']['describe_db_instances'].get(region,{}):
             for i in r['DBInstances']:
                self.finding(policy,i['StorageEncrypted'],{ 'DBInstanceIdentifier' : i['DBInstanceIdentifier'], 'DbiResourceId' : i['DbiResourceId'] })
       
@@ -500,12 +537,12 @@ class policies:
       }
       
       for region in regionList:
-         for e in self.cache['ec2']['describe_instances'][region]:
+         for e in self.cache['ec2']['describe_instances'].get(region,{}):
             for R in e['Reservations']:
                for ec2 in R['Instances']:
                   compliance = 0
                   evidence = {region : ec2['InstanceId']}
-                  for II in self.cache['ec2']['describe_iam_instance_profile_associations'][region]:
+                  for II in self.cache['ec2']['describe_iam_instance_profile_associations'].get(region,{}):
                      for ia in II['IamInstanceProfileAssociations']:
                         if ia['InstanceId'] == ec2['InstanceId'] and ia['State'] == 'associated':
                            compliance = 1   
@@ -627,15 +664,15 @@ class policies:
       ReadWriteType = False
 
       for region in regionList:            
-         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+         for ct in self.cache['cloudtrail']['describe_trails'].get(region,{}).get('trailList',{}):
             # IsMultiRegionTrail
             if ct['IsMultiRegionTrail']:
                IsMultiRegionTrail = True
 
-            if self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]:
+            if self.cache['cloudtrail']['get_trail_status'].get(region,{})[ct['TrailARN']]:
                IsLogging = True
 
-            for e in self.cache['cloudtrail']['get_event_selectors'][region][ct['TrailARN']]['EventSelectors']:
+            for e in self.cache['cloudtrail']['get_event_selectors'].get(region,{})[ct['TrailARN']]['EventSelectors']:
                if e['IncludeManagementEvents'] == True:
                   IncludeManagementEvents = True
 
@@ -673,7 +710,7 @@ class policies:
       }
 
       for region in regionList:
-         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+         for ct in self.cache['cloudtrail']['describe_trails'].get(region,{}).get('trailList',{}):
                evidence = {
                   region : ct['Name']
                }
@@ -701,7 +738,7 @@ class policies:
       
 
       for region in regionList:
-         for ct in self.cache['cloudtrail']['describe_trails'][region]:
+         for ct in self.cache['cloudtrail']['describe_trails'].get(region,{}):
 
             evidence = { 'region' : region }
             if not 'S3BucketName' in ct:
@@ -737,15 +774,15 @@ class policies:
       for region in regionList:
          evidence = {region: 'none detected'}
          compliance = 0
-         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
-            if 'LatestCloudWatchLogsDeliveryTime' in self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]:
-               if isinstance(self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime'], (dt.date,dt.datetime)):
-                  x = self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime'].timestamp()
+         for ct in self.cache['cloudtrail']['describe_trails'].get(region,{}).get('trailList',{}):
+            if 'LatestCloudWatchLogsDeliveryTime' in self.cache['cloudtrail']['get_trail_status'].get(region,{})[ct['TrailARN']]:
+               if isinstance(self.cache['cloudtrail']['get_trail_status'].get(region,{})[ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime'], (dt.date,dt.datetime)):
+                  x = self.cache['cloudtrail']['get_trail_status'].get(region,{})[ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime'].timestamp()
                else:
-                  x = self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime']
+                  x = self.cache['cloudtrail']['get_trail_status'].get(region,{})[ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime']
 
                if (time.time() - x) < 86400:
-                  evidence = {region : self.cache['cloudtrail']['get_trail_status'][region][ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime']}
+                  evidence = {region : self.cache['cloudtrail']['get_trail_status'].get(region,{})[ct['TrailARN']]['LatestCloudWatchLogsDeliveryTime']}
                   compliance = 1
             
          self.finding(policy,compliance,evidence)
@@ -769,10 +806,10 @@ class policies:
       for region in regionList:
          compliance = 0
          evidence = {'region' : region}
-         for c in self.cache['config']['describe_configuration_recorders'][region]['ConfigurationRecorders']:
+         for c in self.cache['config']['describe_configuration_recorders'].get(region,{}).get('ConfigurationRecorders',{}):
                if c.get('recordingGroup').get('allSupported') == True and c.get('recordingGroup').get('includeGlobalResourceTypes') == True:
                   # == so far so good.  Let's see if we can find the recording status
-                  for s in self.cache['config']['describe_configuration_recorder_status'][region]['ConfigurationRecordersStatus']:
+                  for s in self.cache['config']['describe_configuration_recorder_status'].get(region,{})['ConfigurationRecordersStatus']:
                      if s['name'] == c['name']:
                            if s['recording'] == True and s['lastStatus'] == 'SUCCESS':
                               compliance = 1
@@ -797,7 +834,7 @@ class policies:
 
       for region in self.cache['cloudtrail']['describe_trails']:
          compliance = 0
-         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+         for ct in self.cache['cloudtrail']['describe_trails'].get(region,{}).get('trailList',{}):
             if 'S3BucketName' in ct:
                logging = self.cache['s3']['get_bucket_logging'].get('us-east-1',{}).get(ct['S3BucketName'],{}).get('LoggingEnabled',{}).get('TargetBucket',None)
                if logging != None:
@@ -822,7 +859,7 @@ class policies:
 
       for region in self.cache['cloudtrail']['describe_trails']:
          compliance = 0
-         for ct in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+         for ct in self.cache['cloudtrail']['describe_trails'].get(region,{}).get('trailList',{}):
             if 'KmsKeyId' in ct:
                compliance = 1
          self.finding(policy,compliance,region)
@@ -845,10 +882,10 @@ class policies:
       }
       for region in regionList:
          if region in self.cache['kms']['get_key_rotation_status']:
-            for k in self.cache['kms']['get_key_rotation_status'][region]:
+            for k in self.cache['kms']['get_key_rotation_status'].get(region,{}):
                evidence = { region : k}
 
-               if self.cache['kms']['get_key_rotation_status'][region][k] == True:
+               if self.cache['kms']['get_key_rotation_status'].get(region,{})[k] == True:
                   self.finding(policy,1,evidence)
                else:
                   self.finding(policy,0,evidence)
@@ -871,11 +908,11 @@ class policies:
       }
 
       for region in regionList:
-         for VV in self.cache['ec2']['describe_vpcs'][region]:
+         for VV in self.cache['ec2']['describe_vpcs'].get(region,{}):
             for v in VV['Vpcs']:
                compliance = 0
                evidence = { region : v['VpcId'] }
-               for F in self.cache['ec2']['describe_flow_logs'][region]:
+               for F in self.cache['ec2']['describe_flow_logs'].get(region,{}):
                   for fl in F['FlowLogs']:
                      if fl['ResourceId'] == v['VpcId']:
                         compliance = 1
@@ -1118,23 +1155,23 @@ class policies:
 
          # -- go through all the cloudtrail logs, and look for one that has IsMultiRegionTrail set to true
          for region in regionList:
-            for trail in self.cache['cloudtrail']['describe_trails'][region]['trailList']:
+            for trail in self.cache['cloudtrail']['describe_trails'].get(region,{}).get('trailList',{}):
                if compliant == False: 
                   # -- only keep searching if it is non-compliant.  We just need a single trail that meets all requirements
                   if trail['IsMultiRegionTrail'] == True:
-                     if self.cache['cloudtrail']['get_trail_status'][region][trail['TrailARN']]['IsLogging'] == True:
-                        for e in self.cache['cloudtrail']['get_event_selectors'][region][trail['TrailARN']]['EventSelectors']:
+                     if self.cache['cloudtrail']['get_trail_status'].get(region,{})[trail['TrailARN']]['IsLogging'] == True:
+                        for e in self.cache['cloudtrail']['get_event_selectors'].get(region,{})[trail['TrailARN']]['EventSelectors']:
                            if e['IncludeManagementEvents'] == True:
                               if e['ReadWriteType'] == 'All':
-                                 for FF in self.cache['logs']['describe_metric_filters'][region]:
+                                 for FF in self.cache['logs']['describe_metric_filters'].get(region,{}):
                                     for f in FF['metricFilters']:
                                        if f['logGroupName'] in trail.get('CloudWatchLogsLogGroupArn',''):
                                           if f['filterPattern'] == POL['filterPattern']:
-                                             for MM in self.cache['cloudwatch']['describe_alarms'][region]:
+                                             for MM in self.cache['cloudwatch']['describe_alarms'].get(region,{}):
                                                 for m in MM['MetricAlarms']:
                                                    if f['filterName'] == m['MetricName']:
                                                          for a in m['AlarmActions']:
-                                                            for t in self.cache['sns']['list_topics'][region]:
+                                                            for t in self.cache['sns']['list_topics'].get(region,{}):
                                                                if t['TopicArn'] == a:
                                                                      compliant = True
          self.finding(POL,compliant,None) 
@@ -1155,7 +1192,7 @@ class policies:
       }
 
       for region in regionList:
-         for N in p['ec2']['describe_network_acls'][region]:
+         for N in p['ec2']['describe_network_acls'].get(region,{}):
             for n in N['NetworkAcls']:
                for e in n['Entries']:
                   FromPort = e.get('PortRange',{}).get('FromPort',0)
@@ -1298,7 +1335,7 @@ class policies:
       
       for region in regionList:
          compliance = 0
-         if len(self.cache['guardduty']['list_detectors'][region]) > 0:
+         if len(self.cache['guardduty']['list_detectors'].get(region,{})) > 0:
                compliance = 1
          else:
                compliance = 0
@@ -1495,7 +1532,7 @@ class policies:
          'severity' : 'high',
       }
       for region in regionList:
-         for EE in self.cache['elbv2']['describe_load_balancers'][region]:
+         for EE in self.cache['elbv2']['describe_load_balancers'].get(region,{}):
             for elbv2 in EE['LoadBalancers']:
                if elbv2 != []:
                   compliance = 1
@@ -1507,7 +1544,7 @@ class policies:
 
                   self.finding(policy, compliance , {'region' : region, 'type' : 'elbv2', 'LoadBalancerName' : elbv2['LoadBalancerName'] })
 
-         for EE in self.cache['elb']['describe_load_balancers'][region]:
+         for EE in self.cache['elb']['describe_load_balancers'].get(region,{}):
             for elb in EE['LoadBalancerDescriptions']:
                if elb != []:
                   compliance = 1
@@ -1533,7 +1570,7 @@ class policies:
          'severity' : 'high',
       }
       for region in regionList:
-         for elbv2 in self.cache['elbv2']['describe_load_balancers'][region]:
+         for elbv2 in self.cache['elbv2']['describe_load_balancers'].get(region,{}):
                if elbv2 != []:
                   compliance = 1
 

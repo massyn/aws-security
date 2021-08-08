@@ -1,0 +1,187 @@
+{
+    "AWSTemplateFormatVersion"  : "2010-09-09",
+    "Description"               : "AWS Security Info - Automated security scan",
+    "Parameters" : {
+        "vpcCIDR" : {
+            "Type" : "String",
+            "Default" : "10.0.0.0/16",
+            "Description" : "The CIDR address range for the VPC."
+        },
+        "subnetCIDR" : {
+            "Type" : "String",
+            "Default" : "10.0.0.0/24",
+            "Description" : "The CIDR address range for the subnet."
+        },
+        "s3Bucket" : {
+            "Type" : "String",
+            "Default" : "Replace this with a unique S3 bucket name",
+            "Description" : "Create a new S3 bucket where the reports will be stored."
+        },
+        "ImageId" : {
+            "Type" : "String",
+            "Default" : "ami-0c2b8ca1dad447f8a",
+            "Description" : "This AMI is only valid in us-east-1.  Should you run in another region, you need to update it."
+        },
+        "SlackWebhook" : {
+            "Type" : "String",
+            "Description" : "Provide a Slack Webhook if you want to get feedback through a Slack channel on the outcome of the scanner."
+        }
+    },
+    "Resources" : {
+        "myVPC" : {
+            "Type" : "AWS::EC2::VPC",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "vpcCIDR"},
+                "EnableDnsHostnames" : true,
+                "EnableDnsSupport" : true,
+                "InstanceTenancy" : "default"
+            }
+        },
+        "mySubnet" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "subnetCIDR"},
+                "MapPublicIpOnLaunch" : true,
+                "VpcId" : { "Ref" : "myVPC"}
+            }
+        },
+        "myEC2Role": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "myEC2Policy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "iam:GenerateCredentialReport",
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect" : "Allow",
+                                    "Action" : "s3:PutObject",
+                                    "Resource": {
+                                        "Fn::Join": [
+                                            "", [ "arn:aws:s3:::", { "Ref": "myS3Bucket" }, "/*" ] ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "ManagedPolicyArns" : [
+                    "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
+                    "arn:aws:iam::aws:policy/ReadOnlyAccess",
+                    "arn:aws:iam::aws:policy/SecurityAudit"
+                ]
+            },
+            "DependsOn" : "myS3Bucket"
+        },
+        "myEC2InstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "myEC2Role"
+                    }
+                ]
+            }
+        },
+        "myS3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+                "BucketName": { "Ref" : "s3Bucket" },
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "ServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "AES256"
+                            },
+                            "BucketKeyEnabled": true
+                        }
+                    ]
+                }
+            }
+        },
+        "myLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+                },
+                "Path": "/",
+                "Policies": [{
+                    "PolicyName" : "LambdaPolicy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            { "Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream" , "logs:PutLogEvents"], "Resource": "arn:aws:logs:*:*:*" },
+                            { "Effect": "Allow", "Action": ["ec2:RequestSpotInstances" ] , "Resource" : "*" }
+                        ]
+                    }
+                }]
+            }
+        },
+        "mySecurityGroup": {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Spot instance outbound connections",
+                "GroupName" : "mySecurityGroup",
+                "SecurityGroupEgress" : [ {
+                    "CidrIp" : "0.0.0.0/0",
+                    "Description" : "Outbound traffic",
+                    "FromPort" : 0,
+                    "IpProtocol" : "-1",
+                    "ToPort" : 65535
+                  } ],
+                "VpcId" : { "Ref" : "myVPC"}
+            }
+        },
+        "myLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Role": { "Fn::GetAtt": [ "myLambdaExecutionRole", "Arn" ] },
+                "Description" : "AWS Security Info - spawn a spot instance",
+                "Code": {
+                    "ZipFile": "import json\nimport boto3\ndef lambda_handler(event, context):\n   # TODO implement\n   return { 'statusCode': 200, 'body': json.dumps('Hello from Lambda!') }"
+                },
+                "Runtime": "python3.8",
+                "Timeout": 25,
+                "TracingConfig": { "Mode": "Active" },
+                "Environment" : {
+                    "Variables" : {
+                        "ImageId"               : { "Ref" : "ImageId" },
+                        "SlackWebhook"          : { "Ref" : "SlackWebhook" },
+                        "S3Bucket"              : { "Ref" : "s3Bucket" },
+                        "IamInstanceProfile"    : { "Ref" : "myEC2InstanceProfile"},
+                        "SecurityGroup"         : { "Ref" : "mySecurityGroup" },
+                        "SubnetId"              : { "Ref" : "mySubnet"}
+                    }
+                }
+            }
+        }
+    }
+}
