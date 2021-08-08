@@ -195,7 +195,7 @@ class policies:
          if i['State']['Name'] == 'running':
             # -- find the name
             Name = ''
-            for t in i['Tags']:
+            for t in i.get('Tags',{}):
                if t['Key'] == 'Name':
                   Name = t['Value']
 

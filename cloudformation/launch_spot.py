@@ -5,7 +5,6 @@ import base64
 import os
 import json
 
-
 def lambda_handler(event, context):
     
     IamInstanceProfile  = os.environ['IamInstanceProfile']
@@ -13,17 +12,19 @@ def lambda_handler(event, context):
     SecurityGroup       = os.environ['SecurityGroup']
     SubnetId            = os.environ['SubnetId']
     S3Bucket            = os.environ['S3Bucket']
+    SlackWebhook        = os.environ['SlackWebhook']
     
     print('IamInstanceProfile   = ' + IamInstanceProfile)
     print('ImageId              = ' + ImageId)
     print('SecurityGroup        = ' + SecurityGroup)
     print('SubnetId             = ' + SubnetId)
     print('S3Bucket             = ' + S3Bucket)
+    print('SlackWebhook         = ' + SlackWebhook)
 
-    UserData = '#!/bin/bash\n'
-    UserData += 'export BUCKET=' + S3Bucket + '\n'
+    UserData = '''#!/bin/bash
+export instanceId=`curl -q http://169.254.169.254/latest/dynamic/instance-identity/document |grep instanceId | awk {'print \$3'} | cut -b 2-20`
+[[ ! -z "{SlackWebhook}" ]] && /usr/bin/curl -X POST -H 'Content-type: application/json' --data '{"text":":racing_motorcycle: AWS Security Info instance $instanceId has been created."}' {SlackWebhook}
 
-    UserData += '''
 export dte=`date '+%Y/%m/%d'`
 
 yum update -y
@@ -36,14 +37,13 @@ cd /tmp
 mkdir /tmp/secreport
 git clone http://github.com/massyn/aws-security
 
-python3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html /tmp/secreport/%a.html > /tmp/secreport/output.log 2>&1
-aws s3 cp /tmp/secreport/* s3://$BUCKET/$dte/
+python3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html /tmp/secreport/%a.html --slack {SlackWebhook} > /tmp/secreport/output.log 2>&1
+aws s3 cp /tmp/secreport/ s3://{S3Bucket}/$dte/ --recursive
 
 # -- do a shutdown now
 #shutdown now
-'''
+'''.format(S3Bucket = S3Bucket, SlackWebhook = SlackWebhook)
 
-    
     instance = boto3.client(
         'ec2',
         region_name = 'us-east-1'
@@ -74,11 +74,6 @@ aws s3 cp /tmp/secreport/* s3://$BUCKET/$dte/
             ],
             'Placement': { 'Tenancy': 'default' },
             'UserData': base64.b64encode(UserData.encode('ascii')).decode('ascii'),
-            
-            
-            'KeyName': 'us-east-1',
-            
-            
         },
         Type='one-time',
         InstanceInterruptionBehavior='terminate'
