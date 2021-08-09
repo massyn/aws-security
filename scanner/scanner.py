@@ -146,6 +146,10 @@ def history(trackfile,c,p,slack = None):
       save_file(file,json.dumps(newhistory,indent = 4, default=convert_timestamp))
 
 def create_managed_policy_cache(c,file):
+   def convert_timestamp(item_date_object):
+      if isinstance(item_date_object, (dt.date,dt.datetime)):
+         return item_date_object.timestamp()
+         
    if not os.path.exists(file):
       print(' ** creating cached managed policies : ' + file)
       new = { 'iam' : { 'get_policy_version' : { 'us-east-1' : {} }}}
@@ -160,7 +164,7 @@ def create_managed_policy_cache(c,file):
                new['iam']['get_policy_version']['us-east-1'][p['PolicyName']] = pv
       
       with open(file,'wt') as f:
-         f.write(json.dumps(new,indent=4))
+         f.write(json.dumps(new,indent=4, default=convert_timestamp))
          f.close()
 
 def main():
@@ -245,8 +249,13 @@ def collect_account(a,b,c,**KW):
    # == collect the data
    c = collector(a,b,c)
    if KW['initial'] != None:
-      print(' -- reading the initial file...')
-      c.read_json(KW['initial'])
+      try:
+         print(' -- reading the initial file...')
+         with open(KW['initial'],'rt') as j:
+            c.cache = json.load(j)
+            j.close()
+      except:
+         print(' !! initial file does not exist -- skipping !!')
 
    c.cache_call('sts','get_caller_identity')
 
