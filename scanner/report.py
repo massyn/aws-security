@@ -18,7 +18,7 @@ class report:
         #barwidth = pct / 100 * maxwidth
         #whitewidth = maxwidth - barwidth
         
-        return '''<div style="width: {maxwidth}px;background-color: #ddd;box-sizing: border-box">
+        return '''<div style="width: {maxwidth}px;background-color: #bbb;box-sizing: border-box">
           <div style="width: {pct}%; background-color: {col};text-align: right;padding-top: 10px;padding-bottom: 10px;color: white;box-sizing: border-box">{pct}%</div>
         </div>'''.format(maxwidth = str(maxwidth), pct = str(round(pct,1)),col = col)
 
