@@ -15,10 +15,12 @@ class report:
           col = '#00B050'
           
         maxwidth = 200
-        barwidth = pct / 100 * maxwidth
-        whitewidth = maxwidth - barwidth
+        #barwidth = pct / 100 * maxwidth
+        #whitewidth = maxwidth - barwidth
         
-        return '<table border=0><tr><td width=60px>' + str(round(pct,2)) + '%</td><td width=' + str(int(barwidth)) + ' bgcolor='+col + '>&nbsp;</td><td width=' + str(int(whitewidth)) + '>&nbsp;</td></tr></table>'
+        return '''<div style="width: {maxwidth}px;background-color: #ddd;box-sizing: border-box">
+          <div style="width: {pct}%; background-color: {col};text-align: right;padding-top: 10px;padding-bottom: 10px;color: white;box-sizing: border-box">{pct}%</div>
+        </div>'''.format(maxwidth = str(maxwidth), pct = str(round(pct,1)),col = col)
 
     def generate(self):
           
