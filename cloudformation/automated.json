@@ -185,7 +185,7 @@
                         "Version": "2012-10-17",
                         "Statement": [
                             { "Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream" , "logs:PutLogEvents"], "Resource": "arn:aws:logs:*:*:*" },
-                            { "Effect": "Allow", "Action": ["ec2:RequestSpotInstances", "iam:PassRole" ] , "Resource" : "*" }
+                            { "Effect": "Allow", "Action": ["ec2:RunInstances", "iam:PassRole" ] , "Resource" : "*" }
                         ]
                     }
                 }]
@@ -213,7 +213,31 @@
                 "Role": { "Fn::GetAtt": [ "myLambdaExecutionRole", "Arn" ] },
                 "Description" : "AWS Security Info - spawn a spot instance",
                 "Code": {
-                    "ZipFile": "# This is the code embedded in the automated Lambda function\nimport boto3\nimport base64\nimport os\nimport json\ndef lambda_handler(event, context):\n    \n    IamInstanceProfile  = os.environ['IamInstanceProfile']\n    ImageId             = os.environ['ImageId']\n    SecurityGroup       = os.environ['SecurityGroup']\n    SubnetId            = os.environ['SubnetId']\n    S3Bucket            = os.environ['S3Bucket']\n    SlackWebhook        = os.environ['SlackWebhook']\n    additional          = os.environ['additional']\n    \n    print('IamInstanceProfile   = ' + IamInstanceProfile)\n    print('ImageId              = ' + ImageId)\n    print('SecurityGroup        = ' + SecurityGroup)\n    print('SubnetId             = ' + SubnetId)\n    print('S3Bucket             = ' + S3Bucket)\n    print('SlackWebhook         = ' + SlackWebhook)\n    print('additional           = ' + additional)\n    print('')\n    UserData = '''#!/bin/bash\nexport dte=`date '+%Y/%m/%d'`\nyum update -y\nyum install python3 git awscli -y\npip3 install boto3\ncd /tmp\nmkdir /tmp/secreport\ngit clone http://github.com/massyn/aws-security\npython3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html s3://{S3Bucket}/$dte/%a.html --slack {SlackWebhook} {additional}> /tmp/secreport/output.log 2>&1\naws s3 cp /tmp/secreport/ s3://{S3Bucket}/$dte/ --recursive\n# -- do a shutdown now\nshutdown now\n'''.format(S3Bucket = S3Bucket, SlackWebhook = SlackWebhook, additional = additional)\n    instance = boto3.client(\n        'ec2',\n        region_name = 'us-east-1'\n    ).request_spot_instances(\n        InstanceCount=1,\n        LaunchSpecification={\n            'BlockDeviceMappings': [\n                {\n                    'DeviceName' : '/dev/xvda',\n                    'Ebs': {\n                        'DeleteOnTermination': True,\n                        'VolumeSize': 8,\n                        'VolumeType': 'gp2'\n                    }\n                }\n            ],\n            'IamInstanceProfile': { 'Name': IamInstanceProfile },\n            'ImageId': ImageId,\n            'InstanceType': 't2.micro',\n            'NetworkInterfaces': [\n                {\n                    'DeviceIndex' : 0,\n                    'AssociatePublicIpAddress': True,\n                    'DeleteOnTermination': True,\n                    'Groups': [ SecurityGroup ],\n                    'SubnetId' : SubnetId\n                },\n            ],\n            'Placement': { 'Tenancy': 'default' },\n            'UserData': base64.b64encode(UserData.encode('ascii')).decode('ascii'),\n        },\n        Type='one-time',\n        InstanceInterruptionBehavior='terminate'\n    )\n    print(instance)\n    return { 'statusCode': 200, 'body': 'ok' }\n"
+                    "ZipFile":  { "Fn::Join": ["\n", [
+                        "import os",
+                        "import boto3",
+                        "def lambda_handler(event, context):",
+                        "    LaunchTemplateId    = os.environ['LaunchTemplateId']",
+                        "    LatestVersionNumber = os.environ['LatestVersionNumber']",
+                        "    region = os.environ['AWS_REGION']",
+                        "    instance = boto3.client('ec2',region_name = region).run_instances(",
+                        "        LaunchTemplate={",
+                        "            'LaunchTemplateId': LaunchTemplateId,",
+                        "            'Version': LatestVersionNumber",
+                        "        },",
+                        "        MaxCount=1,",
+                        "        MinCount=1,",
+                        "        InstanceMarketOptions={",
+                        "            'MarketType': 'spot',",
+                        "            'SpotOptions': {",
+                        "                'SpotInstanceType': 'one-time',",
+                        "                'InstanceInterruptionBehavior': 'terminate'",
+                        "            }",
+                        "        }",
+                        "    )",
+                        "    print(instance)",
+                        "    return { 'statusCode': 200, 'body': 'ok' }"
+                    ]]}
                 },
                 "Runtime": "python3.8",
                 "FunctionName": { "Fn::Sub": "${AWS::StackName}-AWSSecurityTrigger" },
@@ -221,13 +245,8 @@
                 "TracingConfig": { "Mode": "Active" },
                 "Environment" : {
                     "Variables" : {
-                        "ImageId"               : { "Ref" : "ImageId" },
-                        "SlackWebhook"          : { "Ref" : "SlackWebhook" },
-                        "S3Bucket"              : { "Ref" : "s3Bucket" },
-                        "IamInstanceProfile"    : { "Ref" : "myEC2InstanceProfile"},
-                        "SecurityGroup"         : { "Ref" : "mySecurityGroup" },
-                        "SubnetId"              : { "Ref" : "mySubnet"},
-                        "additional"            : { "Ref" : "additional"}
+                        "LaunchTemplateId"      : { "Ref" : "myLaunchTemplate"},
+                        "LatestVersionNumber"   : { "Fn::GetAtt" : [ "myLaunchTemplate", "LatestVersionNumber" ] }
                     }
                 }
             }
@@ -251,6 +270,49 @@
                 "Action": "lambda:InvokeFunction",
                 "Principal": "events.amazonaws.com",
                 "SourceArn": { "Fn::GetAtt": ["myEventSchedule", "Arn"] }
+            }
+        },
+        "myLaunchTemplate":{
+            "Type":"AWS::EC2::LaunchTemplate",
+            "Properties":{
+                "LaunchTemplateData" : {
+                    "BlockDeviceMappings": [{
+                        "DeviceName" : "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": true,
+                            "VolumeSize": 8,
+                            "VolumeType" : "gp2"
+                        }
+                    }],
+                    "NetworkInterfaces": [{
+                        "DeviceIndex"                   : 0,
+                        "AssociatePublicIpAddress"      : true,
+                        "DeleteOnTermination"           : true,
+                        "Groups"                        : [ {"Ref" : "mySecurityGroup"} ],
+                        "SubnetId"                      : {"Ref" : "mySubnet"} 
+                    }],
+                    "IamInstanceProfile"                : { "Arn":{"Fn::GetAtt": ["myEC2InstanceProfile", "Arn"] } },
+                    "ImageId"                           : { "Ref" : "ImageId"},
+                    "InstanceType"                      : "t2.micro",
+                    "InstanceInitiatedShutdownBehavior" : "terminate",
+                    "UserData" : {
+                        "Fn::Base64" : {
+                            "Fn::Join" : [ "", [
+                                "#!/usr/bin/bash\n",
+                                "export dte=`date '+%Y/%m/%d'`\n",
+                                "yum update -y\n",
+                                "yum install python3 git awscli -y\n",
+                                "pip3 install boto3\n",
+                                "cd /tmp\n",
+                                "mkdir /tmp/secreport\n",
+                                "git clone http://github.com/massyn/aws-security\n",
+                                "python3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html s3://", {"Ref" : "s3Bucket" },"/$dte/%a.html --slack ", {"Ref" : "SlackWebhook" }," ", {"Ref" : "additional" }, "> /tmp/secreport/output.log 2>&1\n",
+                                "aws s3 cp /tmp/secreport/ s3://" , {"Ref" : "s3Bucket" } , "/$dte/ --recursive\n",
+                                "shutdown now\n"
+                            ] ]
+                        }
+                    }
+                }
             }
         }
     }
