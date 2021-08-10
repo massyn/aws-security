@@ -120,7 +120,7 @@
                             "Statement": [
                                 {
                                     "Effect": "Allow",
-                                    "Action": "iam:GenerateCredentialReport",
+                                    "Action": [ "iam:GenerateCredentialReport", "sts:AssumeRole" ],
                                     "Resource": "*"
                                 },
                                 {
