@@ -241,6 +241,7 @@ def main():
                      collect_account(a,b,c,json = args.json, html = args.html, output = args.output, track = args.track, slack = args.slack,regions = args.regions, initial = initial )
                except:
                   print('!!! UNABLE TO SWITCH ROLE !!!')
+                  slackMe(KW['slack'],':x: Unable to switch role for *{account}*.'.format(account = accountId))
                
 
    print ('--- Completed ---')
@@ -267,8 +268,7 @@ def collect_account(a,b,c,**KW):
       c.write_json()
    
    account = c.cache['sts']['get_caller_identity']['us-east-1']['Account']
-   slackMe(KW['slack'],':white_check_mark: Security collection for *{account}* is now complete.'.format(account = account))
-
+   
    # == write the reports
    # the datestamp is fixed to Y-m-d - this is to allow for sorting, and having the newest first
    datestamp = datetime.utcnow().strftime("%Y-%m-%d")
@@ -278,6 +278,7 @@ def collect_account(a,b,c,**KW):
    p.execute()
 
    # -- if we need to generate some output, then we go through this section
+   url = ''
    if KW['output'] or KW['html']:
       print('*** GENERATE REPORTS ***')
       
@@ -291,6 +292,9 @@ def collect_account(a,b,c,**KW):
          if url:
                print('Report URL will be valid for 24 hours ==> ' + url)
                slackMe(KW['slack'],':checkered_flag: Security audit report for <{url}|{account}> is now complete.'.format(account = account, url = url))
+
+      if url == '':
+         slackMe(KW['slack'],':white_check_mark: Security collection for *{account}* is now complete.'.format(account = account))
 
       if KW['output']:
          output = KW['output'].replace('%a',account).replace('%d',datestamp)
