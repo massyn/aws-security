@@ -241,7 +241,7 @@ def main():
                      collect_account(a,b,c,json = args.json, html = args.html, output = args.output, track = args.track, slack = args.slack,regions = args.regions, initial = initial )
                except:
                   print('!!! UNABLE TO SWITCH ROLE !!!')
-                  slackMe(KW['slack'],':x: Unable to switch role for *{account}*.'.format(account = accountId))
+                  slackMe(args.slack,':x: Unable to switch role for *{account}*.'.format(account = accountId))
                
 
    print ('--- Completed ---')
