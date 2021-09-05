@@ -182,20 +182,19 @@ class collector:
          para = ''
          for k in parameter:
             if(type(parameter[k]) == list):
-               
                para += k + ' = ['
                toggle = False
+               
                for v in parameter[k]:
                   if toggle:
                      para += ','
                   para += '\'' + v + '\''
                   toggle = True
-               
                para += ']'
             else:
                para += k + ' = \'' + parameter[k] + '\','
          result = {}
-         try:               
+         try:
             result = eval('c.' + function + '(' + para + ')')
          except Exception as e:
             print(' ----------------------------------------------------------------------------------------')
@@ -661,7 +660,7 @@ class collector:
                p = self.cache_call('sso-admin','list_permission_sets',region,{'InstanceArn' : t['InstanceArn']},t['InstanceArn']) #[region]
 
                # This is a work in progress - I need to fix up the parsing of the multi-layer parameters.
-               #self.cache_call('identitystore','list_users',region,{'IdentityStoreId' : t['IdentityStoreId'], 'Filters' : [{ 'AttributePath' : 'UserName','AttributeValue': '' }] })
+               self.cache_call('identitystore','list_users',region,{'IdentityStoreId' : t['IdentityStoreId'], 'Filters' : [{ 'AttributePath' : 'UserName','AttributeValue': '' }] }, t['IdentityStoreId'])
                
                for q in p:
                   for ps in q['PermissionSets']:
@@ -670,7 +669,6 @@ class collector:
                      self.cache_call('sso-admin','list_managed_policies_in_permission_set',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps},ps)
                      
                      a = self.cache_call('sso-admin','list_accounts_for_provisioned_permission_set',region,{'InstanceArn' : t['InstanceArn'], 'PermissionSetArn' : ps},ps)
-                     
 
                      for h in a:
                         for aid in h['AccountIds']:
