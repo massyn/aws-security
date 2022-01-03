@@ -109,7 +109,7 @@ class collector:
                         with open(filename,'rt') as j:
                             return j.read()
                     except:
-                        logging.warning(' !! cannot load {filename}')
+                        logging.warning(f' !! cannot load {filename}')
                         return None
             else:
                 # -- is this s3?
@@ -132,16 +132,20 @@ class collector:
 
     def write_json(self):
         if self.written == True:
-            return   
-        self.fileio(self.data_file,json.dumps(self.cache,indent = 4, default=self.convert_timestamp))
-        self.written = True
+            return
+        if self.data_file != '':
+            self.fileio(self.data_file,json.dumps(self.cache,indent = 4, default=self.convert_timestamp))
+            self.written = True
+        else:
+            logging.warning(' ** Nothing written yet - we do not know the file name **')
+        
 
     def read_json(self,fi = None):
         x = self.fileio(fi)
         if x != None:
             self.cache = json.loads(x)
 
-            self.data_file = self.last_file_name_read
+            #self.data_file = self.last_file_name_read
 
     def collect(self):
         self.collect_priority(1)
@@ -654,6 +658,7 @@ class collector:
             
             self.authenticate(a,b,c)
             self.read_json(args.collect)
+            self.data_file = args.collect
             
             self.collect()
 

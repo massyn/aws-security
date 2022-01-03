@@ -296,7 +296,7 @@
                                 "cd /tmp\n",
                                 "mkdir /tmp/secreport\n",
                                 "git clone http://github.com/massyn/aws-security\n",
-                                "pip3 install -r /tmp/aws-security/requirements.txt"
+                                "pip3 install -r /tmp/aws-security/requirements.txt\n",
                                 "python3 aws-security/scanner/scanner.py --collect /tmp/secreport/%a.json --report s3://", {"Ref" : "s3Bucket" },"/$dte/%a.html > /tmp/secreport/output.log 2>&1\n",
                                 "aws s3 cp /tmp/secreport/ s3://" , {"Ref" : "s3Bucket" } , "/$dte/ --recursive\n",
                                 "#shutdown now\n"
