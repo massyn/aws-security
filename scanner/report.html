@@ -1,0 +1,137 @@
+<%!
+    import json
+    def fmt(x):
+        return json.dumps(x,indent=4)
+
+    def htmlbar(p):
+        pct = p * 100.0
+        if pct < 80:
+          col = '#C00000'
+        elif pct < 100:
+          col = '#ED7D31'
+        else:
+          col = '#00B050'
+          
+        maxwidth = 250
+        #barwidth = pct / 100 * maxwidth
+        #whitewidth = maxwidth - barwidth
+        
+        return '''<div style="width: {maxwidth}px;background-color: #bbb;box-sizing: border-box">
+          <div style="width: {pct}%; background-color: {col};text-align: right;padding-top: 10px;padding-bottom: 10px;color: white;box-sizing: border-box">{pct}%</div>
+        </div>'''.format(maxwidth = str(maxwidth), pct = str(round(pct,1)),col = col)
+%>
+
+<!DOCTYPE html>
+                <html>
+                <head>
+                <title>AWS Security Info - Vulnerability Report</title>
+<style>
+body {
+  background-color	: #E7E6E6;
+  font-family		: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+	color: #FFFFFF;
+	background-color: #485CC7;
+	padding: 20px 20px 20px 20px;
+	border-width:1px;  
+	border-style:solid;
+}
+
+h2 {
+    color: #485CC7;
+    background-color: #89CFF0;
+    border-style: solid solid solid solid;
+    border-width: 1px;
+    padding: 2px 2px 2px 2px;
+}
+th {
+  background-color: #485CC7;
+  color: white;
+}
+th, td {
+  padding: 3px;
+  text-align: left;
+}
+.evidence {
+  border: 1px solid gray;
+  background-color: #c0c0c0;
+}
+
+table, th, td {
+  border: 1px solid gray;
+}
+table {
+  border-collapse: collapse;
+}
+</style>
+
+</head>
+
+                    <h1>AWS Security Info - Configuration Report</h1>
+<h2>Executive Summary</h2>
+<p>Date : <b>${data['date']} ${data['time']}</b></p>
+<p><a href="http://www.awssecurity.info">AWS Security Info</a> performed a configuration misconfiguration assessment on {date} encompassing the scope described below:</p>
+<p>
+<table width=300px style="text-align:center;">
+<tr><th style="text-align:center;">AWS Account</th><th>Scanned Date</th></tr>
+<tr><td style="text-align:center;">${data['account']}</td><td>${data['scanneddate']}</td></tr>
+</table>
+</p>
+
+<p>This document is classified as <b>strictly private and confidential</b>.</p>
+
+<h2>Disclaimer</h2>
+<p>The AWS cloud vulnerability test that existed as of <b>${data['scanneddate']}</b>. Information security threats are continually changing, with new vulnerabilities discovered on a daily basis, and no solution or cloud account can ever be 100% secure no matter how much security testing is conducted. 
+This report is intended only to provide documentation on potential issues that may exist in AWS account <b>${data['account']}</b>.  It is still the account owner's responsibility to perform any triage and remediation actions based on the recommendations in this report.</p>
+<p>This report cannot and does not protect against personal or business loss as the result of use of the applications or systems described. AWS Security Info offers no warranties, representations or legal certifications concerning the applications or systems it tests. All software includes defects: nothing in this document is intended to represent or warrant that security testing was complete and without error, nor does this document represent or warrant that the application tested is suitable to task, free of other defects than reported, fully compliant with any industry standards, or fully compatible with any operating system, hardware, or other application. By using this information you agree that AWS Security Info shall be held harmless in any event.</p>
+<p>The reported percentage reported is purely arbitrary and should only be used as an indicator.  It should be noted that even solutions with scores above 90% may still be at risk of being comprormised.</p>
+
+<h2>About the tool</h2>
+<p>AWS Security Info is provided free of charge under an open source model.  The only condition for use is your contribution to report bugs, feature requests, and source code.</p>
+<ul>
+    <li><a href="https://github.com/massyn/aws-security/">Github</a> repository</li>
+    <li><a href="https://github.com/massyn/aws-security/issues">Report</a> an issue or feature request</li>
+    <li>Author : <a href="https://twitter.com/massyn">Phil Massyn</a></li>
+</ul>
+
+<h2 id="top">Summary</h2>
+    <table border=1>
+    <tr><th>Control</th><th>Score</th></tr>
+% for c in sorted(evidence['summary']):
+<tr>
+  % if evidence['summary'][c]['total'] - evidence['summary'][c]['totalok'] == 0:
+    <td>${c}</td>
+  % else:
+    <td><a href="#${c}">${c}</a></td>
+  % endif
+  <td>${htmlbar(evidence['summary'][c]['score'])}</td>
+
+</tr>
+% endfor
+</table>
+
+<h2>Detailed list</h2>
+% for c in sorted(evidence['summary']):
+
+% if evidence['summary'][c]['total'] - evidence['summary'][c]['totalok'] != 0:
+  <table id="${c}" border=1>
+  <tr><th colspan=2>${c}</th></tr>
+  <tr>
+    <td>${evidence['summary'][c]['totalok']} / ${evidence['summary'][c]['total']}</td>
+    <td>${htmlbar(evidence['summary'][c]['score'])}</td>
+  </tr>
+  </table>
+
+  <pre>${fmt(evidence['detail'][c][0])}</pre>
+
+  <p></p><a href="https://www.awssecurity.info/policies/${c}.html">More info</a> - <a href="#top">Top</a></p>
+
+  <hr>
+% endif
+
+% endfor
+
+<p><i></i>Generated on ${data['date']} ${data['time']} - For more information, visit <a href="https://www.awssecurity.info">AWSSecurity.info</a>.</i></p>
+</html>

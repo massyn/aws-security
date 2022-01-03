@@ -1,0 +1,1219 @@
+---
+accessanalyzer:
+    list_analyzers:
+        priority: 3
+        flatten: analyzers
+
+apigateway:
+    get_rest_apis:
+        priority: 3
+        flatten: items
+    get_stages:
+        priority: 4
+        loop:
+            service: apigateway
+            function: get_rest_apis
+            variables:
+                myID: id
+        parameter:
+            restApiId: $myID
+        identifier: $myID
+        flatten: item
+    get_domain_names:
+        priority: 3
+        flatten: items
+    get_client_certificates:
+        priority: 3
+        flatten: items
+    get_base_path_mappings:
+        flatten: items
+        priority: 4
+        loop:
+            service: apigateway
+            function: get_domain_names
+            variables:
+                myDomainName: domainName
+        parameter:
+                domainName: $myDomainName
+        identifier: $myDomainName
+
+autoscaling:
+    describe_auto_scaling_groups:
+        priority: 3
+        flatten: AutoScalingGroups
+    describe_launch_configurations:
+        priority: 3
+        flatten: LaunchConfigurations
+
+acm:
+    list_certificates:
+        priority: 3
+        flatten: CertificateSummaryList
+    describe_certificate:
+        priority: 4
+        loop:
+            service: acm
+            function: list_certificates
+            variables:
+                myCertARN: CertificateArn
+        parameter:
+            CertificateArn : $myCertARN
+        identifier: $myCertARN
+        flatten: Certificate
+
+cloudformation:
+    describe_stacks:
+        priority: 3
+        flatten: Stacks
+
+cloudfront:
+    list_cloud_front_origin_access_identities: 
+        priority: 3
+        #flatten: CloudFrontOriginAccessIdentityList
+    list_distributions: 
+        priority: 3
+        #flatten: DistributionList
+    list_functions: 
+        priority: 3
+        #flatten: FunctionList
+    list_streaming_distributions:
+        priority: 3
+        #flatten: StreamingDistributionList
+
+cloudsearch:
+    describe_domains:
+        priority: 3
+        flatten: DomainStatusList
+
+cloudtrail:
+    list_trails:
+        priority: 3
+        flatten: Trails
+    describe_trails:
+        priority: 3
+        flatten: trailList
+    get_trail_status:
+        priority: 4
+        loop:
+            service: cloudtrail
+            function: describe_trails
+            variables:
+                myTrailARN: TrailARN
+        parameter:
+            Name: $myTrailARN
+        identifier: $myTrailARN
+    get_event_selectors:
+        flatten: EventSelectors
+        priority: 4
+        loop:
+            service: cloudtrail
+            function: describe_trails
+            variables:
+                myTrailARN: TrailARN
+        parameter:
+            TrailName: $myTrailARN
+        identifier: $myTrailARN
+
+cloudwatch:
+    describe_alarms:
+        priority: 3
+
+cognito-identity:
+    list_identity_pools:
+        priority: 3
+        parameter:
+            MaxResults: 60
+        flatten: IdentityPools
+    describe_identity_pool:
+        priority: 4
+        loop:
+            service: cognito-identity
+            function: list_identity_pools
+            variables:
+                myIdentityPoolId: IdentityPoolId
+        parameter:
+            IdentityPoolId: $myIdentityPoolId
+        identifier: $myIdentityPoolId
+
+cognito-idp:
+    list_user_pools:
+        priority: 3
+        flatten: UserPools
+        parameter:
+            MaxResults: 60
+    describe_user_pool:
+        priority: 4
+        loop:
+            service: cognito-idp
+            function: list_user_pools
+            variables:
+                myUserPoolId: Id
+        parameter:
+            UserPoolId: $myUserPoolId
+        identifier: $myUserPoolId
+
+config:
+    describe_configuration_recorders:
+        priority: 3
+        flatten: ConfigurationRecorders
+    describe_configuration_recorder_status:
+        priority: 3
+        flatten: ConfigurationRecordersStatus
+    describe_delivery_channels:
+        priority: 3
+        flatten: DeliveryChannels
+    describe_delivery_channel_status:
+        priority: 4
+        loop:
+            service: config
+            function: describe_delivery_channels
+            variables:
+                name: name
+        parameter:
+            DeliveryChannelNames: [ '$name ']
+        identifier: $name
+
+ds:
+    describe_directories:
+        priority: 3
+        flatten: DirectoryDescriptions
+
+directconnect:
+    describe_connections:
+        priority: 3
+        flatten: connections
+    describe_direct_connect_gateways:
+        priority: 4
+        loop:
+            service: directconnect
+            function: describe_connections
+            variables:
+                myconnectionId: connectionId
+        parameter:
+            directConnectGatewayId: $myconnectionId
+        identifier: $myconnectionId
+
+dms:
+    describe_certificates:
+        priority: 3
+        flatten: Certificates
+    describe_endpoints:
+        priority: 3
+        flatten: Endpoints
+    describe_replication_instances:
+        priority: 3
+        flatten: ReplicationInstances     
+
+dynamodb:
+    list_tables:
+        priority: 3
+        flatten: TableNames
+    describe_table:
+        priority: 4
+        loop:
+            service: dynamodb
+            function: list_tables
+        parameter:
+            TableName: $VAR
+        identifier: $VAR
+
+ec2:
+    describe_regions:
+        region: 'us-east-1'
+        priority: 1
+        flatten: Regions
+    describe_instances:
+        priority: 3
+        flatten: Reservations
+    describe_account_attributes:
+        priority: 3
+        flatten: AccountAttributes
+    describe_images:
+        priority: 3
+        flatten: Images
+        parameter:
+            Owners: [ 'self']
+    describe_security_groups:
+        flatten: SecurityGroups
+        priority: 3
+    describe_network_acls:
+        flatten: NetworkAcls
+        priority: 3
+    describe_vpcs:
+        flatten: Vpcs
+        priority: 3
+    describe_route_tables:
+        flatten: RouteTables
+        priority: 3
+    describe_subnets:
+        flatten: Subnets
+        priority: 3
+    describe_flow_logs:
+        flatten: FlowLogs
+        priority: 3
+    describe_iam_instance_profile_associations:
+        flatten: IamInstanceProfileAssociations
+        priority: 3
+    describe_internet_gateways:
+        flatten: InternetGateways
+        priority: 3
+    describe_nat_gateways:
+        flatten: NatGateways
+        priority: 3
+    describe_snapshots:
+        priority: 3
+        flatten: Snapshots
+        parameter:
+            OwnerIds: [ 'self']
+    describe_vpc_peering_connections:
+        flatten: VpcPeeringConnections
+        priority: 3
+    describe_network_interfaces:
+        flatten: NetworkInterfaces
+        priority: 3
+    describe_key_pairs:
+        priority: 3
+        flatten: KeyPairs
+    describe_volumes:
+        priority: 3
+        flatten: Volumes
+    describe_moving_addresses:
+        flatten: MovingAddressStatuses
+        priority: 3
+    describe_vpc_endpoints:
+        flatten: VpcEndpoints
+        priority: 3
+    get_ebs_encryption_by_default:
+        priority: 3
+        flatten: EbsEncryptionByDefault
+    describe_vpn_connections:
+        flatten: VpnConnections
+        priority: 3
+    describe_vpn_gateways:
+        flatten: VpnGateways
+        priority: 3
+    describe_dhcp_options:
+        flatten: DhcpOptions
+        priority: 3
+    describe_managed_prefix_lists:
+        flatten: PrefixLists
+        priority: 3
+    describe_transit_gateways:
+        priority: 3
+        flatten: TransitGateways
+    describe_transit_gateway_attachments:
+        flatten: TransitGatewayAttachments
+        priority: 3
+
+ecr:
+    describe_repositories:
+        priority: 3
+        flatten: repositories
+    get_repository_policy:
+        priority: 4
+        loop:
+            service: ecr
+            function: describe_repositories
+            variables:
+                repositoryName: repositoryName
+                registryId: registryId
+        parameter:
+            repositoryName: $repositoryName
+            registryId: $registryId
+        identifier: $repositoryName
+
+ecs:
+    list_clusters:
+        priority: 3
+        flatten: clusterArns
+    list_services:
+        priority: 4
+        flatten: serviceArns
+        loop:
+            service: ecs
+            function: list_clusters
+        parameter:
+            cluster: $VAR
+        identifier: $VAR
+    list_task_definitions:
+        priority: 3
+        flatten: taskDefinitionArns
+    describe_task_definition:
+        priority: 4
+        flatten: taskDefinition
+        loop:
+            service: ecs
+            function: list_task_definitions
+        parameter:
+            taskDefinition: $VAR
+        identifier: $VAR
+
+efs:
+    describe_file_systems:
+        priority: 3
+        flatten: FileSystems
+    describe_mount_targets:
+        priority: 4
+        flatten: MountTargets
+        loop:
+            service: efs
+            function: describe_file_systems
+            variables:
+                myFileSystemId: FileSystemId
+        parameter:
+            FileSystemId: $myFileSystemId
+        identifier: $myFileSystemId
+
+elasticbeanstalk:
+    describe_applications:
+        priority: 3
+        flatten: Applications
+    describe_environments:
+        priority: 3
+        flatten: Environments
+    describe_configuration_settings:
+        priority: 4
+        loop:
+            service: elasticbeanstalk
+            function: describe_environments
+            variables:
+                myApplicationName: ApplicationName
+                myEnvironmentName: EnvironmentName
+            parameter:
+                ApplicationName: $myApplicationName
+                EnvironmentName: $myEnvironmentName
+            identifier: $myApplicationName
+
+elasticache:
+    describe_cache_engine_versions:
+        flatten: CacheEngineVersions
+        priority: 3
+    describe_cache_clusters:
+        flatten: CacheClusters
+        priority: 3
+    describe_replication_groups:
+        flatten: ReplicationGroups
+        priority: 3
+    describe_reserved_cache_nodes:
+        flatten: ReservedCacheNodes
+        priority: 3
+    describe_cache_subnet_groups:
+        flatten: CacheSubnetGroups
+        priority: 3
+    describe_snapshots:
+        flatten: Snapshots
+        priority: 3
+
+es:
+    list_domain_names:
+        flatten: DomainNames
+        priority: 3
+    describe_elasticsearch_domain:
+        priority: 4
+        loop:
+            service: es
+            function: list_domain_names
+            variables:
+                myDomainName: DomainName
+        parameter:
+            DomainName: $myDomainName
+        identifier: $myDomainName
+
+elb:
+    describe_load_balancers:
+        priority: 3
+        flatten: LoadBalancerDescriptions
+
+elbv2:
+    describe_ssl_policies:
+        flatten: SslPolicies
+        region: 'us-east-1'
+        priority: 3
+    describe_load_balancers:
+        priority: 3
+        flatten: LoadBalancers
+    describe_listeners:
+        priority: 4
+        flatten: Listeners
+        loop:
+            service: elbv2
+            function: describe_load_balancers
+            variables:
+                myLoadBalancerArn: LoadBalancerArn
+        parameter:
+            LoadBalancerArn: $myLoadBalancerArn
+        identifier: $myLoadBalancerArn
+    describe_target_groups:
+        priority: 4
+        flatten: TargetGroups
+        loop:
+            service: elbv2
+            function: describe_load_balancers
+            variables:
+                myLoadBalancerArn: LoadBalancerArn
+        parameter:
+            LoadBalancerArn: $myLoadBalancerArn
+        identifier: $myLoadBalancerArn
+
+eks:
+    list_clusters:
+        priority: 3
+        flatten: clusters
+
+emr:                    
+    get_block_public_access_configuration:
+        priority: 3
+        flatten: BlockPublicAccessConfiguration
+    list_clusters:
+        priority: 3
+        flatten: Clusters
+    list_instances:
+        priority: 4
+        loop:
+            service: emr
+            function: list_clusters
+            variables:
+                Id: myId
+        parameter:
+            ClusterId: $myId
+    describe_cluster:
+        priority: 4
+        loop:
+            service: emr
+            function: list_clusters
+            variables:
+                Id: myId
+        parameter:
+            ClusterId: $myId
+
+glacier:
+    list_vaults:
+        priority: 3
+        flatten: VaultList
+    get_vault_access_policy:
+        priority: 4
+        loop:
+            service: glacier
+            function: list_vaults
+            variables:
+                VaultName: VaultName
+        parameter:
+            vaultName: $VaultName
+        identifier: $VaultName
+    get_vault_lock:
+        priority: 4
+        loop:
+            service: glacier
+            function: list_vaults
+            variables:
+                VaultName: VaultName
+        parameter:
+            vaultName: $VaultName
+        identifier: $VaultName
+
+guardduty:
+    list_detectors:
+        priority: 3
+        flatten: DetectorIds       
+
+iam:
+    generate_credential_report:
+        region: 'us-east-1'
+        priority: 2
+    list_policies:
+        region: 'us-east-1'
+        priority: 3
+        flatten: Policies
+    get_policy_version:
+        region: 'us-east-1'
+        priority: 4
+        flatten: PolicyVersion
+        loop:
+            service: iam
+            function: list_policies
+            variables:
+                Arn: Arn
+                DefaultVersionId: DefaultVersionId
+                PolicyName: PolicyName
+        parameter:
+            PolicyArn: $Arn
+            VersionId: $DefaultVersionId
+        identifier: $PolicyName
+    list_server_certificates:
+        priority: 3
+        region: 'us-east-1'
+        flatten: ServerCertificateMetadataList
+    list_virtual_mfa_devices:
+        priority: 3
+        region: 'us-east-1'
+        flatten: VirtualMFADevices
+    get_account_summary:
+        priority: 3
+        region: 'us-east-1'
+        flatten: SummaryMap
+    get_account_authorization_details:
+        priority: 3
+        region: 'us-east-1'
+    list_saml_providers:
+        priority: 3
+        region: 'us-east-1'
+        flatten: SAMLProviderList
+    get_saml_provider:
+        priority: 4
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_saml_providers
+            variables:
+                Arn: Arn
+        parameter:
+            SAMLProviderArn: $Arn
+        identifier: $Arn
+    list_groups:
+        priority: 3
+        region: 'us-east-1'
+        flatten: Groups
+    get_group:
+        priority: 4
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_groups
+            variables:
+                GroupName: GroupName
+        parameter:
+            GroupName: $GroupName
+        identifier: $GroupName
+    list_attached_group_policies:
+        priority: 4
+        flatten: AttachedPolicies
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_groups
+            variables:
+                GroupName: GroupName
+        parameter:
+            GroupName: $GroupName
+        identifier: $GroupName
+    list_group_policies:
+        priority: 4
+        flatten: PolicyNames
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_groups
+            variables:
+                GroupName: GroupName
+        parameter:
+            GroupName: $GroupName
+        identifier: $GroupName
+    get_group_policy:
+        priority: 5
+        flatten: PolicyDocument
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_groups
+            variables:
+                GroupName: GroupName
+        loop2:
+            service: iam
+            function: list_group_policies
+            lookup: $GroupName
+        parameter:
+            GroupName: $GroupName
+            PolicyName: $VAR
+        identifier: "$GroupName:$VAR"
+    list_users:
+        region: 'us-east-1'
+        flatten: Users
+        priority: 3
+    list_mfa_devices:
+        region: 'us-east-1'
+        flatten: MFADevices
+        priority: 4
+        loop:
+            service: iam
+            function: list_users
+            variables:
+                UserName: UserName
+        parameter:
+            UserName: $UserName
+        identifier: $UserName
+    list_ssh_public_keys:
+        region: 'us-east-1'
+        flatten: SSHPublicKeys
+        priority: 4
+        loop:
+            service: iam
+            function: list_users
+            variables:
+                UserName: UserName
+        parameter:
+            UserName: $UserName
+        identifier: $UserName
+    list_access_keys:
+        region: 'us-east-1'
+        flatten: AccessKeyMetadata
+        priority: 4
+        loop:
+            service: iam
+            function: list_users
+            variables:
+                UserName: UserName
+        parameter:
+            UserName: $UserName
+        identifier: $UserName
+    list_attached_user_policies:
+        region: 'us-east-1'
+        flatten: AttachedPolicies
+        priority: 4
+        loop:
+            service: iam
+            function: list_users
+            variables:
+                UserName: UserName
+        parameter:
+            UserName: $UserName
+        identifier: $UserName
+    list_user_policies:
+        region: 'us-east-1'
+        flatten: PolicyNames
+        priority: 4
+        loop:
+            service: iam
+            function: list_users
+            variables:
+                UserName: UserName
+        parameter:
+            UserName: $UserName
+        identifier: $UserName
+    get_user_policy:
+        priority: 5
+        flatten: PolicyDocument
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_users
+            variables:
+                UserName: UserName
+        loop2:
+            service: iam
+            function: list_user_policies
+            lookup: $UserName
+        parameter:
+            UserName: $UserName
+            PolicyName: $VAR
+        identifier: "$UserName:$VAR"
+
+    list_roles:
+        priority: 3
+        region: 'us-east-1'
+        flatten: Roles
+    list_attached_role_policies:
+        priority: 4
+        flatten: AttachedPolicies
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_roles
+            variables:
+                RoleName: RoleName
+        parameter:
+            RoleName: $RoleName
+        identifier: $RoleName
+    list_role_policies:
+        priority: 4
+        region: 'us-east-1'
+        flatten: PolicyNames
+        loop:
+            service: iam
+            function: list_roles
+            variables:
+                RoleName: RoleName
+        parameter:
+            RoleName: $RoleName
+        identifier: $RoleName
+    get_role_policy:
+        priority: 5
+        flatten: PolicyDocument
+        region: 'us-east-1'
+        loop:
+            service: iam
+            function: list_roles
+            variables:
+                RoleName: RoleName
+        loop2:
+            service: iam
+            function: list_role_policies
+            lookup: $RoleName
+        parameter:
+            RoleName: $RoleName
+            PolicyName: $VAR
+        identifier: "$RoleName:$VAR"
+    
+kms:
+    list_keys:
+        priority: 3
+        flatten: Keys
+    get_key_rotation_status:
+        priority: 4
+        flatten: KeyRotationEnabled
+        loop:
+            service: kms
+            function: list_keys
+            variables:
+                KeyId: KeyId
+        parameter:
+            KeyId: $KeyId
+        identifier: $KeyId
+
+lambda:
+    list_functions:
+        priority: 3
+        flatten: Functions
+
+logs:
+    describe_metric_filters:
+        priority: 3
+        flatten: metricFilters
+    
+    describe_log_groups:
+        priority: 3
+        flatten: logGroups
+
+mq:
+    list_brokers:
+        priority: 3
+        flatten: BrokerSummaries
+    describe_broker:
+        priority: 4
+        loop:
+            service: mq
+            function: list_brokers
+            variables:
+                BrokerId: BrokerId
+        parameter:
+            BrokerId: $BrokerId
+        identifier: $BrokerId
+
+organizations:
+    describe_organization:
+        priority: 3
+        region: 'us-east-1'
+        flatten: Organization
+    list_accounts:
+        priority: 3
+        region: 'us-east-1'
+        flatten: Accounts
+
+rds:
+    describe_db_instances:
+        priority: 3
+        flatten: DBInstances
+    describe_db_snapshots:
+        priority: 3
+        flatten: DBSnapshots
+    describe_event_subscriptions:
+        priority: 3
+        flatten: EventSubscriptionsList
+    describe_db_cluster_snapshots:
+        priority: 3
+        flatten: DBClusterSnapshots
+    describe_db_clusters:
+        priority: 3
+        flatten: DBClusters
+    describe_db_parameter_groups:
+        priority: 3
+        flatten: DBParameterGroups
+
+route53:
+    list_hosted_zones:
+        flatten: HostedZones
+        priority: 3
+        region: 'us-east-1'
+
+route53domains:
+    list_domains:
+        region: 'us-east-1'
+        priority: 3
+        flatten: Domains
+
+s3:
+    list_buckets:
+        priority: 3
+        region: 'us-east-1'
+        flatten: Buckets
+    get_bucket_logging:
+        priority: 4
+        flatten: LoggingEnabled
+        region: 'us-east-1'
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    get_bucket_versioning:
+        priority: 4
+        region: 'us-east-1'
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    get_bucket_policy:
+        priority: 4
+        flatten: Policy
+        region: 'us-east-1'
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    get_bucket_encryption:
+        priority: 4
+        flatten: ServerSideEncryptionConfiguration
+        region: 'us-east-1'
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    get_bucket_acl:
+        priority: 4
+        region: 'us-east-1'
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    get_public_access_block:
+        priority: 4
+        flatten: PublicAccessBlockConfiguration
+        region: 'us-east-1'
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    get_bucket_location:
+        priority: 4
+        region: 'us-east-1'
+        flatten: LocationConstraint
+        loop:
+            service: s3
+            function: list_buckets
+            variables:
+                Name: Name
+        parameter:
+            Bucket: $Name
+        identifier: $Name
+    #list_access_points:
+    #    priority: 4
+    #    region: 'us-east-1'
+    #    loop:
+    #        service: s3
+    #        function: get_bucket_location
+    #    parameter:
+    #        Name: $VAR
+    #        AccountId: $ACCOUNTID
+
+sagemaker:
+    list_notebook_instances:
+        priority: 3
+        flatten: NotebookInstances
+    describe_notebook_instance:
+        priority: 4
+        loop:
+            service: sagemaker
+            function: list_notebook_instances
+            variables:
+                NotebookInstanceName: NotebookInstanceName
+        parameter:
+            NotebookInstanceName: $NotebookInstanceName
+        identifier: $NotebookInstanceName
+    list_endpoints:
+        priority: 3
+        flatten: Endpoints
+    describe_endpoints:
+        priority: 4
+        loop:
+            service: sagemaker
+            function: list_endpoints
+            variables:
+                EndpointName: EndpointName
+        parameter:
+            EndpointName: $EndpointName
+        identifier: $EndpointName
+
+secretsmanager:
+    list_secrets:
+        priority: 3
+        flatten: SecretList
+    describe_secret:
+        priority: 4
+        loop:
+            service: secretsmanager
+            function: list_secrets
+            variables:
+                ARN: ARN
+        parameter:
+            SecretId: $ARN
+        identifier: $ARN
+
+ssm:
+    get_parameters_by_path:
+        priority: 3
+        parameter: 
+            Path: '/'
+            Recursive: True
+        flatten: Parameters
+    describe_instance_information:
+        priority: 3
+        flatten: InstanceInformationList
+
+
+sns:
+    list_subscriptions:
+        priority: 3
+        flatten: Subscriptions
+    get_subscription_attributes:
+        priority: 4
+        flatten: Attributes
+        loop:
+            service: sns
+            function: list_subscriptions
+            variables:
+                SubscriptionArn: SubscriptionArn
+        parameter:
+            SubscriptionArn: $SubscriptionArn
+        identifier: $SubscriptionArn
+    list_topics:
+        priority: 3
+        flatten: Topics
+    list_subscriptions_by_topic:
+        priority: 4
+        flatten: Subscriptions
+        loop:
+            service: sns
+            function: list_topics
+            variables:
+                TopicArn: TopicArn
+        parameter:
+            TopicArn: $TopicArn
+        identifier: $TopicArn
+    get_topic_attributes:
+        priority: 4
+        flatten: Attributes
+        flatten: Subscriptions
+        loop:
+            service: sns
+            function: list_topics
+            variables:
+                TopicArn: TopicArn
+        parameter:
+            TopicArn: $TopicArn
+        identifier: $TopicArn
+
+    list_platform_applications:
+        priority: 3
+        flatten: PlatformApplications
+   
+sqs:
+    list_queues:
+        priority: 3
+        flatten: QueueUrls
+    get_queue_attributes:
+        priority: 4
+        loop:
+            service: sqs
+            function: list_queues
+        parameter:
+            QueueUrl: $VAR
+        identifier: $VAR
+
+sso-admin:
+    list_instances:
+        priority: 3
+        flatten: Instances
+    list_permission_sets:
+        priority: 4
+        flatten: PermissionSets
+        loop:
+            service: sso-admin
+            function: list_instances
+            variables:
+                InstanceArn: InstanceArn
+        parameter:
+            InstanceArn: $InstanceArn
+        identifier: $InstanceArn
+    describe_permission_set:
+        priority: 5
+        flatten: PermissionSet
+        loop:
+            service: sso-admin
+            function: list_instances
+            variables:
+                InstanceArn: InstanceArn
+        loop2:
+            service: sso-admin
+            function: list_permission_sets
+            lookup: $InstanceArn
+        parameter:
+            InstanceArn: $InstanceArn
+            PermissionSetArn: $VAR
+        identifier: $VAR
+    get_inline_policy_for_permission_set:
+        priority: 5
+        flatten: InlinePolicy
+        loop:
+            service: sso-admin
+            function: list_instances
+            variables:
+                InstanceArn: InstanceArn
+        loop2:
+            service: sso-admin
+            function: list_permission_sets
+            lookup: $InstanceArn
+        parameter:
+            InstanceArn: $InstanceArn
+            PermissionSetArn: $VAR
+        identifier: $VAR
+    list_managed_policies_in_permission_set:
+        priority: 5
+        flatten: AttachedManagedPolicies
+        loop:
+            service: sso-admin
+            function: list_instances
+            variables:
+                InstanceArn: InstanceArn
+        loop2:
+            service: sso-admin
+            function: list_permission_sets
+            lookup: $InstanceArn
+        parameter:
+            InstanceArn: $InstanceArn
+            PermissionSetArn: $VAR
+        identifier: $VAR
+    list_accounts_for_provisioned_permission_set:
+        priority: 5
+        flatten: AccountIds
+        loop:
+            service: sso-admin
+            function: list_instances
+            variables:
+                InstanceArn: InstanceArn
+        loop2:
+            service: sso-admin
+            function: list_permission_sets
+            lookup: $InstanceArn
+        parameter:
+            InstanceArn: $InstanceArn
+            PermissionSetArn: $VAR
+        identifier: $VAR
+    #list_account_assignments:
+    #    priority: 6
+    #    loop3:
+sts:
+    get_caller_identity:
+        region: 'us-east-1'
+        priority: 1
+
+waf:
+    list_web_acls:
+        priority: 3
+        flatten: WebACLs
+    get_web_acl:
+        priority: 4
+        flatten: Rules
+        loop:
+            service: waf
+            function: list_web_acls
+            variables:
+                WebACLId: WebACLId
+        parameter:
+            WebACLId: $WebACLId
+        identifier: $WebACLId
+    #get_rule:
+    #    priority: 5
+    #    loop:
+    #        service: waf
+    #        function: get_web_acl
+    #    variables:
+    #        RuleId: RuleId
+    #    parameter:
+    #        RuleId: $RuleId
+    #    identifier: $RuleId
+    list_rules:
+        priority: 3
+        flatten: Rules
+    get_rule:
+        priority: 4
+        loop:
+            service: waf
+            function: list_rules
+            variables:
+                RuleId: RuleId
+        parameter:
+            RuleId: $RuleId
+        identifier: $RuleId
+
+waf-regional:
+    list_web_acls:
+        priority: 3
+        flatten: WebACLs
+    get_web_acl:
+        priority: 4
+        flatten: WebACL
+        loop:
+            service: waf-regional
+            function: list_web_acls
+            variables:
+                WebACLId: WebACLId
+        parameter:
+            WebACLId: $WebACLId
+        identifier: $WebACLId
+    list_resources_for_web_acl:
+        priority: 4
+        flatten: ResourceArns
+        loop:
+            service: waf-regional
+            function: list_web_acls
+            variables:
+                WebACLId: WebACLId
+        parameter:
+            WebACLId: $WebACLId
+        identifier: $WebACLId
+
+wafv2:
+    list_web_acls:
+        priority: 3
+        flatten: WebACLs
+        parameter:
+            Scope: REGIONAL
+        identifier: REGIONAL
+
+
+
+
+    
+

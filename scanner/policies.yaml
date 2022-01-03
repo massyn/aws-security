@@ -1,0 +1,177 @@
+---
+access-keys-rotate-90-days:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user != `<root_account>`]"
+    fields: "{ UserName : user , access_key_1_active: access_key_1_active, access_key_1_last_rotated : access_key_1_last_rotated, _access_key_1_last_rotated_age: _access_key_1_last_rotated_age, access_key_2_active: access_key_2_active, access_key_2_last_rotated : access_key_2_last_rotated , _access_key_2_last_rotated_age: _access_key_2_last_rotated_age}"
+  policy: "[?( access_key_1_active == 'true' && _access_key_1_last_rotated_age > `90` ) ||  ( access_key_2_active == 'true' && _access_key_2_last_rotated_age > `90` )  ]"
+
+ec2-instance-with-public-ip:
+  asset:
+    path: ec2.describe_instances
+    flatten: Instances
+    filter: "[?State.Name == 'running']"
+    fields: "{InstanceId : InstanceId , AvailabilityZone : Placement.AvailabilityZone, PublicIpAddress : PublicIpAddress, Region : _region }"
+  policy: "[?PublicIpAddress != `null`]"  # check for what is not compliant
+
+eliminate-root-user-usage:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user == `<root_account>`]"
+    fields: "{ UserName : user , password_last_used : password_last_used, _password_last_used_age: _password_last_used_age }"
+  policy: "[?_password_last_used_age < `90`]"
+
+iam-central-managed-users:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user != `<root_account>`]"
+    fields: "{ UserName : user , password_enabled : password_enabled , password_last_used : password_last_used }"
+  policy: "[?password_enabled == 'true']"
+
+iam-users-without-mfa:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user != `<root_account>` && password_enabled == 'true']"
+    fields: "{ UserName : user , mfa_active : mfa_active , password_last_used : password_last_used }"
+  policy: "[?mfa_active != 'true']"
+
+lambda-depreciated-runtimes:
+  asset:
+    path: lambda.list_functions
+    fields: " { FunctionName : FunctionName, Runtime : Runtime, Region : _region } "
+  policy : "[?Runtime == `nodejs10.x` || Runtime == `ruby2.5` || Runtime == `python2.7` || Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`]"
+
+root-account-access-key:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user == `<root_account>`]"
+    fields: "{ UserName : user , access_key_1_active : access_key_1_active, access_key_2_active : access_key_2_active }"
+  policy: "[? access_key_1_active == 'true' || access_key_2_active == 'true' ]"
+
+root-account-without-mfa:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user == `<root_account>`]"
+    fields: "{ UserName : user , mfa_active : mfa_active }"
+  policy: "[?mfa_active == 'false' ]"
+
+subnets-issue-public-ip:
+  asset:
+    path: ec2.describe_subnets
+    fields: "{ SubnetId :SubnetId, AvailabilityZone : AvailabilityZone, MapPublicIpOnLaunch: MapPublicIpOnLaunch, Region : _region }"
+  policy: "[?MapPublicIpOnLaunch == `true`]"
+
+two-active-access-keys:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user != `<root_account>`]"
+    fields: "{ UserName : user , access_key_1_active : access_key_1_active, access_key_1_last_used_date : access_key_1_last_used_date, access_key_2_active : access_key_2_active, access_key_2_last_used_date : access_key_2_last_used_date }"
+  policy: "[? access_key_1_active == 'true' && access_key_2_active == 'true' ]"
+
+unused-credentials:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user != `<root_account>`]"
+    fields : "{ UserName : user , password_last_used : password_last_used, access_key_1_last_used_date : access_key_1_last_used_date, access_key_2_last_used_date : access_key_2_last_used_date }"
+  policy: "[?(password_enabled == 'true' && ( _password_last_used_age > `45` || _password_last_used_age == `-1`)) || (access_key_1_active == 'true' && ( _access_key_1_last_used_date_age> `45` || _access_key_1_last_used_date_age== `-1`)) || (access_key_2_active == 'true' && ( _access_key_2_last_used_date_age> `45` || _access_key_2_last_used_date_age== `-1`)) ]"
+
+iam-console-users-with-access-keys:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user != `<root_account>`]"
+    fields: "{ UserName : user , access_key_1_active : access_key_1_active, access_key_2_active : access_key_2_active }"
+  policy: "[? password_enabled == 'true' && ( access_key_2_active == 'true' || access_key_2_active == 'true' ) ]"
+
+root-account-without-hardware-mfa:
+  asset:
+    path: iam.get_credential_report
+    filter: "[?user == `<root_account>`]"
+    fields: "{ UserName : user , mfa_active : mfa_active, list_virtual_mfa_devices : list_virtual_mfa_devices.SerialNumber  }"
+  policy: "[? mfa_active == 'false' || ( mfa_active == 'true' && arn == list_virtual_mfa_devices.User.Arn )]"
+
+iam-users-group-permissions:
+  asset:
+    path: custom.iam_get_credential_report
+    filter: "[?user != `<root_account>`]"
+    fields: "{ user : user , _list_user_policies : _list_user_policies, _list_user_policies_count: _list_user_policies_count _list_attached_user_policies : _list_attached_user_policies , _list_attached_user_policies_count: _list_attached_user_policies_count}"
+  policy : "[? _list_user_policies_count > `0` || _list_attached_user_policies_count > `0` ]"
+
+iam-entities-with-admin-rights:
+  asset:
+    path: custom.iam_list_policies
+    fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
+  policy : "[? Effect == `Allow` && Action == `*` && Resource == `*` ]"
+
+external-accounts-with-access:
+  asset:
+    path: custom.iam_get_account_authorization_details_RoleDetailList
+    fields: "{ RoleName: RoleName, RoleId: RoleId, Effect: Effect, Principal_AWS: Principal_AWS, Action: Action }"
+  policy: "[? Effect == `Allow` && Action == `sts:AssumeRole` && Principal_AWS != null ]"
+
+iam-entities-with-lambda-function-update-rights:
+  asset:
+    path: custom.iam_list_policies
+    fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
+  policy : "[? Effect == `Allow` && ( Action == `*` || Action == `lambda:*` || Action == `lambda:UpdateFunctionCode`) ]"
+
+iam-entities-with-dynamodb-access:
+  asset:
+    path: custom.iam_list_policies
+    fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
+  policy : "[? Effect == `Allow` && ( Action == `*` || Action == `dynamodb:*` || Action == `dynamodb:GetItem` || Action == `dynamodb:GetRecords` || Action == `dynamodb:UpdateItem` || Action == `dynamodb:UpdateTable` || Action == `dynamodb:PutItem` || Action == `dynamodb:DeleteTable`) ]"
+
+security-groups-with-exposed-admin-ports:
+  asset:
+    path: custom.ec2_describe_security_groups
+    fields: "{ _direction: _direction, GroupId: GroupId, GroupName: GroupName, FromPort: FromPort, ToPort: ToPort, IpProtocol: IpProtocol, IpRange: IpRange }"
+  policy: "[? _direction == `IpPermissions` && ( IpRange == `0.0.0.0/0` || IpRange == `::/0` ) && ((FromPort <= `22` && ToPort >= `22`) || (FromPort <= `3389` && ToPort >= `3389`)) ]"
+
+rds-must-be-encrypted:
+  asset:
+    path: rds.describe_db_instances
+    fields: "{ StorageEncrypted: StorageEncrypted, DBInstanceIdentifier: DBInstanceIdentifier, DbiResourceId:DbiResourceId, Engine:Engine }"
+  policy: "[? StorageEncrypted != `true` ]"
+
+cloudtrail-logs-encrypted:
+  asset:
+    path: cloudtrail.describe_trails
+    fields: "{ Name: Name, KmsKeyId: KmsKeyId, _region: _region}"
+  policy: "[? KmsKeyId == `null` ]"
+
+cloudtrail-logfile-validation:
+  asset:
+    path: cloudtrail.describe_trails
+    fields: "{ Name: Name, LogFileValidationEnabled: LogFileValidationEnabled, _region: _region}"
+  policy: "[? LogFileValidationEnabled != `true` ]"
+
+cloudtrail-enabled:
+  asset:
+    path: custom.cloudtrail_describe_trails
+    fields: "{ Name: Name, _region: _region, IsMultiRegionTrail: IsMultiRegionTrail, get_trail_status_IsLogging: get_trail_status_IsLogging, get_event_selectors_IncludeManagementEvents : get_event_selectors_IncludeManagementEvents, get_event_selectors_ReadWriteType: get_event_selectors_ReadWriteType}"
+  policy: "[? IsMultiRegionTrail != `true` && get_trail_status_IsLogging != `true` && get_event_selectors_IncludeManagementEvents != `true` && get_event_selectors_ReadWriteType != `All` ]"
+
+ssm-agent-active:
+  asset:
+    path: custom.ec2_describe_instances
+    filter: "[?State.Name == 'running']"
+    fields: " { _region: _region , InstanceId : InstanceId, ssm_InstanceId : ssm_InstanceId, ssm_PingStatus: ssm_PingStatus , State: State.Name, PrivateIpAddress: PrivateIpAddress}"
+  policy: "[? ssm_InstanceId != InstanceId || ssm_PingStatus != `Online` ]"
+
+ec2-with-instance-profiles:
+  asset:
+    path: custom.ec2_describe_instances
+    fields: "{ _region: _region, InstanceId : InstanceId, IamInstanceProfile: IamInstanceProfile.Arn }"
+  policy: "[? IamInstanceProfile == `null` ]"
+
+minimum-password-length:
+  asset:
+    path: custom.iam_AccountPasswordPolicy
+    fields: "{ key: key, value: value }"
+    filter: "[? key == `minimum_password_length` ]"
+  policy: "[? value <= `14` || value == `null` ]"
+
+privilege-escalation:
+  asset:
+    path: custom.iam_list_policies
+    fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
+  policy : "[? Effect == `Allow` && ( Action == `*` || Action == `lambda:*` || Action == `lambda:InvokeFunction` || Action == `lambda:CreateFunction` || Action == `iam:*` || Action == `iam:CreatePolicyVersion` || Action == `iam:SetDefaultPolicyVersion` || Action == `iam:PutRolePolicy` || Action == `iam:CreateAccessKey` || Action == `iam:CreateLoginProfile` || Action == `iam:UpdateLoginProfile` || Action == `iam:AttachUserPolicy` || Action == `iam:AttachGroupPolicy` || Action == `iam:AttachRolePolicy` || Action == `iam:PutUserPolicy` || Action == `iam:PutGroupPolicy` || Action == `iam:AddUserToGroup` || Action == `iam:UpdateAssumeRolePolicy` || Action == `ec2:*` || Action == `ec2:RunInstances` || Action == `glue:*` || Action == `glue:UpdateDevEndpoint` || Action == `glue:UpdateDevEndpoint` || Action == `cloudformation:*` || Action == `cloudformation:CreateStack` || Action == `datapipeline:*` || Action == `datapipeline:CreatePipeline` || Action == `datapipeline:PutPipelineDefinition` ) ]"
