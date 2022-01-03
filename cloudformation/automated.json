@@ -23,19 +23,10 @@
             "Default" : "ami-0c2b8ca1dad447f8a",
             "Description" : "This AMI is only valid in us-east-1.  Should you run in another region, you need to update it."
         },
-        "SlackWebhook" : {
-            "Type" : "String",
-            "Description" : "Provide a Slack Webhook if you want to get feedback through a Slack channel on the outcome of the scanner."
-        },
         "cron" : {
             "Type" : "String",
             "Default" : "cron(0 12 * * ? *)",
             "Description" : "Specify the schedule at which the event will trigger."
-        },
-        "additional" : {
-            "Type" : "String",
-            "Default" : "--organization OrganizationAccountAccessRole --regions ap-southeast-2",
-            "Description" : "You can specify some additional paramaters to pass to the script.  Empty this out if you don't want any additional options."
         }
     },
     "Resources" : {
@@ -137,7 +128,7 @@
                 ],
                 "ManagedPolicyArns" : [
                     "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
-                    "arn:aws:iam::aws:policy/ReadOnlyAccess",
+                    "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess",
                     "arn:aws:iam::aws:policy/SecurityAudit"
                 ]
             },
@@ -302,13 +293,13 @@
                                 "export dte=`date '+%Y/%m/%d'`\n",
                                 "yum update -y\n",
                                 "yum install python3 git awscli -y\n",
-                                "pip3 install boto3\n",
                                 "cd /tmp\n",
                                 "mkdir /tmp/secreport\n",
                                 "git clone http://github.com/massyn/aws-security\n",
-                                "python3 aws-security/scanner/scanner.py --json /tmp/secreport/%a.json --html s3://", {"Ref" : "s3Bucket" },"/$dte/%a.html --slack ", {"Ref" : "SlackWebhook" }," ", {"Ref" : "additional" }, "> /tmp/secreport/output.log 2>&1\n",
+                                "pip3 install -r /tmp/aws-security/requirements.txt"
+                                "python3 aws-security/scanner/scanner.py --collect /tmp/secreport/%a.json --report s3://", {"Ref" : "s3Bucket" },"/$dte/%a.html > /tmp/secreport/output.log 2>&1\n",
                                 "aws s3 cp /tmp/secreport/ s3://" , {"Ref" : "s3Bucket" } , "/$dte/ --recursive\n",
-                                "shutdown now\n"
+                                "#shutdown now\n"
                             ] ]
                         }
                     }
