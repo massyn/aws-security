@@ -41,7 +41,8 @@ class collector:
         # Seed the initial file, if global.json exists
         if os.path.isfile(f'{file_path}/global.json'):
             logging.info('Seeding the initial data dump with global.json...')
-            self.read_json(f'{file_path}/global.json')
+            
+            self.cache = json.loads(self.fileio(f'{file_path}/global.json'))
         else:
             logging.warning('global.json does not exist, so we will load everything from AWS. This may take a bit longer...')
             self.cache = {}
