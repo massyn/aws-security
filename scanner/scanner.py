@@ -30,6 +30,6 @@ if __name__ == '__main__':
 
     C.execute(args)
     
-    P.execute(args,C.data_file)
+    P.execute(args,C.last_file_name_read)
     
     logging.info(' ** All done **')

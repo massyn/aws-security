@@ -99,29 +99,30 @@ class policy:
                 for t in ['IpPermissionsEgress','IpPermissions']:
                     grp['_direction'] = t
                     for sg in C[region]:
-                        grp['GroupId'] = sg['GroupId']
-                        grp['GroupName'] = sg['GroupName']
-                        
-                        for r in sg[t]:
-                            grp['FromPort'] = r.get('FromPort',0)
-                            grp['ToPort'] = r.get('ToPort',65535)
-                            grp['IpProtocol'] = r['IpProtocol']
-                            for i in r['IpRanges']:
-                                grp['IpRange'] = i['CidrIp']
-                                cp = {}
-                                for g in grp:
-                                    cp[g] = grp[g]
-                                
-                                flat[region].append(cp)
+                        if not '_exception' in sg:
+                            grp['GroupId'] = sg['GroupId']
+                            grp['GroupName'] = sg['GroupName']
+                            
+                            for r in sg[t]:
+                                grp['FromPort'] = r.get('FromPort',0)
+                                grp['ToPort'] = r.get('ToPort',65535)
+                                grp['IpProtocol'] = r['IpProtocol']
+                                for i in r['IpRanges']:
+                                    grp['IpRange'] = i['CidrIp']
+                                    cp = {}
+                                    for g in grp:
+                                        cp[g] = grp[g]
+                                    
+                                    flat[region].append(cp)
 
-                            for i in r['Ipv6Ranges']:
-                                grp['IpRange'] = i['CidrIpv6']
+                                for i in r['Ipv6Ranges']:
+                                    grp['IpRange'] = i['CidrIpv6']
 
-                                cp = {}
-                                for g in grp:
-                                    cp[g] = grp[g]
-                                
-                                flat[region].append(cp)
+                                    cp = {}
+                                    for g in grp:
+                                        cp[g] = grp[g]
+                                    
+                                    flat[region].append(cp)
             return flat
 
         def describe_trails(C):
@@ -132,22 +133,37 @@ class policy:
                 if not region in out:
                     out[region] = []
 
-                if len(C['describe_trails'][region]) == 0:
+                if len(C['describe_trails'].get(region,[])) == 0:
                     out[region].append({ 'Name' : '** Missing Trail **'})
                 else:
                     for trail in C['describe_trails'][region]:
-
-                        x = C['get_trail_status'][region][trail['TrailARN']]
-                        for a in x:
-                            trail[f'get_trail_status_{a}'] = x[a]
-
-                        for x in C['get_event_selectors'][region][trail['TrailARN']]:
+                        if not '_exception' in trail:
+                            x = C['get_trail_status'][region][trail['TrailARN']]
                             for a in x:
-                                # TODO - this may not be the best approach -- there can be multiple event selectors...
-                                trail[f'get_event_selectors_{a}'] = x[a]
-                            
-                        out[region].append(trail)
+                                trail[f'get_trail_status_{a}'] = x[a]
+
+                            for x in C['get_event_selectors'][region][trail['TrailARN']]:
+                                for a in x:
+                                    # TODO - this may not be the best approach -- there can be multiple event selectors...
+                                    trail[f'get_event_selectors_{a}'] = x[a]
+                                
+                            out[region].append(trail)
                     
+            return out
+
+        def guardduty_list_detectors(C):
+            out = {}
+            for region in C['guardduty']['list_detectors']:
+                if not region in out:
+                    out[region] = []
+
+                cnt = 0
+                for x in C['guardduty']['list_detectors'][region]:
+                    if not '_exception' in x:
+                        cnt += 1
+
+                out[region].append({ 'count' : cnt })
+
             return out
 
         def describe_instances(C):
@@ -158,15 +174,16 @@ class policy:
                     out[region] = []
 
                 for R in C['ec2']['describe_instances'][region]:
-                    for i in R['Instances']:
+                    if not '_exception' in R:
+                        for i in R['Instances']:
 
-                        # -- find the SSM instance info
-                        for y in C['ssm']['describe_instance_information'][region]:
-                            if y['InstanceId'] == i['InstanceId']:
-                                for a in y:
-                                    i[f'ssm_{a}'] = y[a]
-                                
-                        out[region].append(i)
+                            # -- find the SSM instance info
+                            for y in C['ssm']['describe_instance_information'][region]:
+                                if y['InstanceId'] == i['InstanceId']:
+                                    for a in y:
+                                        i[f'ssm_{a}'] = y[a]
+                                    
+                            out[region].append(i)
             return out
 
         C['custom'] = {
@@ -191,7 +208,9 @@ class policy:
 
         C['custom']['ec2_describe_instances'] = describe_instances(C)
 
-        #print(json.dumps(C['custom']['iam_AccountPasswordPolicy'],indent=4))
+        C['custom']['guardduty_list_detectors'] = guardduty_list_detectors(C)
+
+        #print(json.dumps(C['custom']['guardduty_list_detectors'],indent=4))
         #exit(0)
 
         # == merge user accounts
@@ -325,13 +344,15 @@ class policy:
                     if 'flatten' in cfg['asset']:
                         flatten = cfg['asset']['flatten']
                         for y in x[region]:
-                            for z in y[flatten]:
-                                z['_region'] = region
-                                assets.append(z)
+                            if not '_exception' in y:
+                                for z in y[flatten]:
+                                    z['_region'] = region
+                                    assets.append(z)
                     else:
                         for z in x[region]:
-                            z['_region'] = region
-                            assets.append(z)
+                            if not '_exception' in z:
+                                z['_region'] = region
+                                assets.append(z)
 
                 if debug:
                     logging.info('*************************************')

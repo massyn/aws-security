@@ -1,7 +1,12 @@
 {
 	"AWSTemplateFormatVersion" : "2010-09-09",
-	"Description" : "AWS Security Info - Grant ASI read-only access to your account",
+	"Description" : "AWS Security Info - Grant ASI view-only access to your account - Version 2022-01-08",
 	"Parameters": {
+		"RoleName" : {
+			"Type" : "String",
+			"Description" : "Name of the role to create",
+			"Default" : "AWSSecurityInfoReadOnlyRole"
+		},
 		"AWSSecurityAccount" : {
 			"Type" : "String",
 			"Description" : "AWS Account that will be granted read-only access",
@@ -18,7 +23,7 @@
 			"Type": "AWS::IAM::Role",
 			"Properties": {
 				"ManagedPolicyArns": [
-					"arn:aws:iam::aws:policy/ViewOnlyAccess",
+					"arn:aws:iam::aws:policy/job-function/ViewOnlyAccess",
 					"arn:aws:iam::aws:policy/SecurityAudit",
 					"arn:aws:iam::aws:policy/AmazonInspectorReadOnlyAccess",
 					"arn:aws:iam::aws:policy/AWSSupportAccess",
@@ -44,7 +49,19 @@
                             "Statement": [
                                 {
                                     "Effect": "Allow",
-                                    "Action": "iam:GenerateCredentialReport",
+                                    "Action": [
+										"iam:GenerateCredentialReport",
+										"cloudtrail:ListTrails",
+										"apigateway:GET",
+										"ssm:Get*",
+										"sso:Get*",
+										"sso:ListInstances",
+										"sso:Describe*",
+										"ebs:GetSnapshotBlock",
+										"sns:GetSubscriptionAttributes",
+										"kms:GetKeyRotationStatus",
+										"cognito-identity:DescribeIdentityPool"
+									],
                                     "Resource": "*"
                                 }
                             ]
@@ -81,8 +98,18 @@
                         }
                     }
                 ],
-				"RoleName": "AWSSecurityInfoReadOnlyRole"
+				"RoleName": { "Ref": "RoleName" }
 			}
+		}
+	},
+	"Outputs" : {
+		"ExternalId" : {
+			"Description" : "ExternalId",
+			"Value" : { "Ref": "ExternalId"	}
+		},
+		"RoleARN" : {
+			"Description" : "RoleARN",
+			"Value" : {"Fn::GetAtt" : ["AWSSecurityInfoReadOnlyRole", "Arn"] }
 		}
 	}
 }

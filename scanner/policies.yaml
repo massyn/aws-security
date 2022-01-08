@@ -175,3 +175,9 @@ privilege-escalation:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
   policy : "[? Effect == `Allow` && ( Action == `*` || Action == `lambda:*` || Action == `lambda:InvokeFunction` || Action == `lambda:CreateFunction` || Action == `iam:*` || Action == `iam:CreatePolicyVersion` || Action == `iam:SetDefaultPolicyVersion` || Action == `iam:PutRolePolicy` || Action == `iam:CreateAccessKey` || Action == `iam:CreateLoginProfile` || Action == `iam:UpdateLoginProfile` || Action == `iam:AttachUserPolicy` || Action == `iam:AttachGroupPolicy` || Action == `iam:AttachRolePolicy` || Action == `iam:PutUserPolicy` || Action == `iam:PutGroupPolicy` || Action == `iam:AddUserToGroup` || Action == `iam:UpdateAssumeRolePolicy` || Action == `ec2:*` || Action == `ec2:RunInstances` || Action == `glue:*` || Action == `glue:UpdateDevEndpoint` || Action == `glue:UpdateDevEndpoint` || Action == `cloudformation:*` || Action == `cloudformation:CreateStack` || Action == `datapipeline:*` || Action == `datapipeline:CreatePipeline` || Action == `datapipeline:PutPipelineDefinition` ) ]"
+
+guardduty-enabled:
+  asset:
+    path: custom.guardduty_list_detectors
+    fields: "{ count : count, _region: _region }"
+  policy : "[? count == `0` ]"
