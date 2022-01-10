@@ -20,7 +20,6 @@ class policy:
     # the merge function will create a custom data type, making the parsing of the data easier
     def merge(self,C):
         def keyvalue(x):
-            print(x)
             out = {}
             for region in x:
                 if not region in out:

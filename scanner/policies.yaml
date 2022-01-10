@@ -181,3 +181,23 @@ guardduty-enabled:
     path: custom.guardduty_list_detectors
     fields: "{ count : count, _region: _region }"
   policy : "[? count == `0` ]"
+
+account-password-policy:
+  asset:
+    path: custom.iam_AccountPasswordPolicy
+    fields: "{ key: key, value: value }"
+    filter: "[? key == `require_uppercase_characters` || key == `require_lowercase_characters` || key == `require_numbers` || key == `require_symbols` || key == `max_password_age` ]"
+  policy: "[? value == `false` || value == `null` || value < `90` ]"
+
+password-reuse-prevention:
+  asset:
+    path: custom.iam_AccountPasswordPolicy
+    fields: "{ key: key, value: value }"
+    filter: "[? key == `password_reuse_prevention` ]"
+  policy: "[? value == `false` || value == `null` || value < `24` ]"
+
+loggroups-without-retention:
+  asset:
+    path: logs.describe_log_groups
+    fields: "{ logGroupName: logGroupName, storedBytes: storedBytes, retentionInDays: retentionInDays }"
+  policy: "[? retentionInDays == null ]"
