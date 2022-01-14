@@ -7,6 +7,7 @@ import yaml
 import collections.abc
 from mako.template import Template
 import datetime
+import markdown
 from collector import *
 
 class policy:
@@ -19,6 +20,41 @@ class policy:
 
     # the merge function will create a custom data type, making the parsing of the data easier
     def merge(self,C):
+        def s3(C):
+            out = {}
+            for bucket in C['s3']['get_bucket_location']['us-east-1']:
+                
+                # -- figure out the location
+                region = C['s3']['get_bucket_location']['us-east-1'][bucket]
+                if region == None:
+                    region = 'us-east-1'
+                if not region in out:
+                    out[region] = {}
+
+                if not bucket in out[region]:
+                    out[region][bucket] = {}
+
+                # -- public access block
+                for x in ['BlockPublicAcls','IgnorePublicAcls','BlockPublicPolicy','RestrictPublicBuckets']:
+                    y = C['s3']['get_public_access_block']['us-east-1'].get(bucket,{})
+                    out[region][bucket][x] = y.get(x,False)
+                    
+                # -- get_bucket_versioning
+                gbv = C['s3']['get_bucket_versioning']['us-east-1'][bucket]
+                for x in ['Status','MFADelete']:
+                    out[region][bucket][x] = gbv.get(x,'') == 'Enabled'
+
+                # -- get_bucket_encryption
+                gbe = C['s3']['get_bucket_encryption']['us-east-1'][bucket]
+                
+                if 'Rules' in gbe:
+                    for x in gbe['Rules']:
+                        out[region][bucket]['ApplyServerSideEncryptionByDefault'] = x['ApplyServerSideEncryptionByDefault']
+                else:
+                    out[region][bucket]['ApplyServerSideEncryptionByDefault'] = False
+            return out
+
+
         def keyvalue(x):
             out = {}
             for region in x:
@@ -198,7 +234,8 @@ class policy:
             'ec2_describe_security_groups' : {},
             'cloudtrail_describe_trails' : {},
             'ec2_describe_instances' : {},
-            'iam_AccountPasswordPolicy' : keyvalue(C['iam']['AccountPasswordPolicy'])
+            'iam_AccountPasswordPolicy' : keyvalue(C['iam']['AccountPasswordPolicy']),
+            's3' : {} 
         }
         
         C['custom']['ec2_describe_security_groups'] = security_groups(C['ec2']['describe_security_groups'])
@@ -209,7 +246,9 @@ class policy:
 
         C['custom']['guardduty_list_detectors'] = guardduty_list_detectors(C)
 
-        #print(json.dumps(C['custom']['guardduty_list_detectors'],indent=4))
+        C['custom']['s3'] = s3(C)
+
+        #print(json.dumps(C['custom']['s3'],indent=4))
         #exit(0)
 
         # == merge user accounts
@@ -322,7 +361,9 @@ class policy:
 
         evidence = {
             'summary' : {},
-            'detail' : {}
+            'detail' : {},
+            'policy' : {},
+            'top' : { 'total' : 0.0, 'totalok' : 0.0 , 'score' : 0.0}
         }
 
         for policy in self.policies:
@@ -332,8 +373,21 @@ class policy:
                 evidence['detail'][policy] = { 0 : [], 1 : [] }
                 evidence['summary'][policy] = { 'total' : 0.0 , 'totalok' : 0.0, 'score' : 0.0 }
 
-
                 cfg = self.policies[policy]
+
+                # -- QA check the policies
+                if not 'name' in cfg:
+                    cfg['name'] = policy
+                    logging.warning(f'Missing \'name\' in policy {policy}')
+
+                for tag in ['description','remediation','vulnerability','rating']:
+                    if not tag in cfg:
+                        logging.warning(f'Missing \'{tag}\' in policy {policy}')
+                        cfg[tag] = '** unknown **'
+                    else:
+                        cfg[tag] = markdown.markdown(cfg[tag])
+
+                evidence['policy'][policy] = cfg
 
                 # == find all the assets in question from the "asset" field
                 assets = []
@@ -410,6 +464,18 @@ class policy:
                 else:
                     evidence['summary'][policy]['score'] = 1
                 
+        # tally up the totals
+        for p in evidence['summary']:
+            if evidence['policy'][p]['rating'] != 'Info':
+                evidence['top']['total'] += evidence['summary'][p]['total']
+                evidence['top']['totalok'] += evidence['summary'][p]['totalok']
+
+                if evidence['top']['total'] != 0:
+                    evidence['top']['score'] = evidence['top']['totalok'] / evidence['top']['total']
+                else:
+                    evidence['top']['score'] = 1
+
+
         return evidence
         
     def arguments(self,parser):
@@ -431,7 +497,6 @@ class policy:
             'account'   : C['sts']['get_caller_identity']['us-east-1']['Account'],
             'date'      : datetime.datetime.now().strftime('%Y-%m-%d'),
             'time'      : datetime.datetime.now().strftime('%H:%M:%S')
-            
         }
 
         tmp = Template(filename=self.file_path + '/report.html')

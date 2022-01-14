@@ -1,5 +1,16 @@
 ---
 access-keys-rotate-90-days:
+  name: Ensure access keys are rotated every 90 days or less
+  description: 'Rotating access keys is a security best practice to reduce the likelihood of account compromise.'
+  links: 
+    - 'https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=18'
+    - 'https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/'
+  references: 
+    - AWS CIS v.1.4.0 - 1.14
+    - AWS CIS v.1.2.0 - 1.4
+  remediation: 'Follow [AWS Best practices](https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/) to rotate access keys.'
+  vulnerability: 'Aging access keys, just like passwords, need to be rotated to reduce the risk of credentials leaking to unauthorised users, resulting in account compromise.'
+  rating: Medium
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -7,6 +18,13 @@ access-keys-rotate-90-days:
   policy: "[?( access_key_1_active == 'true' && _access_key_1_last_rotated_age > `90` ) ||  ( access_key_2_active == 'true' && _access_key_2_last_rotated_age > `90` )  ]"
 
 ec2-instance-with-public-ip:
+  links: 
+    - https://aws.amazon.com/architecture/well-architected/
+  description: 'EC2 instances with public IP addresses are more exposed to the internet.  Even when a system only has limited ports open, the protection then shifts to the application.'
+  name: EC2 instance with Public IP
+  rating: Info
+  remediation: 'Implement a secure design, placing all EC2 instances in private subnets, and segregate the internet access with a load balancer and (or) a WAF'
+  vulnerability: 'By not restricting an EC2 instance behind a load balancer, the entire subnet is being put at risk in the event of a system or application compromise.'
   asset:
     path: ec2.describe_instances
     flatten: Instances
@@ -15,6 +33,17 @@ ec2-instance-with-public-ip:
   policy: "[?PublicIpAddress != `null`]"  # check for what is not compliant
 
 eliminate-root-user-usage:
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=11
+  description: 'The [root user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html) is the highest privileged, unrestricted account within your AWS landscape.  Because of the sensitivity of this account, it should not be used for normal day-to-day operations.'
+  name: Eliminate use of the root user for administrative and daily tasks
+  rating: High
+  references: 
+    - AWS CIS v1.4.0 - 1.7
+    - AWS CIS v1.2.0 - 1.1
+  remediation: 'Avoid using the root account, and [create a seperate IAM user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) with the least-privilege policies applied.'
+  vulnerability: 'The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner''s expense.'
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -22,6 +51,15 @@ eliminate-root-user-usage:
   policy: "[?_password_last_used_age < `90`]"
 
 iam-central-managed-users:
+  name: Ensure IAM users are managed centrally via identity federation or AWS Organizations for multi-account environments
+  description: In multi-account environments, IAM user centralization facilitates greater user control. User access beyond the initial account is then provided via role assumption. Centralization of users can be accomplished through federation with an external identity provider or through the use of AWS Organizations
+  rating: Low
+  vulnerability: Centralizing IAM user management to a single identity store reduces complexity and thus the likelihood of access management errors.
+  remediation: 'Follow the [AWS best practices](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html) to setup SSO.'
+  links:
+    - https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html
+  references:
+    - AWS CIS v.1.4.0 - 1.21
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -29,6 +67,17 @@ iam-central-managed-users:
   policy: "[?password_enabled == 'true']"
 
 iam-users-without-mfa:
+  name: Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password
+  description: MFA (or [multi factor authentication](https://en.wikipedia.org/wiki/Multi-factor_authentication)) refers to using an additional factor (like a securityfob or a one-time password), in addition to the regular username and passwordto gain access to an account.
+  rating: High
+  vulnerability: Without MFA, there is a higher probability of the account being compromised.
+  remediation: 'Follow the [AWS best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html) to configure MFA on your root account.'
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=13
+  references:
+    - AWS CIS v.1.4.0 - 1.10
+    - AWS CIS v.1.2.0 - 1.2
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>` && password_enabled == 'true']"
@@ -36,12 +85,30 @@ iam-users-without-mfa:
   policy: "[?mfa_active != 'true']"
 
 lambda-depreciated-runtimes:
+  name: Lambda functions with depreciated runtimes
+  description: Lambda will no longer apply security patches and other updates to the runtime used by Lambda functions. In addition, functions using the runtime will no longer be eligible for technical support. You will no longer be able to create new Lambda functions using the runtime.
+  rating: Medium
+  vulnerability: AWS strongly recommends that you migrate functions to a supported runtime version so that you continue to receive security patches and remain eligible for technical support.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/lambda/latest/dg/configuration-console.html) to update the Lambda runtime.'
+  links:
+    - https://docs.aws.amazon.com/lambda/latest/dg/runtime-support-policy.html
   asset:
     path: lambda.list_functions
     fields: " { FunctionName : FunctionName, Runtime : Runtime, Region : _region } "
   policy : "[?Runtime == `nodejs10.x` || Runtime == `ruby2.5` || Runtime == `python2.7` || Runtime == `nodejs8.10` || Runtime == `nodejs6.10` || Runtime == `nodejs4.3-edge` || Runtime == `nodejs4.3` || Runtime == `nodejs` || Runtime == `dotnetcore2.0` || Runtime == `dotnetcore1.0`]"
 
 root-account-access-key:
+  name: Ensure no root account access key exists
+  description: '[Access keys](https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html) allow programatic access to your AWS account. When theaccess keys are not well protected, it can allow unauthorised access to yourAWS account.'
+  rating: Critical
+  vulnerability: 'Access keys provide access to the AWS account without having to use a password or multi-factor authentication.  They can end up in source code, and pose a significant risk if not managed correctly.'
+  remediation: 'Remove the root access keys.'
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=34
+    - https://docs.aws.amazon.com/general/latest/gr/managing-aws-access-keys.html
+  references:
+    - AWS CIS v.1.4.0 - 1.4
+    - AWS CIS v.1.2.0 - 1.12
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -49,6 +116,18 @@ root-account-access-key:
   policy: "[? access_key_1_active == 'true' || access_key_2_active == 'true' ]"
 
 root-account-without-mfa:
+  name: Ensure MFA is enabled for the root account
+  description: 'The [root user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html) is the highest privileged, unrestricted account within your AWSlandscape. It has to be securely protected.'
+  rating: Critical
+  vulnerability: 'MFA (or [multi factor authentication](https://en.wikipedia.org/wiki/Multi-factor_authentication)) refers to using an additional factor (like a securityfob or a one-time password), in addition to the regular username and passwordto gain access to an account. This reduces the likelihood of the account beingcompromised due to the loss of the root username and password.'
+  remediation: 'Follow the [AWS bestpractices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa) to configure MFA on your root account.'
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_enable_virtual.html#enable-virt-mfa-for-root
+    - https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security
+  references:
+    - AWS CIS v.1.4.0 - 1.5
+    - AWS CIS v.1.2.0 - 1.13
+    - Trusted Advisor - Multi-factor authentication on root account
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -56,12 +135,28 @@ root-account-without-mfa:
   policy: "[?mfa_active == 'false' ]"
 
 subnets-issue-public-ip:
+  name: Subnets should not issue public IP addresses
+  description: Defence-in-depth suggests that multiple security controls must be implemented to properly protect a system.  Removing the assignment of public IP addresses is one strategy that can be deployed to reduce the risk.</p><p>By allocating public IP addresses in subnets, any new system being created (database or EC2 instance) could inadvertantly be exposed to the public internet.</p><p>Instead of simply giving EC2 instances public IP addresses, the solution must be designed in a way to utilize load balancers instead.  Note that the subnet where you place a load balancer will need to have the ability to issue public IP addresses. Consider creating a load balancer with a public IP before you remove the functionality.
+  rating: Info
+  vulnerability: Automated issuing of public IP addresses increases the risk of internet exposure to your instances.
+  remediation: 'Execute the [remediation script](https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py)within your AWS account to remediate all subnets. **WARNING:** The script will cause all subnets in all regions to stop issuingpublic IP addresses. If you need this functionality for things likeautoscaling, this script can potentially break your solution.'
+  links:
+    - https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet
   asset:
     path: ec2.describe_subnets
     fields: "{ SubnetId :SubnetId, AvailabilityZone : AvailabilityZone, MapPublicIpOnLaunch: MapPublicIpOnLaunch, Region : _region }"
   policy: "[?MapPublicIpOnLaunch == `true`]"
 
 two-active-access-keys:
+  name: Ensure there is only one active access key available for any single IAM user
+  description: Access keys are long-term credentials for an IAM user or the AWS account root user. You can use access keys to sign programmatic requests to the AWS CLI or AWS API (directly or using the AWS SDK).
+  rating: High
+  vulnerability: Access keys are long-term credentials for an IAM user or the AWS account root user. You can use access keys to sign programmatic requests to the AWS CLI or AWS API. One of the best ways to protect your account is to not allow users to have multiple access keys.
+  remediation: 'Follow [AWS Bestpractices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html) to remove unused credentials' 
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html
+  references:
+    - AWS CIS v.1.4.0 - 1.13
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -69,6 +164,16 @@ two-active-access-keys:
   policy: "[? access_key_1_active == 'true' && access_key_2_active == 'true' ]"
 
 unused-credentials:
+  name: Ensure credentials unused for 45 days or greater are disabled
+  description: Credentials refer to passwords or access keys.
+  rating: High
+  vulnerability: Unused credentials indicate a user account that may not be in use.  Accounts that are not in use should be removed to reduce the risk of account compromise.
+  remediation: 'Follow [AWS Bestpractices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html) to remove unused credentials' 
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=16
+  references:
+    - AWS CIS v.1.4.0 - 1.12
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -76,6 +181,16 @@ unused-credentials:
   policy: "[?(password_enabled == 'true' && ( _password_last_used_age > `45` || _password_last_used_age == `-1`)) || (access_key_1_active == 'true' && ( _access_key_1_last_used_date_age> `45` || _access_key_1_last_used_date_age== `-1`)) || (access_key_2_active == 'true' && ( _access_key_2_last_used_date_age> `45` || _access_key_2_last_used_date_age== `-1`)) ]"
 
 iam-console-users-with-access-keys:
+  name: Do not setup access keys during initial user setup for all IAM users that have a console password
+  description: IAM users can have multiple credentials, for example passwords, or access keys.
+  rating: High
+  vulnerability: Access to the AWS account needs to be restricted to avoid the account being compromised.  While having an access key is not strictly an issue, having access keys, and a console password would raise concerns on the multiple ways a user can gain access to the system, resulting in a potential breach if the credentials are not properly managed.  <b>Note</b> that while AWS CIS v.1.20 is specifically checking access keys created with user created, AWS Security Info will check for any console user that also has access keys.
+  remediation: To remediate this issue, either remove the console password, or remove the access keys.
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=54
+  references:
+    - AWS CIS v.1.4.0 - 1.11
+    - AWS CIS v.1.2.0 - 1.21
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -83,6 +198,16 @@ iam-console-users-with-access-keys:
   policy: "[? password_enabled == 'true' && ( access_key_2_active == 'true' || access_key_2_active == 'true' ) ]"
 
 root-account-without-hardware-mfa:
+  name: Ensure hardware MFA is enabled for the root account
+  description: Protecting the root account with a hardware MFA token to increase security with protecting the credentials.
+  rating: High
+  vulnerability: 'MFA (or [multi factor authentication](https://en.wikipedia.org/wiki/Multi-factor_authentication)) refers to using an additional factor (like a securityfob or a one-time password), in addition to the regular username and passwordto gain access to an account. This reduces the likelihood of the account beingcompromised due to the loss of the root username and password.'
+  remediation: 'Follow the [AWS bestpractices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html#id_root-user_manage_mfa) to configure MFA on your root account.'
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=38
+  references:
+    - AWS CIS v.1.4.0 - 1.6
+    - AWS CIS v.1.2.0 - 1.14
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -90,6 +215,17 @@ root-account-without-hardware-mfa:
   policy: "[? mfa_active == 'false' || ( mfa_active == 'true' && arn == list_virtual_mfa_devices.User.Arn )]"
 
 iam-users-group-permissions:
+  name: Ensure IAM Users Receive Permissions Only Through Groups
+  description: Controlling access for users should be done through groups.
+  rating: Low
+  vulnerability: Attaching policies directly to user accounts will obfuscate the access a user will have, and can result in permission creep.
+  remediation: 'Create IAM groups for each job function, and [add the users to thegroups](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups_manage_add-remove-users.html).'
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups_manage_add-remove-users.html
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=43
+  references:
+    - AWS CIS v.1.4.0 - 1.15
+    - AWS CIS v.1.2.0 - 1.16
   asset:
     path: custom.iam_get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -97,60 +233,154 @@ iam-users-group-permissions:
   policy : "[? _list_user_policies_count > `0` || _list_attached_user_policies_count > `0` ]"
 
 iam-entities-with-admin-rights:
+  name: IAM entities with Admin rights
+  description: IAM users, groups, and roles should have least privilege defined in its execution role, and only be able to perform very specific tasks.       
+  rating: High
+  vulnerability: If a group with high level access is compromised, it has the potential to cause severe business disruption to the AWS account.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html) to restrict the roles.'
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
   policy : "[? Effect == `Allow` && Action == `*` && Resource == `*` ]"
 
 external-accounts-with-access:
+  name: IAM Roles with external access
+  description: IAM Roles with external access describes that an external AWS account (potentially unknown to you) may have access to your account.
+  rating: Medium
+  vulnerability: An external account with access to your account could circumvent regular identify access management process, and gain unauthorised access to your account.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html) to restrict the roles.'
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
   asset:
     path: custom.iam_get_account_authorization_details_RoleDetailList
     fields: "{ RoleName: RoleName, RoleId: RoleId, Effect: Effect, Principal_AWS: Principal_AWS, Action: Action }"
   policy: "[? Effect == `Allow` && Action == `sts:AssumeRole` && Principal_AWS != null ]"
 
 iam-entities-with-lambda-function-update-rights:
+  name: IAM entities with access to update Lambda functions
+  description: Any entity that is capable of updating a Lambda function is capable of potentially executing code running as the Lambda function.
+  rating: Medium
+  vulnerability: Privilege escalation issues could occur if an unauthorised user is able to update a Lambda function.
+  remediation: Update the user or role permissions, by adjusting group memberships, or by adjusting the policies attached to the users, groups or roles.      
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
   policy : "[? Effect == `Allow` && ( Action == `*` || Action == `lambda:*` || Action == `lambda:UpdateFunctionCode`) ]"
 
 iam-entities-with-dynamodb-access:
+  name: IAM entities with access to DynamoDB tables
+  description: Any entity that is capable of updating a DynamoDB table is capable of potentially altering the integrity of data in the tables.
+  rating: Medium
+  vulnerability: Unauthorised access to DynamoDB tables can result in a loss of data (data breaches), or the modification of sensitive data.
+  remediation: Update the user or role permissions, by adjusting group memberships, or by adjusting the policies attached to the users, groups or roles.      
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
   policy : "[? Effect == `Allow` && ( Action == `*` || Action == `dynamodb:*` || Action == `dynamodb:GetItem` || Action == `dynamodb:GetRecords` || Action == `dynamodb:UpdateItem` || Action == `dynamodb:UpdateTable` || Action == `dynamodb:PutItem` || Action == `dynamodb:DeleteTable`) ]"
 
 security-groups-with-exposed-admin-ports:
+  name: Ensure no security groups allow ingress from 0.0.0.0/0 to remote server administration ports
+  description: Security groups that are configured to allow port 22 (SSH) or 3389 (Remote Desktop) from the internet.
+  rating: High
+  vulnerability: Removing unfettered connectivity to remote console services, such as SSH or RDP, reduces a server's exposure to risk being compromised through brute force attacks.
+  remediation: Restrict the incomping IP ranges of the security groups to a smaller IP range, or alternatively, remove the security group.
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=144
+  references:
+    - AWS CIS v.1.4.0 - 5.2
+    - AWS CIS v.1.2.0 - 4.1
+    - AWS CIS v.1.2.0 - 4.2
   asset:
     path: custom.ec2_describe_security_groups
     fields: "{ _direction: _direction, GroupId: GroupId, GroupName: GroupName, FromPort: FromPort, ToPort: ToPort, IpProtocol: IpProtocol, IpRange: IpRange }"
   policy: "[? _direction == `IpPermissions` && ( IpRange == `0.0.0.0/0` || IpRange == `::/0` ) && ((FromPort <= `22` && ToPort >= `22`) || (FromPort <= `3389` && ToPort >= `3389`)) ]"
 
 rds-must-be-encrypted:
+  name: Ensure that encryption is enabled for RDS Instances
+  description: Amazon RDS encrypted DB instances use the industry standard AES-256 encryption algorithm to encrypt your data on the server that hosts your Amazon RDS DB instances. After your data is encrypted, Amazon RDS handles authentication of access and decryption of your data transparently with a minimal impact on performance.
+  rating: Medium
+  vulnerability: Databases are likely to hold sensitive and critical data, it is highly recommended to implement encryption in order to protect your data from unauthorized access or disclosure. With RDS encryption enabled, the data stored on the instance\'s underlying storage, the automated backups, read replicas, and snapshots, are all encrypted.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html) to enable database encryption.         '
+  links:
+    - https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html
+    - https://aws.amazon.com/blogs/database/selecting-the-right-encryption-options-for-amazon-rds-and-amazon-aurora-database-engines/
+    - https://aws.amazon.com/rds/features/security/
+  references:
+    - AWS CIS v.1.4.0 - 2.3.1
   asset:
     path: rds.describe_db_instances
     fields: "{ StorageEncrypted: StorageEncrypted, DBInstanceIdentifier: DBInstanceIdentifier, DbiResourceId:DbiResourceId, Engine:Engine }"
   policy: "[? StorageEncrypted != `true` ]"
 
 cloudtrail-logs-encrypted:
+  name: Ensure CloudTrail logs are encrypted at rest using KMS CMKs
+  description: AWS CloudTrail is a web service that records AWS API calls for an account and makes those logs available to users and resources in accordance with IAM policies. AWS Key Management Service (KMS) is a managed service that helps create and control the encryption keys used to encrypt account data, and uses Hardware Security Modules (HSMs) to protect the security of encryption keys. CloudTrail logs can be configured to leverage server side encryption (SSE) and KMS customer created master keys (CMK) to further protect CloudTrail logs. It is recommended that CloudTrail be configured to use SSE-KMS.
+  rating: Low
+  vulnerability: Configuring CloudTrail to use SSE-KMS provides additional confidentiality controls on log data as a given user must have S3 read permission on the corresponding log bucket and must be granted decrypt permission by the CMK policy.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html) to enable S3 encryption.'
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=78
+    - https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html
+  references:
+    - AWS CIS v.1.4.0 - 3.7
+    - AWS CIS v.1.2.0 - 2.7
   asset:
     path: cloudtrail.describe_trails
     fields: "{ Name: Name, KmsKeyId: KmsKeyId, _region: _region}"
   policy: "[? KmsKeyId == `null` ]"
 
 cloudtrail-logfile-validation:
+  name: Ensure CloudTrail log file validation is enabled
+  description: Enabling log file validation will provide additional integrity checking of CloudTrail logs.
+  rating: Low
+  vulnerability: Without log file validation, there is a higher liklihood of regulatory compliance findings related to audit logging.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-enabling.html)  to enable log file validation.         '
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=64
+    - https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-enabling.html
+  references:
+    - AWS CIS v.1.4.0 - 3.2
+    - AWS CIS v.1.2.0 - 2.2
   asset:
     path: cloudtrail.describe_trails
     fields: "{ Name: Name, LogFileValidationEnabled: LogFileValidationEnabled, _region: _region}"
   policy: "[? LogFileValidationEnabled != `true` ]"
 
 cloudtrail-enabled:
+  name: Ensure CloudTrail is enabled in all regions
+  description: The AWS API call history produced by CloudTrail enables security analysis, resource change tracking, and compliance auditing.
+  rating: Medium
+  vulnerability: Without proper logging of AWS API activity, any activity, be it malicious, or legitimate will go undetected, resulting in breaches, or lack of regulatory compliance.
+  remediation: Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html">AWS Best Practices</a> to create a new trail.
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=61
+    - https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html
+    - https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security
+  references:
+    - AWS CIS v.1.4.0 - 3.1
+    - AWS CIS v.1.2.0 - 2.1
+    - Trusted Advisor - AWS Cloudtrail logging
   asset:
     path: custom.cloudtrail_describe_trails
     fields: "{ Name: Name, _region: _region, IsMultiRegionTrail: IsMultiRegionTrail, get_trail_status_IsLogging: get_trail_status_IsLogging, get_event_selectors_IncludeManagementEvents : get_event_selectors_IncludeManagementEvents, get_event_selectors_ReadWriteType: get_event_selectors_ReadWriteType}"
   policy: "[? IsMultiRegionTrail != `true` && get_trail_status_IsLogging != `true` && get_event_selectors_IncludeManagementEvents != `true` && get_event_selectors_ReadWriteType != `All` ]"
 
 ssm-agent-active:
+  name: Ensure SSM is enabled on all EC2 instances
+  description: AWS Systems Manager allows for the management of EC2 instances, allowing you to scale operations like patching across the entire EC2 fleet.    
+  rating: Low
+  vulnerability: By not having SSM, operational teams will spend manual effort to patch and manage the environment.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-agent.html) to install the AWS SSM agent.'       
+  links:
+    - https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html
   asset:
     path: custom.ec2_describe_instances
     filter: "[?State.Name == 'running']"
@@ -158,12 +388,34 @@ ssm-agent-active:
   policy: "[? ssm_InstanceId != InstanceId || ssm_PingStatus != `Online` ]"
 
 ec2-with-instance-profiles:
+  name: Ensure IAM instance roles are used for AWS resource access from instances
+  description: AWS IAM roles reduce the risks associated with sharing and rotating credentials that can be used outside of AWS itself. If credentials are compromised, they can be used from outside of the AWS account they give access to. In contrast, in order to leverage role permissions an attacker would need to gain and maintain access to a specific instance to use the privileges associated with it.
+  rating: Low
+  vulnerability: AWS access from within AWS instances can be done by either encoding AWS keys into AWS API calls or by assigning the instance to a role which has an appropriate permissions policy for the required access. "AWS Access" means accessing the APIs of AWS in order to access AWS resources or manage AWS account resources.
+  remediation: Remove the access keys from any user account in use on an EC2 instance, and setup EC2 IAM Roles instead.
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=49
+    - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html
+  references:
+    - AWS CIS v.1.4.0 - 1.18
+    - AWS CIS v.1.2.0 - 1.19
   asset:
     path: custom.ec2_describe_instances
     fields: "{ _region: _region, InstanceId : InstanceId, IamInstanceProfile: IamInstanceProfile.Arn }"
   policy: "[? IamInstanceProfile == `null` ]"
 
 minimum-password-length:
+  name: Ensure IAM password policy requires minimum length of 14 or greater
+  description: IAM Password Policy specifies the password complexity requirements for the AWS IAM users.
+  rating: Medium
+  vulnerability: Weak password policies will cause users to select weak, easy to guess passwords.
+  remediation: 'Follow [AWS Best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html) to set an IAM password policy.'
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=20
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html
+  references:
+    - AWS CIS v.1.4.0 - 1.8
+    - AWS CIS v.1.2.0 - 1.9
   asset:
     path: custom.iam_AccountPasswordPolicy
     fields: "{ key: key, value: value }"
@@ -171,18 +423,46 @@ minimum-password-length:
   policy: "[? value <= `14` || value == `null` ]"
 
 privilege-escalation:
+  name: Privilege Escalation
+  description: A **privilege escalation** risk is where a user account within a system has the ability to elevate their privileges to a higher level than what was originally intended.  This can have disastrous consequences, particularly if you have an insider threat.  This type of risk is not limited to insiders only.  Any user account with the right permissions can result in unwanted elevated permissions.
+  rating: Critical
+  vulnerability: Users, roles, or groups that have too-broad permissions applied can allow a seeminly benign user to allow themselves to have their access elevated.
+  remediation: Review all user access, and reduce the permissions to the absolute bare minimum required to perform their required function.
+  links:
+    - https://www.awssecurity.info/blog/2021-12-30-privilege-escalation.html
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
   policy : "[? Effect == `Allow` && ( Action == `*` || Action == `lambda:*` || Action == `lambda:InvokeFunction` || Action == `lambda:CreateFunction` || Action == `iam:*` || Action == `iam:CreatePolicyVersion` || Action == `iam:SetDefaultPolicyVersion` || Action == `iam:PutRolePolicy` || Action == `iam:CreateAccessKey` || Action == `iam:CreateLoginProfile` || Action == `iam:UpdateLoginProfile` || Action == `iam:AttachUserPolicy` || Action == `iam:AttachGroupPolicy` || Action == `iam:AttachRolePolicy` || Action == `iam:PutUserPolicy` || Action == `iam:PutGroupPolicy` || Action == `iam:AddUserToGroup` || Action == `iam:UpdateAssumeRolePolicy` || Action == `ec2:*` || Action == `ec2:RunInstances` || Action == `glue:*` || Action == `glue:UpdateDevEndpoint` || Action == `glue:UpdateDevEndpoint` || Action == `cloudformation:*` || Action == `cloudformation:CreateStack` || Action == `datapipeline:*` || Action == `datapipeline:CreatePipeline` || Action == `datapipeline:PutPipelineDefinition` ) ]"
 
 guardduty-enabled:
+  name: GuardDuty must be enabled in all regions
+  description: Amazon GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior to protect your AWS accounts, workloads, and data stored in Amazon S3.
+  rating: Medium
+  vulnerability: GuardDuty provides visibility on threats that may try to access your system.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html) to enable GuardDuty on all regions.'    
+  links:
+    - https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html
   asset:
     path: custom.guardduty_list_detectors
     fields: "{ count : count, _region: _region }"
   policy : "[? count == `0` ]"
 
 account-password-policy:
+  name: Ensure IAM password policy is set to a strong password
+  description: IAM Password Policy specifies the password complexity requirements for the AWS IAM users.
+  rating: Medium
+  vulnerability: Weak password policies will cause users to select weak, easy to guess passwords.
+  remediation: 'Follow the [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html) to set an IAM Password Policy.1.5 Ensure IAM password policy requires at least one uppercase letter1.6 Ensure IAM password policy require at least one lowercase letter1.7 Ensure IAM password policy require at least one symbol1.8 Ensure IAM password policy require at least one number1.11 Ensure IAM password policy expires passwords within 90 days or less'
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=20
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html
+  references:
+    - AWS CIS v.1.2.0 - 1.5
+    - AWS CIS v.1.2.0 - 1.6
+    - AWS CIS v.1.2.0 - 1.7
+    - AWS CIS v.1.2.0 - 1.8
+    - AWS CIS v.1.2.0 - 1.11
   asset:
     path: custom.iam_AccountPasswordPolicy
     fields: "{ key: key, value: value }"
@@ -190,6 +470,17 @@ account-password-policy:
   policy: "[? value == `false` || value == `null` || value < `90` ]"
 
 password-reuse-prevention:
+  name: Ensure IAM password policy prevents password reuse
+  description: IAM Password Policy specifies the password complexity requirements for the AWS IAM users.
+  rating: Medium
+  vulnerability: Weak password policies will cause users to select weak, easy to guess passwords.
+  remediation: 'Follow the [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html) to set an IAM Password Policy.'
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=20
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html
+  references:
+    - AWS CIS v.1.4.0 - 1.9
+    - AWS CIS v.1.2.0 - 1.10
   asset:
     path: custom.iam_AccountPasswordPolicy
     fields: "{ key: key, value: value }"
@@ -197,6 +488,13 @@ password-reuse-prevention:
   policy: "[? value == `false` || value == `null` || value < `24` ]"
 
 loggroups-without-retention:
+  name: Log groups without retention policies
+  description: CloudWatch is the monitoring service within AWS, used to provide feedback on the various states of different services.  By default, CloudWatch Logs will retain all information indefintely.
+  rating: Info
+  vulnerability: Without any sort of retention policy, your AWS accounts' log groups will grow to huge amounts, incurring additional cost for your organization.  There may also be regulatory requirements that dictate how long certain logs are to be retained.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SettingLogRetention) to set log retention periods.'
+  links:
+    - https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SettingLogRetention
   asset:
     path: logs.describe_log_groups
     fields: "{ logGroupName: logGroupName, storedBytes: storedBytes, retentionInDays: retentionInDays }"
