@@ -548,3 +548,19 @@ s3-block-public-access:
     path: custom.s3
     fields: '{ bucket: bucket , BlockPublicAcls : BlockPublicAcls , IgnorePublicAcls : IgnorePublicAcls, BlockPublicPolicy : BlockPublicPolicy, RestrictPublicBuckets: RestrictPublicBuckets, _region: _region }'
   policy: '[? BlockPublicAcls == `false` || IgnorePublicAcls == `false` || BlockPublicPolicy == `false` || RestrictPublicBuckets == `false` ]'
+
+s3-publically-accessable:
+  name: S3 buckets must not be publicly accessible
+  description: S3 is a core storage solution from AWS.  It is used in most services, and provides an secure and scalable storage solution for your application.  If configured correctly, S3 can host highly sensitive information.  Publically accessible S3 buckets will allow anyone on the internet to access any data stored in a S3 bucket
+  vulnerability: Data within the bucket could be exposed, resulting in a loss of confidentiality.  When other files (for example web site images) are stored, there is a risk that another website may be using your resources by linking to the public bucket, incurring additional charges to your account.  An attacker may be able to modify sensitive data (for example updating an invoice to be paid with new bank details).  An attacker may be able to inject their own data into the bucket (for example submitting a fake order through an EDI system).  An attacker may be able to delete sensitive data, resulting in a system outage.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html) to remediate the publically exposed bucket.'
+  rating: High
+  references:
+    - Trusted Advisor - Amazon S3 bucket permissions
+  links:
+    - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html
+    - https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security
+  asset:
+    path: custom.s3
+    fields: '{ bucket: bucket, list_objects: list_objects, list_objects_v2: list_objects_v2, get_bucket_location: get_bucket_location, get_bucket_logging:get_bucket_logging, get_bucket_acl:get_bucket_acl, _region:_region }'
+  policy: '[? list_objects != `false` || list_objects_v2 != `false` || get_bucket_location != `false` || get_bucket_logging != `false` || get_bucket_acl != `false` ]'

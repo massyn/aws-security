@@ -34,6 +34,12 @@ class policy:
                 blob = {
                     'bucket' : bucket
                 }
+
+                # public access check
+                for x in ['get_bucket_accelerate_configuration','get_bucket_acl','get_bucket_intelligent_tiering_configuration','get_bucket_location','get_bucket_logging','get_bucket_notification','get_bucket_notification_configuration','get_bucket_request_payment','get_bucket_versioning','list_bucket_analytics_configurations','list_bucket_intelligent_tiering_configurations','list_multipart_uploads','list_object_versions','list_objects','list_objects_v2']:
+                    y = C['s3']['_public_s3_bucket']['us-east-1'].get(bucket,{})
+                    blob[x] = y.get(x,False)
+
                 # -- public access block
                 for x in ['BlockPublicAcls','IgnorePublicAcls','BlockPublicPolicy','RestrictPublicBuckets']:
                     y = C['s3']['get_public_access_block']['us-east-1'].get(bucket,{})
