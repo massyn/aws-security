@@ -499,3 +499,52 @@ loggroups-without-retention:
     path: logs.describe_log_groups
     fields: "{ logGroupName: logGroupName, storedBytes: storedBytes, retentionInDays: retentionInDays }"
   policy: "[? retentionInDays == null ]"
+
+s3-without-mfadelete:
+  name: Ensure MFA Delete is enable on S3 buckets
+  description: Once MFA Delete is enabled on your sensitive and classified S3 bucket it requires the user to have two forms of authentication.
+  vulnerability: Adding MFA delete to an S3 bucket, requires additional authentication when you change the version state of your bucket or you delete and object version adding another layer of security in the event your security credentials are compromised or unauthorized access is granted.
+  rating: Low
+  remediation : 'Follow [AWS Best Pracices](https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete) to enable MFA delete.'
+  references:
+    - AWS CIS v.1.4.0 - 2.1.3
+  links:
+    - 'https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete'
+    - 'https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMFADelete.html'
+    - 'https://aws.amazon.com/blogs/security/securing-access-to-aws-using-mfa-part-3/'
+    - 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_lost-or-broken.html'
+  asset:
+    path: custom.s3
+    fields: '{ bucket: bucket , MFADelete: MFADelete, _region: _region }'
+  policy: '[? MFADelete == `false`]'
+
+s3-encrypted-at-rest:
+  name: Ensure all S3 buckets employ encryption-at-rest
+  description: Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.
+  vulnerability: Amazon S3 buckets with default bucket encryption using SSE-KMS cannot be used as destination buckets for Amazon S3 server access logging. Only SSE-S3 default encryption is supported for server access log destination buckets.
+  rating: Medium
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html) to configure encryption on S3 buckets.'
+  references:
+    - AWS CIS v.1.4.0 - 2.1.1
+  links:
+    - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html
+    - https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-related-resources
+  asset:
+    path: custom.s3
+    fields: '{ bucket: bucket , ApplyServerSideEncryptionByDefault: ApplyServerSideEncryptionByDefault, _region: _region }'
+  policy: '[? ApplyServerSideEncryptionByDefault == `false` ]'
+
+s3-block-public-access:
+  name: Ensure that S3 Buckets are configured with Block public access (bucket settings)
+  description: Amazon S3 provides Block public access (bucket settings) and Block public access (account settings) to help you manage public access to Amazon S3 resources. By default, S3 buckets and objects are created with public access disabled. However, an IAM principal with sufficient S3 permissions can enable public access at the bucket and/or object level. While enabled, Block public access (bucket settings) prevents an individual bucket, and its contained objects, from becoming publicly accessible. Similarly, Block public access (account settings) prevents all buckets, and contained objects, from becoming publicly accessible across the entire account.
+  vulnerability: Amazon S3 Block public access (bucket settings) prevents the accidental or malicious public exposure of data contained within the respective bucket(s). Amazon S3 Block public access (account settings) prevents the accidental or malicious public exposure of data contained within all buckets of the respective AWS account. Whether blocking public access to all or some buckets is an organizational decision that should be based on data sensitivity, least privilege, and use case.
+  rating: Medium
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access-account.html) to block public access.'
+  references:
+    - AWS CIS v.1.4.0 - 2.1.5
+  links:
+    - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access-account.html
+  asset:
+    path: custom.s3
+    fields: '{ bucket: bucket , BlockPublicAcls : BlockPublicAcls , IgnorePublicAcls : IgnorePublicAcls, BlockPublicPolicy : BlockPublicPolicy, RestrictPublicBuckets: RestrictPublicBuckets, _region: _region }'
+  policy: '[? BlockPublicAcls == `false` || IgnorePublicAcls == `false` || BlockPublicPolicy == `false` || RestrictPublicBuckets == `false` ]'

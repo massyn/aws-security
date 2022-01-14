@@ -29,29 +29,31 @@ class policy:
                 if region == None:
                     region = 'us-east-1'
                 if not region in out:
-                    out[region] = {}
+                    out[region] = []
 
-                if not bucket in out[region]:
-                    out[region][bucket] = {}
-
+                blob = {
+                    'bucket' : bucket
+                }
                 # -- public access block
                 for x in ['BlockPublicAcls','IgnorePublicAcls','BlockPublicPolicy','RestrictPublicBuckets']:
                     y = C['s3']['get_public_access_block']['us-east-1'].get(bucket,{})
-                    out[region][bucket][x] = y.get(x,False)
+                    blob[x] = y.get(x,False)
                     
                 # -- get_bucket_versioning
                 gbv = C['s3']['get_bucket_versioning']['us-east-1'][bucket]
                 for x in ['Status','MFADelete']:
-                    out[region][bucket][x] = gbv.get(x,'') == 'Enabled'
+                    blob[x] = gbv.get(x,'') == 'Enabled'
 
                 # -- get_bucket_encryption
                 gbe = C['s3']['get_bucket_encryption']['us-east-1'][bucket]
                 
                 if 'Rules' in gbe:
                     for x in gbe['Rules']:
-                        out[region][bucket]['ApplyServerSideEncryptionByDefault'] = x['ApplyServerSideEncryptionByDefault']
+                        blob['ApplyServerSideEncryptionByDefault'] = x['ApplyServerSideEncryptionByDefault']
                 else:
-                    out[region][bucket]['ApplyServerSideEncryptionByDefault'] = False
+                    blob['ApplyServerSideEncryptionByDefault'] = False
+
+                out[region].append(blob)
             return out
 
 
@@ -444,7 +446,7 @@ class policy:
                     for x in assets3:
                         logging.info(json.dumps(x))
                         logging.info('--')
-                    print('=============================')
+                    logging.info('=============================')
                 
                 # == Check every asset to see if it is compliant or not
                 total = 0
@@ -463,6 +465,9 @@ class policy:
                     evidence['summary'][policy]['score'] = evidence['summary'][policy]['totalok'] / evidence['summary'][policy]['total']
                 else:
                     evidence['summary'][policy]['score'] = 1
+
+                if debug:
+                    logging.info('score    : ' + str(evidence['summary'][policy]['totalok']) + ' / ' + str(evidence['summary'][policy]['total']) + ' = ' + str(evidence['summary'][policy]['score']))
                 
         # tally up the totals
         for p in evidence['summary']:
