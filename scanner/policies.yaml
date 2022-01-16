@@ -564,3 +564,19 @@ s3-publically-accessable:
     path: custom.s3
     fields: '{ bucket: bucket, list_objects: list_objects, list_objects_v2: list_objects_v2, get_bucket_location: get_bucket_location, get_bucket_logging:get_bucket_logging, get_bucket_acl:get_bucket_acl, _region:_region }'
   policy: '[? list_objects != `false` || list_objects_v2 != `false` || get_bucket_location != `false` || get_bucket_logging != `false` || get_bucket_acl != `false` ]'
+
+ebs-volume-encrypted:
+  name: Ensure EBS volume encryption is enabled
+  description: Elastic Compute Cloud (EC2) supports encryption at rest when using the Elastic Block Store (EBS) service. While disabled by default, forcing encryption at EBS volume creation is supported.
+  vulnerability: Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.
+  rating: Low
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) to setup EBS encryption.'
+  references:
+    - AWS CIS v.1.4.0 - 2.2.1
+  links:
+    - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html
+    - https://aws.amazon.com/blogs/aws/new-opt-in-to-default-encryption-for-new-ebs-volumes/
+  asset:
+    path: custom.get_ebs_encryption_by_default
+    fields: ' { EbsEncryptionByDefault:EbsEncryptionByDefault, _region: _region }'
+  policy: '[? EbsEncryptionByDefault != `true` ]'

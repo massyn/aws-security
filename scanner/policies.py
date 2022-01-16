@@ -62,6 +62,15 @@ class policy:
                 out[region].append(blob)
             return out
 
+        def get_ebs_encryption_by_default(C):
+            out = {}
+            for region in C['ec2']['get_ebs_encryption_by_default']:
+                if not region in out:
+                    out[region] = [
+                        { 'EbsEncryptionByDefault' : C['ec2']['get_ebs_encryption_by_default'].get('EbsEncryptionByDefault',False) }
+                    ]
+
+            return out
 
         def keyvalue(x):
             out = {}
@@ -239,24 +248,16 @@ class policy:
             'iam_get_account_authorization_details_RoleDetailList' : {
                 'us-east-1' : []
             },
-            'ec2_describe_security_groups' : {},
-            'cloudtrail_describe_trails' : {},
-            'ec2_describe_instances' : {},
-            'iam_AccountPasswordPolicy' : keyvalue(C['iam']['AccountPasswordPolicy']),
-            's3' : {} 
+            'ec2_describe_security_groups'      : security_groups(C['ec2']['describe_security_groups']),
+            'cloudtrail_describe_trails'        : describe_trails(C['cloudtrail']),
+            'ec2_describe_instances'            : describe_instances(C),
+            'iam_AccountPasswordPolicy'         : keyvalue(C['iam']['AccountPasswordPolicy']),
+            's3'                                : s3(C),
+            'get_ebs_encryption_by_default'     : get_ebs_encryption_by_default(C),
+            'guardduty_list_detectors'          : guardduty_list_detectors(C)
         }
-        
-        C['custom']['ec2_describe_security_groups'] = security_groups(C['ec2']['describe_security_groups'])
 
-        C['custom']['cloudtrail_describe_trails'] = describe_trails(C['cloudtrail'])
-
-        C['custom']['ec2_describe_instances'] = describe_instances(C)
-
-        C['custom']['guardduty_list_detectors'] = guardduty_list_detectors(C)
-
-        C['custom']['s3'] = s3(C)
-
-        #print(json.dumps(C['custom']['s3'],indent=4))
+        #print(json.dumps(C['custom']['get_ebs_encryption_by_default'],indent=4))
         #exit(0)
 
         # == merge user accounts
