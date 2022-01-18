@@ -11,6 +11,8 @@ access-keys-rotate-90-days:
   remediation: 'Follow [AWS Best practices](https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/) to rotate access keys.'
   vulnerability: 'Aging access keys, just like passwords, need to be rotated to reduce the risk of credentials leaking to unauthorised users, resulting in account compromise.'
   rating: Medium
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -25,6 +27,8 @@ ec2-instance-with-public-ip:
   rating: Info
   remediation: 'Implement a secure design, placing all EC2 instances in private subnets, and segregate the internet access with a load balancer and (or) a WAF'
   vulnerability: 'By not restricting an EC2 instance behind a load balancer, the entire subnet is being put at risk in the event of a system or application compromise.'
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: ec2.describe_instances
     flatten: Instances
@@ -44,6 +48,8 @@ eliminate-root-user-usage:
     - AWS CIS v1.2.0 - 1.1
   remediation: 'Avoid using the root account, and [create a seperate IAM user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) with the least-privilege policies applied.'
   vulnerability: 'The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner''s expense.'
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -60,6 +66,8 @@ iam-central-managed-users:
     - https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html
   references:
     - AWS CIS v.1.4.0 - 1.21
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -78,6 +86,8 @@ iam-users-without-mfa:
   references:
     - AWS CIS v.1.4.0 - 1.10
     - AWS CIS v.1.2.0 - 1.2
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>` && password_enabled == 'true']"
@@ -92,6 +102,8 @@ lambda-depreciated-runtimes:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/lambda/latest/dg/configuration-console.html) to update the Lambda runtime.'
   links:
     - https://docs.aws.amazon.com/lambda/latest/dg/runtime-support-policy.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: lambda.list_functions
     fields: " { FunctionName : FunctionName, Runtime : Runtime, Region : _region } "
@@ -109,6 +121,8 @@ root-account-access-key:
   references:
     - AWS CIS v.1.4.0 - 1.4
     - AWS CIS v.1.2.0 - 1.12
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -128,6 +142,8 @@ root-account-without-mfa:
     - AWS CIS v.1.4.0 - 1.5
     - AWS CIS v.1.2.0 - 1.13
     - Trusted Advisor - Multi-factor authentication on root account
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -142,6 +158,8 @@ subnets-issue-public-ip:
   remediation: 'Execute the [remediation script](https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py)within your AWS account to remediate all subnets. **WARNING:** The script will cause all subnets in all regions to stop issuingpublic IP addresses. If you need this functionality for things likeautoscaling, this script can potentially break your solution.'
   links:
     - https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: ec2.describe_subnets
     fields: "{ SubnetId :SubnetId, AvailabilityZone : AvailabilityZone, MapPublicIpOnLaunch: MapPublicIpOnLaunch, Region : _region }"
@@ -157,6 +175,8 @@ two-active-access-keys:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html
   references:
     - AWS CIS v.1.4.0 - 1.13
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -174,6 +194,8 @@ unused-credentials:
     - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=16
   references:
     - AWS CIS v.1.4.0 - 1.12
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -191,6 +213,8 @@ iam-console-users-with-access-keys:
   references:
     - AWS CIS v.1.4.0 - 1.11
     - AWS CIS v.1.2.0 - 1.21
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -208,6 +232,8 @@ root-account-without-hardware-mfa:
   references:
     - AWS CIS v.1.4.0 - 1.6
     - AWS CIS v.1.2.0 - 1.14
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: iam.get_credential_report
     filter: "[?user == `<root_account>`]"
@@ -226,6 +252,8 @@ iam-users-group-permissions:
   references:
     - AWS CIS v.1.4.0 - 1.15
     - AWS CIS v.1.2.0 - 1.16
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_get_credential_report
     filter: "[?user != `<root_account>`]"
@@ -238,6 +266,8 @@ iam-entities-with-admin-rights:
   rating: High
   vulnerability: If a group with high level access is compromised, it has the potential to cause severe business disruption to the AWS account.
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html) to restrict the roles.'
+  created: 2022-01-19
+  updated: 2022-01-19
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
@@ -255,6 +285,8 @@ external-accounts-with-access:
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_get_account_authorization_details_RoleDetailList
     fields: "{ RoleName: RoleName, RoleId: RoleId, Effect: Effect, Principal_AWS: Principal_AWS, Action: Action }"
@@ -268,6 +300,8 @@ iam-entities-with-lambda-function-update-rights:
   remediation: Update the user or role permissions, by adjusting group memberships, or by adjusting the policies attached to the users, groups or roles.      
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
@@ -281,6 +315,8 @@ iam-entities-with-dynamodb-access:
   remediation: Update the user or role permissions, by adjusting group memberships, or by adjusting the policies attached to the users, groups or roles.      
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
@@ -298,6 +334,8 @@ security-groups-with-exposed-admin-ports:
     - AWS CIS v.1.4.0 - 5.2
     - AWS CIS v.1.2.0 - 4.1
     - AWS CIS v.1.2.0 - 4.2
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.ec2_describe_security_groups
     fields: "{ _direction: _direction, GroupId: GroupId, GroupName: GroupName, FromPort: FromPort, ToPort: ToPort, IpProtocol: IpProtocol, IpRange: IpRange }"
@@ -315,6 +353,8 @@ rds-must-be-encrypted:
     - https://aws.amazon.com/rds/features/security/
   references:
     - AWS CIS v.1.4.0 - 2.3.1
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: rds.describe_db_instances
     fields: "{ StorageEncrypted: StorageEncrypted, DBInstanceIdentifier: DBInstanceIdentifier, DbiResourceId:DbiResourceId, Engine:Engine }"
@@ -332,6 +372,8 @@ cloudtrail-logs-encrypted:
   references:
     - AWS CIS v.1.4.0 - 3.7
     - AWS CIS v.1.2.0 - 2.7
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: cloudtrail.describe_trails
     fields: "{ Name: Name, KmsKeyId: KmsKeyId, _region: _region}"
@@ -349,6 +391,8 @@ cloudtrail-logfile-validation:
   references:
     - AWS CIS v.1.4.0 - 3.2
     - AWS CIS v.1.2.0 - 2.2
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: cloudtrail.describe_trails
     fields: "{ Name: Name, LogFileValidationEnabled: LogFileValidationEnabled, _region: _region}"
@@ -368,6 +412,8 @@ cloudtrail-enabled:
     - AWS CIS v.1.4.0 - 3.1
     - AWS CIS v.1.2.0 - 2.1
     - Trusted Advisor - AWS Cloudtrail logging
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.cloudtrail_describe_trails
     fields: "{ Name: Name, _region: _region, IsMultiRegionTrail: IsMultiRegionTrail, get_trail_status_IsLogging: get_trail_status_IsLogging, get_event_selectors_IncludeManagementEvents : get_event_selectors_IncludeManagementEvents, get_event_selectors_ReadWriteType: get_event_selectors_ReadWriteType}"
@@ -381,6 +427,8 @@ ssm-agent-active:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-agent.html) to install the AWS SSM agent.'       
   links:
     - https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.ec2_describe_instances
     filter: "[?State.Name == 'running']"
@@ -399,6 +447,8 @@ ec2-with-instance-profiles:
   references:
     - AWS CIS v.1.4.0 - 1.18
     - AWS CIS v.1.2.0 - 1.19
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.ec2_describe_instances
     fields: "{ _region: _region, InstanceId : InstanceId, IamInstanceProfile: IamInstanceProfile.Arn }"
@@ -416,6 +466,8 @@ minimum-password-length:
   references:
     - AWS CIS v.1.4.0 - 1.8
     - AWS CIS v.1.2.0 - 1.9
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_AccountPasswordPolicy
     fields: "{ key: key, value: value }"
@@ -430,6 +482,8 @@ privilege-escalation:
   remediation: Review all user access, and reduce the permissions to the absolute bare minimum required to perform their required function.
   links:
     - https://www.awssecurity.info/blog/2021-12-30-privilege-escalation.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
@@ -443,6 +497,8 @@ guardduty-enabled:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html) to enable GuardDuty on all regions.'    
   links:
     - https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.guardduty_list_detectors
     fields: "{ count : count, _region: _region }"
@@ -463,6 +519,8 @@ account-password-policy:
     - AWS CIS v.1.2.0 - 1.7
     - AWS CIS v.1.2.0 - 1.8
     - AWS CIS v.1.2.0 - 1.11
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_AccountPasswordPolicy
     fields: "{ key: key, value: value }"
@@ -481,6 +539,8 @@ password-reuse-prevention:
   references:
     - AWS CIS v.1.4.0 - 1.9
     - AWS CIS v.1.2.0 - 1.10
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.iam_AccountPasswordPolicy
     fields: "{ key: key, value: value }"
@@ -495,6 +555,8 @@ loggroups-without-retention:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SettingLogRetention) to set log retention periods.'
   links:
     - https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SettingLogRetention
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: logs.describe_log_groups
     fields: "{ logGroupName: logGroupName, storedBytes: storedBytes, retentionInDays: retentionInDays }"
@@ -513,6 +575,8 @@ s3-without-mfadelete:
     - 'https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMFADelete.html'
     - 'https://aws.amazon.com/blogs/security/securing-access-to-aws-using-mfa-part-3/'
     - 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_lost-or-broken.html'
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.s3
     fields: '{ bucket: bucket , MFADelete: MFADelete, _region: _region }'
@@ -529,6 +593,8 @@ s3-encrypted-at-rest:
   links:
     - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html
     - https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-related-resources
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.s3
     fields: '{ bucket: bucket , ApplyServerSideEncryptionByDefault: ApplyServerSideEncryptionByDefault, _region: _region }'
@@ -544,6 +610,8 @@ s3-block-public-access:
     - AWS CIS v.1.4.0 - 2.1.5
   links:
     - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access-account.html
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.s3
     fields: '{ bucket: bucket , BlockPublicAcls : BlockPublicAcls , IgnorePublicAcls : IgnorePublicAcls, BlockPublicPolicy : BlockPublicPolicy, RestrictPublicBuckets: RestrictPublicBuckets, _region: _region }'
@@ -560,13 +628,15 @@ s3-publically-accessable:
   links:
     - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html
     - https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.s3
     fields: '{ bucket: bucket, list_objects: list_objects, list_objects_v2: list_objects_v2, get_bucket_location: get_bucket_location, get_bucket_logging:get_bucket_logging, get_bucket_acl:get_bucket_acl, _region:_region }'
   policy: '[? list_objects != `false` || list_objects_v2 != `false` || get_bucket_location != `false` || get_bucket_logging != `false` || get_bucket_acl != `false` ]'
 
-ebs-volume-encrypted:
-  name: Ensure EBS volume encryption is enabled
+ebs-volume-encrypted-by-default:
+  name: Ensure EBS volume encryption is enabled by default
   description: Elastic Compute Cloud (EC2) supports encryption at rest when using the Elastic Block Store (EBS) service. While disabled by default, forcing encryption at EBS volume creation is supported.
   vulnerability: Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.
   rating: Low
@@ -576,7 +646,61 @@ ebs-volume-encrypted:
   links:
     - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html
     - https://aws.amazon.com/blogs/aws/new-opt-in-to-default-encryption-for-new-ebs-volumes/
+  created: 2022-01-19
+  updated: 2022-01-19
   asset:
     path: custom.get_ebs_encryption_by_default
     fields: ' { EbsEncryptionByDefault:EbsEncryptionByDefault, _region: _region }'
   policy: '[? EbsEncryptionByDefault != `true` ]'
+
+ebs-snapshots-not-encrypted:
+  name: EBS snapshots are not encrypted
+  description: EBS snapshots may contain sensitive data that has been backed up from EC2 instances.
+  vulnerability: Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.
+  rating: Medium
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) to setup EBS encryption.'
+  links:
+    - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html
+    - https://aws.amazon.com/blogs/compute/must-know-best-practices-for-amazon-ebs-encryption/
+  created: 2022-01-19
+  updated: 2022-01-19
+  asset:
+    path: custom.describe_snapshots
+    fields: '{ SnapshotId: SnapshotId, OwnerId: OwnerId, Encrypted: Encrypted, State: State, _region: _region }'
+    filter: '[? State == `completed`]'
+  policy: '[? Encrypted != `false` ]'
+
+ebs-snapshots-older-than-90-days:
+  name: EBS snapshots older than 90 days
+  description: EBS snapshots take up a lot of space, and they also cost money.  If you do not have a data retention process in place, you may accumulate a lot of data that you need to pay for.
+  rating: Info
+  vulnerability: By not cleaning up old EBS snapshots, you will incur additional charges from AWS.
+  remediation: 'Create a [snapshot lifecycle policy](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshot-lifecycle.html).'
+  links:
+    - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshot-lifecycle.html
+  created: 2022-01-19
+  updated: 2022-01-19
+  asset:
+    path: custom.describe_snapshots
+    fields: '{ SnapshotId: SnapshotId, OwnerId: OwnerId, _StartTime_ageDays: _StartTime_ageDays, State: State, _region: _region }'
+    filter: '[? State == `completed`]'
+  policy: '[? _StartTime_ageDays > `90` ]'
+
+rotate-kms-encryption-keys:
+  name: Ensure rotation for customer created CMKs is enabled
+  references:
+    - AWS CIS v.1.4.0 - 3.8
+    - AWS CIS v.1.2.0 - 2.8
+  description: Rotating encryption keys helps reduce the potential impact of a compromised key as data encrypted with a new key cannot be accessed with a previous key that may have been exposed.
+  vulnerability: By not rotating encryption keys, there is a higher likelihood of data compromize due to improper management of secret keys.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) to rotate keys.'
+  rating: Medium
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=82
+    - https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html
+  created: 2022-01-19
+  updated: 2022-01-19
+  asset:
+    path: custom.get_key_rotation_status
+    fields: '{ _keyId: _keyId, _region: _region, _status: _status }'
+  policy: '[? _status != `true` ]'

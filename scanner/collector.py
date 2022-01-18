@@ -673,7 +673,7 @@ def assume_role(a,b,c,RoleArn,ExternalId):
                 RoleArn=RoleArn,
                 RoleSessionName='awssecurityinfo',
                 ExternalId=ExternalId,
-                DurationSeconds=14440
+                #DurationSeconds=14440
             )
         else:
             assume_role = boto3.client('sts',
@@ -683,7 +683,7 @@ def assume_role(a,b,c,RoleArn,ExternalId):
             ).assume_role(
                 RoleArn=RoleArn,
                 RoleSessionName='awssecurityinfo',
-                DurationSeconds=14440
+                #DurationSeconds=14440
             )
 
         aws_access_key_id       = assume_role['Credentials']['AccessKeyId'];

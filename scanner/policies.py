@@ -72,6 +72,31 @@ class policy:
 
             return out
 
+        def ec2_describe_snapshots(C):
+            out = {}
+            for region in C['ec2']['describe_snapshots']:
+                if not region in out:
+                    out[region] = []
+                for s in C['ec2']['describe_snapshots'][region]:
+                    if not '_exception' in s:
+                        s['_StartTime_ageDays'] = (datetime.datetime.today() - datetime.datetime.fromtimestamp(s['StartTime'])).days
+                        out[region].append(s)
+                    
+            return out
+
+        def kms_get_key_rotation_status(C):
+            out = {}
+            for region in C['kms']['get_key_rotation_status']:
+                if not region in out:
+                    out[region] = []
+                for s in C['kms']['get_key_rotation_status'][region]:
+                    if type(C['kms']['get_key_rotation_status'][region][s]) == bool:
+                        out[region].append( { '_keyId' : s, '_status' : C['kms']['get_key_rotation_status'][region][s] })
+                    else:
+                        out[region].append( { '_keyId' : s, '_status' : False })
+                            
+            return out
+
         def keyvalue(x):
             out = {}
             for region in x:
@@ -254,10 +279,12 @@ class policy:
             'iam_AccountPasswordPolicy'         : keyvalue(C['iam']['AccountPasswordPolicy']),
             's3'                                : s3(C),
             'get_ebs_encryption_by_default'     : get_ebs_encryption_by_default(C),
-            'guardduty_list_detectors'          : guardduty_list_detectors(C)
+            'guardduty_list_detectors'          : guardduty_list_detectors(C),
+            'describe_snapshots'                : ec2_describe_snapshots(C),
+            'get_key_rotation_status'           : kms_get_key_rotation_status(C)
         }
 
-        #print(json.dumps(C['custom']['get_ebs_encryption_by_default'],indent=4))
+        #print(json.dumps(C['custom']['get_key_rotation_status'],indent=4))
         #exit(0)
 
         # == merge user accounts
@@ -394,7 +421,8 @@ class policy:
                         logging.warning(f'Missing \'{tag}\' in policy {policy}')
                         cfg[tag] = '** unknown **'
                     else:
-                        cfg[tag] = markdown.markdown(cfg[tag])
+                        if tag != 'rating':
+                            cfg[tag] = markdown.markdown(cfg[tag])
 
                 evidence['policy'][policy] = cfg
 
