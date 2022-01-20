@@ -704,3 +704,23 @@ rotate-kms-encryption-keys:
     path: custom.get_key_rotation_status
     fields: '{ _keyId: _keyId, _region: _region, _status: _status }'
   policy: '[? _status != `true` ]'
+
+access-analyzer-enabled:
+  name: Ensure that IAM Access analyzer is enabled for all regions.
+  description: IAM Access Analyzer is a technology introduced at AWS reinvent 2019. After the Analyzer is enabled in IAM, scan results are displayed on the console showing the accessible resources. Scans show resources that other accounts and federated users can access, such as KMS keys and IAM roles. So the results allow you to determine if an unintended user is allowed, making it easier for administrators to monitor least privileges access. Access Analyzer analyzes only policies that are applied to resources in the same AWS Region.
+  vulnerability: AWS IAM Access Analyzer helps you identify the resources in your organization and accounts, such as Amazon S3 buckets or IAM roles, that are shared with an external entity. This lets you identify unintended access to your resources and data. Access Analyzer identifies resources that are shared with external principals by using logic-based reasoning to analyze the resource-based policies in your AWS environment. IAM Access Analyzer continuously monitors all policies for S3 bucket, IAM roles, KMS(Key Management Service) keys, AWS Lambda functions, and Amazon SQS(Simple Queue Service) queues.
+  rating: Medium
+  remediation: Follow '[AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html) to enable access analyzer.'
+  references:
+    - AWS CIS v.1.4.0 - 1.20
+  links:
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html
+    - https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html
+    - https://docs.aws.amazon.com/cli/latest/reference/accessanalyzer/get-analyzer.html
+    - https://docs.aws.amazon.com/cli/latest/reference/accessanalyzer/create-analyzer.html
+  created: 2022-01-20
+  updated: 2022-01-20
+  asset:
+    path: custom.accessanalyzer_list_analyzers
+    fields: '{ arn: arn, status: status, _region: _region }'
+  policy: '[? status != `ACTIVE` ]'

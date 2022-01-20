@@ -71,6 +71,7 @@ table {
 .Medium   { background-color: #ED7D31;  color: #FFFFFF; }
 .Low      { background-color: #00B050;  color: #FFFFFF; }
 .Info     { background-color: #4472C4;  color: #FFFFFF; }
+.OK       { background-color: #FFFFFF;  color: #000000; }
 
 </style>
 
@@ -128,10 +129,14 @@ This report is intended only to provide documentation on potential issues that m
   % else:
     <td><a href="#${c}">${evidence['policy'][c]['name']}</a></td>
   % endif
-
+  
+  % if evidence['summary'][c]['total'] - evidence['summary'][c]['totalok'] != 0:
   <td class="${evidence['policy'][c]['rating']}">
     ${evidence['policy'][c]['rating']}
-</td>
+  </td>
+  % else:
+  <td class="OK">OK</td>
+  % endif
 
   <td>${htmlbar(evidence['summary'][c]['score'])}</td>
   

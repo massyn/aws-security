@@ -1,4 +1,5 @@
 import argparse
+from os import access
 import jmespath
 import json
 import logging
@@ -20,6 +21,20 @@ class policy:
 
     # the merge function will create a custom data type, making the parsing of the data easier
     def merge(self,C):
+        def accessanalyzer_list_analyzers(C):
+            out = {}
+            for region in C['accessanalyzer'].get('list_analyzers',[]):
+                if not region in out:
+                    out[region] = []
+
+                if len(C['accessanalyzer'].get('list_analyzers',{}).get(region,[])) == 0:
+                    out[region].append({ 'status' : 'MISSING'})
+                else:
+                    out[region] = C['accessanalyzer']['list_analyzers'][region]
+
+
+            return out
+
         def s3(C):
             out = {}
             for bucket in C['s3'].get('get_bucket_location',{}).get('us-east-1',[]):
@@ -64,7 +79,7 @@ class policy:
 
         def get_ebs_encryption_by_default(C):
             out = {}
-            for region in C['ec2']['get_ebs_encryption_by_default']:
+            for region in C['ec2'].get('get_ebs_encryption_by_default',[]):
                 if not region in out:
                     out[region] = [
                         { 'EbsEncryptionByDefault' : C['ec2']['get_ebs_encryption_by_default'].get('EbsEncryptionByDefault',False) }
@@ -74,7 +89,7 @@ class policy:
 
         def ec2_describe_snapshots(C):
             out = {}
-            for region in C['ec2']['describe_snapshots']:
+            for region in C['ec2'].get('describe_snapshots',[]):
                 if not region in out:
                     out[region] = []
                 for s in C['ec2']['describe_snapshots'][region]:
@@ -281,10 +296,11 @@ class policy:
             'get_ebs_encryption_by_default'     : get_ebs_encryption_by_default(C),
             'guardduty_list_detectors'          : guardduty_list_detectors(C),
             'describe_snapshots'                : ec2_describe_snapshots(C),
-            'get_key_rotation_status'           : kms_get_key_rotation_status(C)
+            'get_key_rotation_status'           : kms_get_key_rotation_status(C),
+            'accessanalyzer_list_analyzers'     : accessanalyzer_list_analyzers(C)
         }
 
-        #print(json.dumps(C['custom']['get_key_rotation_status'],indent=4))
+        #print(json.dumps(C['custom']['accessanalyzer_list_analyzers'],indent=4))
         #exit(0)
 
         # == merge user accounts
@@ -384,12 +400,13 @@ class policy:
 
         # get_account_authorization_details
         for x in C['iam']['get_account_authorization_details']['us-east-1']:
-            for y in x['RoleDetailList']:
-                for s in y['AssumeRolePolicyDocument']['Statement']:
-                    n = flatten(s)
-                    for z in ['Path','RoleName','RoleId','Arn','CreateDate','AttachedManagedPolicies']:
-                        n[z] = y[z]
-                    C['custom']['iam_get_account_authorization_details_RoleDetailList']['us-east-1'].append(n)
+            if not '_exception' in x:
+                for y in x['RoleDetailList']:
+                    for s in y['AssumeRolePolicyDocument']['Statement']:
+                        n = flatten(s)
+                        for z in ['Path','RoleName','RoleId','Arn','CreateDate','AttachedManagedPolicies']:
+                            n[z] = y[z]
+                        C['custom']['iam_get_account_authorization_details_RoleDetailList']['us-east-1'].append(n)
 
     def process(self,C, debug = None):
 
@@ -484,9 +501,6 @@ class policy:
                     logging.info('=============================')
                 
                 # == Check every asset to see if it is compliant or not
-                total = 0
-                totalok = 0
-                
                 for a in assets3:
 
                     if jmespath.search(cfg['policy'],[a]):
@@ -497,23 +511,41 @@ class policy:
                 evidence['summary'][policy]['totalok'] = len(evidence['detail'][policy][1])
                 evidence['summary'][policy]['total'] = len(evidence['detail'][policy][0]) + len(evidence['detail'][policy][1])
                 if evidence['summary'][policy]['total'] != 0:
-                    evidence['summary'][policy]['score'] = evidence['summary'][policy]['totalok'] / evidence['summary'][policy]['total']
+
+                    # == calculate the score
+                    totalok = evidence['summary'][policy]['totalok']
+                    total = evidence['summary'][policy]['total']
+
+                    # -- linear
+                    #x = totalok / total
+
+                    # -- inverse log
+                    x = (total ** (totalok / total)) / total
+
+                    evidence['summary'][policy]['score'] =  x
                 else:
                     evidence['summary'][policy]['score'] = 1
 
                 if debug:
                     logging.info('score    : ' + str(evidence['summary'][policy]['totalok']) + ' / ' + str(evidence['summary'][policy]['total']) + ' = ' + str(evidence['summary'][policy]['score']))
                 
-        # tally up the totals
+        # We average the percentages because some controls may have a lot more resources, which then skews the percentages
+        weight = {
+            'Critical' : 5,
+            'High' : 3,
+            'Medium' : 2,
+            'Low' : 1,
+            'Info' : 0
+        }
         for p in evidence['summary']:
-            if evidence['policy'][p]['rating'] != 'Info':
-                evidence['top']['total'] += evidence['summary'][p]['total']
-                evidence['top']['totalok'] += evidence['summary'][p]['totalok']
+            rating = evidence['policy'][p]['rating']
+            evidence['top']['total'] += weight[rating]
+            evidence['top']['totalok'] += evidence['summary'][p]['score'] * weight[rating]
 
-                if evidence['top']['total'] != 0:
-                    evidence['top']['score'] = evidence['top']['totalok'] / evidence['top']['total']
-                else:
-                    evidence['top']['score'] = 1
+            if evidence['top']['total'] != 0:
+                evidence['top']['score'] = evidence['top']['totalok'] / evidence['top']['total']
+            else:
+                evidence['top']['score'] = 1
 
 
         return evidence
