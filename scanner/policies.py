@@ -22,7 +22,7 @@ class policy:
     def merge(self,C):
         def s3(C):
             out = {}
-            for bucket in C['s3']['get_bucket_location']['us-east-1']:
+            for bucket in C['s3'].get('get_bucket_location',{}).get('us-east-1',[]):
                 
                 # -- figure out the location
                 region = C['s3']['get_bucket_location']['us-east-1'][bucket]
@@ -86,7 +86,7 @@ class policy:
 
         def kms_get_key_rotation_status(C):
             out = {}
-            for region in C['kms']['get_key_rotation_status']:
+            for region in C['kms'].get('get_key_rotation_status',[]):
                 if not region in out:
                     out[region] = []
                 for s in C['kms']['get_key_rotation_status'][region]:
@@ -289,9 +289,9 @@ class policy:
 
         # == merge user accounts
         for blob in C['iam']['get_credential_report']['us-east-1']:
-            blob['_list_user_policies'] = C['iam']['list_user_policies'].get('us-east-1',{}).get(blob['user'],{})
+            blob['_list_user_policies'] = C['iam'].get('list_user_policies',{}).get('us-east-1',{}).get(blob['user'],{})
             blob['_list_user_policies_count'] = len(blob['_list_user_policies'])
-            blob['_list_attached_user_policies'] = C['iam']['list_attached_user_policies'].get('us-east-1',{}).get(blob['user'],{})
+            blob['_list_attached_user_policies'] = C['iam'].get('list_attached_user_policies',{}).get('us-east-1',{}).get(blob['user'],{})
             blob['_list_attached_user_policies_count'] = len(blob['_list_attached_user_policies'])
 
             # == list_virtual_mfa_devices
