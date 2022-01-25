@@ -724,3 +724,22 @@ access-analyzer-enabled:
     path: custom.accessanalyzer_list_analyzers
     fields: '{ arn: arn, status: status, _region: _region }'
   policy: '[? status != `ACTIVE` ]'
+
+config-must-be-enabled:
+  name: Ensure AWS Config is enabled in all regions
+  description: The AWS configuration item history captured by AWS Config enables security analysis, resource change tracking, and compliance auditing.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html) to enable AWS Config in all regions.'
+  vulnerability: Without AWS Config enabled, technical teams will struggle to identify the historical changes to resources when the need arise for forensic investigation.
+  rating: High
+  reference:
+    - AWS CIS v.1.4.0 - 3.5
+    - AWS CIS v.1.2.0 - 2.5
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=72
+    - https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html
+  created: 2022-01-25
+  updated: 2022-01-25
+  asset:
+    path: custom.describe_configuration_recorders
+    fields: '{ name: name, allSupported: recordingGroup.allSupported, includeGlobalResourceTypes: recordingGroup.includeGlobalResourceTypes, recording: describe_configuration_recorder_status.recording, _region: _region }'
+  policy: '[? allSupported != `true` || includeGlobalResourceTypes != `true` || recording != `true` ]'

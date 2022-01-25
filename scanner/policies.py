@@ -217,8 +217,43 @@ class policy:
                                     flat[region].append(cp)
             return flat
 
-        def describe_trails(C):
+        def describe_configuration_recorders(C):
+            out = {}
+            for region in C['config']['describe_configuration_recorders']:
+                if not region in out:
+                    out[region] = []
 
+                if len(C['config']['describe_configuration_recorders'][region]) == 0:
+                    out[region].append( {
+                        "name": "**unknown**",
+                        "roleARN": None,
+                        "recordingGroup": {
+                            "allSupported": None,
+                            "includeGlobalResourceTypes": None,
+                            "resourceTypes": []
+                        },
+                        "describe_configuration_recorder_status": {
+                            "name": "**unknown**",
+                            "lastStartTime": -1,
+                            "recording": False,
+                            "lastStatus": None,
+                            "lastStatusChangeTime": -1
+                        }
+                    }
+         )
+                else:
+                    for c in C['config']['describe_configuration_recorders'][region]:
+                        c['describe_configuration_recorder_status'] = False
+                        
+                        for s in C['config']['describe_configuration_recorder_status'].get(region,{}):
+                            if s['name'] == c['name']:
+                                c['describe_configuration_recorder_status'] = s
+                                
+                        out[region].append(c)
+
+            return out
+
+        def describe_trails(C):
             out = {}
 
             for region in C['describe_trails']:
@@ -297,10 +332,11 @@ class policy:
             'guardduty_list_detectors'          : guardduty_list_detectors(C),
             'describe_snapshots'                : ec2_describe_snapshots(C),
             'get_key_rotation_status'           : kms_get_key_rotation_status(C),
-            'accessanalyzer_list_analyzers'     : accessanalyzer_list_analyzers(C)
+            'accessanalyzer_list_analyzers'     : accessanalyzer_list_analyzers(C),
+            'describe_configuration_recorders'  : describe_configuration_recorders(C)
         }
 
-        #print(json.dumps(C['custom']['accessanalyzer_list_analyzers'],indent=4))
+        print(json.dumps(C['custom']['describe_configuration_recorders'],indent=4))
         #exit(0)
 
         # == merge user accounts
