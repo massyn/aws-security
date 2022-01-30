@@ -8,6 +8,7 @@ access-keys-rotate-90-days:
   references: 
     - AWS CIS v.1.4.0 - 1.14
     - AWS CIS v.1.2.0 - 1.4
+    - ISO27001:2013 - A.9.2.4
   remediation: 'Follow [AWS Best practices](https://aws.amazon.com/blogs/security/how-to-rotate-access-keys-for-iam-users/) to rotate access keys.'
   vulnerability: 'Aging access keys, just like passwords, need to be rotated to reduce the risk of credentials leaking to unauthorised users, resulting in account compromise.'
   rating: Medium
@@ -27,6 +28,8 @@ ec2-instance-with-public-ip:
   rating: Info
   remediation: 'Implement a secure design, placing all EC2 instances in private subnets, and segregate the internet access with a load balancer and (or) a WAF'
   vulnerability: 'By not restricting an EC2 instance behind a load balancer, the entire subnet is being put at risk in the event of a system or application compromise.'
+  references:
+    - ISO27001:2013 - A.13.1.1
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -46,6 +49,7 @@ eliminate-root-user-usage:
   references: 
     - AWS CIS v1.4.0 - 1.7
     - AWS CIS v1.2.0 - 1.1
+    - ISO27001:2013 - A.9.2.3
   remediation: 'Avoid using the root account, and [create a seperate IAM user](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) with the least-privilege policies applied.'
   vulnerability: 'The root account represents unrestricted access to the entire account.  A compromise of the root account will mean a complete loss control of the account.  This can result in data leakage, or rogue resources being created (for example bitcoin mining), at the account owner''s expense.'
   created: 2022-01-19
@@ -66,6 +70,7 @@ iam-central-managed-users:
     - https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html
   references:
     - AWS CIS v.1.4.0 - 1.21
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -86,6 +91,7 @@ iam-users-without-mfa:
   references:
     - AWS CIS v.1.4.0 - 1.10
     - AWS CIS v.1.2.0 - 1.2
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -104,6 +110,8 @@ lambda-depreciated-runtimes:
     - https://docs.aws.amazon.com/lambda/latest/dg/runtime-support-policy.html
   created: 2022-01-19
   updated: 2022-01-19
+  references:
+    - ISO27001:2013 - A.12.6.1
   asset:
     path: lambda.list_functions
     fields: " { FunctionName : FunctionName, Runtime : Runtime, Region : _region } "
@@ -121,6 +129,7 @@ root-account-access-key:
   references:
     - AWS CIS v.1.4.0 - 1.4
     - AWS CIS v.1.2.0 - 1.12
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -142,6 +151,8 @@ root-account-without-mfa:
     - AWS CIS v.1.4.0 - 1.5
     - AWS CIS v.1.2.0 - 1.13
     - Trusted Advisor - Multi-factor authentication on root account
+    - ISO27001:2013 - A.9.2.3
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -156,6 +167,8 @@ subnets-issue-public-ip:
   rating: Info
   vulnerability: Automated issuing of public IP addresses increases the risk of internet exposure to your instances.
   remediation: 'Execute the [remediation script](https://github.com/massyn/aws-security/blob/main/remediation/remediate_subnets_with_public_ip_assignment.py)within your AWS account to remediate all subnets. **WARNING:** The script will cause all subnets in all regions to stop issuingpublic IP addresses. If you need this functionality for things likeautoscaling, this script can potentially break your solution.'
+  references:
+    - ISO27001:2013 - A.13.1.1
   links:
     - https://docs.aws.amazon.com/vpc/latest/userguide/working-with-vpcs.html#AddaSubnet
   created: 2022-01-19
@@ -175,6 +188,7 @@ two-active-access-keys:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html
   references:
     - AWS CIS v.1.4.0 - 1.13
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -194,6 +208,9 @@ unused-credentials:
     - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=16
   references:
     - AWS CIS v.1.4.0 - 1.12
+    - ISO27001:2013 - A.9.2.1
+    - ISO27001:2013 - A.9.2.2
+    - ISO27001:2013 - A.9.2.5
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -213,6 +230,7 @@ iam-console-users-with-access-keys:
   references:
     - AWS CIS v.1.4.0 - 1.11
     - AWS CIS v.1.2.0 - 1.21
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -232,6 +250,8 @@ root-account-without-hardware-mfa:
   references:
     - AWS CIS v.1.4.0 - 1.6
     - AWS CIS v.1.2.0 - 1.14
+    - ISO27001:2013 - A.9.2.3
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -252,6 +272,7 @@ iam-users-group-permissions:
   references:
     - AWS CIS v.1.4.0 - 1.15
     - AWS CIS v.1.2.0 - 1.16
+    - ISO27001:2013 - A.9.2.5
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -268,6 +289,8 @@ iam-entities-with-admin-rights:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html) to restrict the roles.'
   created: 2022-01-19
   updated: 2022-01-19
+  references:
+    - ISO27001:2013 - A.9.2.3
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
@@ -282,6 +305,8 @@ external-accounts-with-access:
   rating: Medium
   vulnerability: An external account with access to your account could circumvent regular identify access management process, and gain unauthorised access to your account.
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html) to restrict the roles.'
+  references:
+    - ISO27001:2013 - A.9.2.3
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_modify.html
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
@@ -302,6 +327,8 @@ iam-entities-with-lambda-function-update-rights:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
   created: 2022-01-19
   updated: 2022-01-19
+  references:
+    - ISO27001:2013 - A.9.4.1
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
@@ -317,6 +344,8 @@ iam-entities-with-dynamodb-access:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html
   created: 2022-01-19
   updated: 2022-01-19
+  references:
+    - ISO27001:2013 - A.9.4.1
   asset:
     path: custom.iam_list_policies
     fields: "{ source : source, UserName : UserName, GroupName: GroupName, RoleName : RoleName, PolicyName : PolicyName, Entity : Entity, Effect: Effect, Action: Action, Resource: Resource }"
@@ -334,6 +363,7 @@ security-groups-with-exposed-admin-ports:
     - AWS CIS v.1.4.0 - 5.2
     - AWS CIS v.1.2.0 - 4.1
     - AWS CIS v.1.2.0 - 4.2
+    - ISO27001:2013 - A.13.1.1
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -353,6 +383,7 @@ rds-must-be-encrypted:
     - https://aws.amazon.com/rds/features/security/
   references:
     - AWS CIS v.1.4.0 - 2.3.1
+    - ISO27001:2013 - A.10.1.1
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -372,6 +403,7 @@ cloudtrail-logs-encrypted:
   references:
     - AWS CIS v.1.4.0 - 3.7
     - AWS CIS v.1.2.0 - 2.7
+    - ISO27001:2013 - A.12.4.2
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -391,6 +423,7 @@ cloudtrail-logfile-validation:
   references:
     - AWS CIS v.1.4.0 - 3.2
     - AWS CIS v.1.2.0 - 2.2
+    - ISO27001:2013 - A.12.4.2
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -412,6 +445,7 @@ cloudtrail-enabled:
     - AWS CIS v.1.4.0 - 3.1
     - AWS CIS v.1.2.0 - 2.1
     - Trusted Advisor - AWS Cloudtrail logging
+    - ISO27001:2013 - A.12.4.1
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -425,6 +459,8 @@ ssm-agent-active:
   rating: Low
   vulnerability: By not having SSM, operational teams will spend manual effort to patch and manage the environment.
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-agent.html) to install the AWS SSM agent.'       
+  references:
+    - ISO27001:2013 - A.12.1.2
   links:
     - https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html
   created: 2022-01-19
@@ -447,6 +483,7 @@ ec2-with-instance-profiles:
   references:
     - AWS CIS v.1.4.0 - 1.18
     - AWS CIS v.1.2.0 - 1.19
+    - ISO27001:2013 - A.9.2.3
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -466,6 +503,8 @@ minimum-password-length:
   references:
     - AWS CIS v.1.4.0 - 1.8
     - AWS CIS v.1.2.0 - 1.9
+    - ISO27001:2013 - A.5.1.1
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -480,6 +519,8 @@ privilege-escalation:
   rating: Critical
   vulnerability: Users, roles, or groups that have too-broad permissions applied can allow a seeminly benign user to allow themselves to have their access elevated.
   remediation: Review all user access, and reduce the permissions to the absolute bare minimum required to perform their required function.
+  references:
+    - ISO27001:2013 - A.9.2.3
   links:
     - https://www.awssecurity.info/blog/2021-12-30-privilege-escalation.html
   created: 2022-01-19
@@ -493,6 +534,8 @@ guardduty-enabled:
   name: GuardDuty must be enabled in all regions
   description: Amazon GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior to protect your AWS accounts, workloads, and data stored in Amazon S3.
   rating: Medium
+  references:
+    - ISO27001:2013 - A.12.4.1
   vulnerability: GuardDuty provides visibility on threats that may try to access your system.
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html) to enable GuardDuty on all regions.'    
   links:
@@ -519,6 +562,8 @@ account-password-policy:
     - AWS CIS v.1.2.0 - 1.7
     - AWS CIS v.1.2.0 - 1.8
     - AWS CIS v.1.2.0 - 1.11
+    - ISO27001:2013 - A.5.1.1
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -539,6 +584,8 @@ password-reuse-prevention:
   references:
     - AWS CIS v.1.4.0 - 1.9
     - AWS CIS v.1.2.0 - 1.10
+    - ISO27001:2013 - A.5.1.1
+    - ISO27001:2013 - A.9.2.4
   created: 2022-01-19
   updated: 2022-01-19
   asset:
@@ -557,6 +604,8 @@ loggroups-without-retention:
     - https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SettingLogRetention
   created: 2022-01-19
   updated: 2022-01-19
+  references:
+    - ISO27001:2013 - A.12.4.1
   asset:
     path: logs.describe_log_groups
     fields: "{ logGroupName: logGroupName, storedBytes: storedBytes, retentionInDays: retentionInDays }"
@@ -570,6 +619,7 @@ s3-without-mfadelete:
   remediation : 'Follow [AWS Best Pracices](https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete) to enable MFA delete.'
   references:
     - AWS CIS v.1.4.0 - 2.1.3
+    - ISO27001:2013 - A.9.3.1
   links:
     - 'https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete'
     - 'https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMFADelete.html'
@@ -590,6 +640,7 @@ s3-encrypted-at-rest:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html) to configure encryption on S3 buckets.'
   references:
     - AWS CIS v.1.4.0 - 2.1.1
+    - ISO27001:2013 - A.10.1.1
   links:
     - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/default-bucket-encryption.html
     - https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-related-resources
@@ -608,6 +659,7 @@ s3-block-public-access:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access-account.html) to block public access.'
   references:
     - AWS CIS v.1.4.0 - 2.1.5
+    - ISO27001:2013 - A.9.4.1
   links:
     - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access-account.html
   created: 2022-01-19
@@ -625,6 +677,7 @@ s3-publically-accessable:
   rating: High
   references:
     - Trusted Advisor - Amazon S3 bucket permissions
+    - ISO27001:2013 - A.9.4.1
   links:
     - https://docs.aws.amazon.com/AmazonS3/latest/user-guide/block-public-access.html
     - https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security
@@ -643,6 +696,7 @@ ebs-volume-encrypted-by-default:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) to setup EBS encryption.'
   references:
     - AWS CIS v.1.4.0 - 2.2.1
+    - ISO27001:2013 - A.12.3.1
   links:
     - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html
     - https://aws.amazon.com/blogs/aws/new-opt-in-to-default-encryption-for-new-ebs-volumes/
@@ -659,6 +713,8 @@ ebs-snapshots-not-encrypted:
   vulnerability: Encrypting data at rest reduces the likelihood that it is unintentionally exposed and can nullify the impact of disclosure if the encryption remains unbroken.
   rating: Medium
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) to setup EBS encryption.'
+  references:
+    - ISO27001:2013 - A.12.3.1
   links:
     - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html
     - https://aws.amazon.com/blogs/compute/must-know-best-practices-for-amazon-ebs-encryption/
@@ -676,6 +732,8 @@ ebs-snapshots-older-than-90-days:
   rating: Info
   vulnerability: By not cleaning up old EBS snapshots, you will incur additional charges from AWS.
   remediation: 'Create a [snapshot lifecycle policy](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshot-lifecycle.html).'
+  references:
+    - ISO27001:2013 - A.12.3.1
   links:
     - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshot-lifecycle.html
   created: 2022-01-19
@@ -691,6 +749,7 @@ rotate-kms-encryption-keys:
   references:
     - AWS CIS v.1.4.0 - 3.8
     - AWS CIS v.1.2.0 - 2.8
+    - ISO27001:2013 - A.10.1.2
   description: Rotating encryption keys helps reduce the potential impact of a compromised key as data encrypted with a new key cannot be accessed with a previous key that may have been exposed.
   vulnerability: By not rotating encryption keys, there is a higher likelihood of data compromize due to improper management of secret keys.
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) to rotate keys.'
@@ -713,6 +772,7 @@ access-analyzer-enabled:
   remediation: Follow '[AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html) to enable access analyzer.'
   references:
     - AWS CIS v.1.4.0 - 1.20
+    - ISO27001:2013 - A.9.2.5
   links:
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html
     - https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html
@@ -731,9 +791,10 @@ config-must-be-enabled:
   remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html) to enable AWS Config in all regions.'
   vulnerability: Without AWS Config enabled, technical teams will struggle to identify the historical changes to resources when the need arise for forensic investigation.
   rating: High
-  reference:
+  references:
     - AWS CIS v.1.4.0 - 3.5
     - AWS CIS v.1.2.0 - 2.5
+    - ISO27001:2013 - A.12.7.1
   links:
     - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=72
     - https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html
@@ -743,3 +804,65 @@ config-must-be-enabled:
     path: custom.describe_configuration_recorders
     fields: '{ name: name, allSupported: recordingGroup.allSupported, includeGlobalResourceTypes: recordingGroup.includeGlobalResourceTypes, recording: describe_configuration_recorder_status.recording, _region: _region }'
   policy: '[? allSupported != `true` || includeGlobalResourceTypes != `true` || recording != `true` ]'
+
+restrict-default-security-group:
+  name: Ensure the default security group of every VPC restricts all traffic
+  description: Configuring all VPC default security groups to restrict all traffic will encourage least privilege security group development and mindful placement of AWS resources into security groups which will in-turn reduce the exposure of those resources.
+  vulnerability: The default security group allows very open permissions, and could inadvertently be applied to a resource, exposing that resource to the internet.
+  remediation: Remove any rules from the default security group.
+  rating: Low
+  references:
+    - AWS CIS v.1.4.0 - 5.3
+    - AWS CIS v.1.2.0 - 4.3
+    - ISO27001:2013 - A.13.1.3
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=148
+  created: 2022-01-30
+  updated: 2022-01-30
+  asset:
+    path: custom.ec2_describe_security_groups
+    fields: "{ _direction: _direction, GroupId: GroupId, GroupName: GroupName, FromPort: FromPort, ToPort: ToPort, IpProtocol: IpProtocol, IpRange: IpRange }"
+    filter: "[? GroupName == `default` ]"
+  policy: "[? GroupName == `default` ]"
+
+vpc-flowlogs-enabled:
+  name: Ensure VPC flow logging is enabled in all VPCs
+  description: VPC Flow Logs provide visibility into network traffic that traverses the VPC and can be used to detect anomalous traffic or insight during security workflows.
+  vulnerability: Without VPC Flow Logs, technical teams will not have visibility on how network traffic flows.
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) to enable VPC Flow Logs.'
+  rating: Low
+  references:
+    - AWS CIS v.1.4.0 - 3.9
+    - AWS CIS v.1.2.0 - 2.9
+    - ISO27001:2013 - A.13.1.1
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=84
+    - https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
+  created: 2022-01-30
+  updated: 2022-01-30
+  asset:
+    path: custom.ec2_describe_vpcs
+    fields: '{ VpcId: VpcId, CidrBlock: CidrBlock, _region: _region, LogGroupName : describe_flow_logs.LogGroupName } '
+  policy: '[? LogGroupName == `null` ]'
+
+cloudtrail-storing-to-s3:
+  name: Ensure CloudTrail is storing evidence to an S3 bucket
+  description: The AWS API call history produced by CloudTrail enables security analysis, resource change tracking, and compliance auditing.  The logs hvae to be stored to allow for security investigations to continue unhindered.
+  rating: Medium
+  vulnerability: Without proper logging of AWS API activity, any activity, be it malicious, or legitimate will go undetected, resulting in breaches, or lack of regulatory compliance.
+  remediation: Follow <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html">AWS Best Practices</a> to create a new trail.
+  links:
+    - https://d0.awsstatic.com/whitepapers/compliance/AWS_CIS_Foundations_Benchmark.pdf#page=61
+    - https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html
+    - https://aws.amazon.com/premiumsupport/technology/trusted-advisor/best-practice-checklist/#Security
+  references:
+    - AWS CIS v.1.4.0 - 3.1
+    - AWS CIS v.1.2.0 - 2.1
+    - Trusted Advisor - AWS Cloudtrail logging
+    - ISO27001:2013 - A.12.4.1
+  created: 2022-01-30
+  updated: 2022-01-30
+  asset:
+    path: custom.cloudtrail_describe_trails
+    fields: "{ Name: Name, _region: _region, S3BucketName: S3BucketName}"
+  policy: "[? S3BucketName == `null`]"

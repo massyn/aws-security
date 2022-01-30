@@ -293,6 +293,22 @@ class policy:
 
             return out
 
+        def ec2_describe_vpcs(C):
+            out = {}
+            for region in C['ec2'].get('describe_vpcs',[]):
+                if not region in out:
+                    out[region] = []
+
+                for vpc in C['ec2']['describe_vpcs'][region]:
+                    vpc['describe_flow_logs'] = None
+                    for F in C['ec2'].get('describe_flow_logs',{}).get(region,{}):
+                        if F['ResourceId'] == vpc['VpcId']:
+                            vpc['describe_flow_logs'] = F
+                            
+                    out[region].append(vpc)
+
+            return out
+
         def describe_instances(C):
             out = {}
 
@@ -333,10 +349,11 @@ class policy:
             'describe_snapshots'                : ec2_describe_snapshots(C),
             'get_key_rotation_status'           : kms_get_key_rotation_status(C),
             'accessanalyzer_list_analyzers'     : accessanalyzer_list_analyzers(C),
-            'describe_configuration_recorders'  : describe_configuration_recorders(C)
+            'describe_configuration_recorders'  : describe_configuration_recorders(C),
+            'ec2_describe_vpcs'                 : ec2_describe_vpcs(C)
         }
 
-        print(json.dumps(C['custom']['describe_configuration_recorders'],indent=4))
+        #print(json.dumps(C['custom']['ec2_describe_vpcs'],indent=4))
         #exit(0)
 
         # == merge user accounts
@@ -477,6 +494,11 @@ class policy:
                         if tag != 'rating':
                             cfg[tag] = markdown.markdown(cfg[tag])
 
+                for tag in ['references','updated','created','links']:
+                    if not tag in cfg:
+                        logging.warning(f'Missing \'{tag}\' in policy {policy}')
+
+
                 evidence['policy'][policy] = cfg
 
                 # == find all the assets in question from the "asset" field
@@ -553,10 +575,10 @@ class policy:
                     total = evidence['summary'][policy]['total']
 
                     # -- linear
-                    #x = totalok / total
+                    x = totalok / total
 
-                    # -- inverse log
-                    x = (total ** (totalok / total)) / total
+                    # -- inverse log - this is a bit more experimental.. 
+                    #x = (total ** (totalok / total)) / total
 
                     evidence['summary'][policy]['score'] =  x
                 else:
