@@ -13,9 +13,6 @@
           col = '#00B050'
           
         maxwidth = 250
-        #barwidth = pct / 100 * maxwidth
-        #whitewidth = maxwidth - barwidth
-        
         return '''<div style="width: {maxwidth}px;background-color: #bbb;box-sizing: border-box">
           <div style="width: {pct}%; background-color: {col};text-align: right;padding-top: 10px;padding-bottom: 10px;color: white;box-sizing: border-box">{pct}%</div>
         </div>'''.format(maxwidth = str(maxwidth), pct = str(round(pct,1)),col = col)
@@ -69,9 +66,9 @@ table {
 .Critical { background-color: #000000;  color: #FFFFFF; }
 .High     { background-color: #C00000;  color: #FFFFFF; }
 .Medium   { background-color: #ED7D31;  color: #FFFFFF; }
-.Low      { background-color: #00B050;  color: #FFFFFF; }
-.Info     { background-color: #4472C4;  color: #FFFFFF; }
-.OK       { background-color: #FFFFFF;  color: #000000; }
+.Low      { background-color: #4472C4;  color: #FFFFFF; }
+.Info     { background-color: #FFFFFF;  color: #000000; }
+.OK       { background-color: #00B050;  color: #FFFFFF; }
 
 </style>
 
@@ -120,9 +117,14 @@ This report is intended only to provide documentation on potential issues that m
 </ul>
 
 <h2 id="top">Summary</h2>
+  % for rating in ['Critical','High','Medium','Low','Info']:
+  <h3>${rating}</h3>
+
     <table border=1>
     <tr><th>Control</th><th>Rating</th><th>Score</th></tr>
 % for c in sorted(evidence['summary']):
+
+% if rating == evidence['policy'][c]['rating']:
 <tr>
   % if evidence['summary'][c]['total'] - evidence['summary'][c]['totalok'] == 0:
     <td>${evidence['policy'][c]['name']}</td>
@@ -140,10 +142,12 @@ This report is intended only to provide documentation on potential issues that m
 
   <td>${htmlbar(evidence['summary'][c]['score'])}</td>
   
-</tr>
 
+</tr>
+% endif
 % endfor
 </table>
+% endfor
 
 <h2>Detailed list</h2>
 % for c in sorted(evidence['summary']):

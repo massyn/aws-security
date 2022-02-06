@@ -541,7 +541,11 @@
                                     "cognito-identity:List*",
                                     "cognito-identity:LookupDeveloperIdentity",
                                     "cognito-identity:Describe*",
-                                    "cognito-idp:Describe*",
+                                    "cognito-idp:DescribeResourceServer",
+                                    "cognito-idp:DescribeRiskConfiguration",
+                                    "cognito-idp:DescribeUserImportJob",
+                                    "cognito-idp:DescribeUserPool",
+                                    "cognito-idp:DescribeUserPoolDomain",
                                     "cognito-idp:List*",
                                     "cognito-sync:Describe*",
                                     "cognito-sync:GetBulkPublishDetails",
@@ -694,7 +698,6 @@
                                     "swf:List*",
                                     "waf:Get*",
                                     "waf:List*",
-                                    "workspaces:Describe*",
                                     "workdocs:Describe*",
                                     "workmail:Describe*",
                                     "workmail:Get*",
@@ -705,9 +708,9 @@
                             }
                         ]
                     },
-                    "VersionId": "v5",
+                    "VersionId": "v6",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1623440770.0
+                    "CreateDate": 1643814702.0
                 },
                 "AmazonEC2FullAccess": {
                     "Document": {
@@ -20394,12 +20397,31 @@
                                     "sqs:ListQueues"
                                 ],
                                 "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "logs:DeleteSubscriptionFilter"
+                                ],
+                                "Resource": [
+                                    "arn:aws:logs:*:*:log-group:*"
+                                ]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "logs:PutSubscriptionFilter"
+                                ],
+                                "Resource": [
+                                    "arn:aws:logs:*:*:log-group:*",
+                                    "arn:aws:logs:*:*:destination:AmazonCloudWatch-ApplicationInsights-LogIngestionDestination*"
+                                ]
                             }
                         ]
                     },
-                    "VersionId": "v18",
+                    "VersionId": "v19",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1636671830.0
+                    "CreateDate": 1643133092.0
                 },
                 "AWSTrustedAdvisorServiceRolePolicy": {
                     "Document": {
@@ -21017,15 +21039,16 @@
                                     "comprehend:DescribeEndpoint",
                                     "comprehend:ListEndpoints",
                                     "comprehend:ListDocumentClassifierSummaries",
-                                    "comprehend:ListEntityRecognizerSummaries"
+                                    "comprehend:ListEntityRecognizerSummaries",
+                                    "comprehend:DescribeResourcePolicy"
                                 ],
                                 "Resource": "*"
                             }
                         ]
                     },
-                    "VersionId": "v9",
+                    "VersionId": "v10",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1632856021.0
+                    "CreateDate": 1643836104.0
                 },
                 "AWSStepFunctionsConsoleFullAccess": {
                     "Document": {
@@ -25999,12 +26022,25 @@
                                     "wafv2:GetLoggingConfiguration"
                                 ],
                                 "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "logs:CreateLogStream",
+                                    "logs:CreateLogGroup"
+                                ],
+                                "Resource": "arn:aws:logs:*:*:log-group:/aws/config/*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": "logs:PutLogEvents",
+                                "Resource": "arn:aws:logs:*:*:log-group:/aws/config/*:log-stream:config-rule-evaluation/*"
                             }
                         ]
                     },
-                    "VersionId": "v27",
+                    "VersionId": "v28",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1631124720.0
+                    "CreateDate": 1642790145.0
                 },
                 "AmazonESReadOnlyAccess": {
                     "Document": {
@@ -29256,10 +29292,61 @@
                             {
                                 "Effect": "Allow",
                                 "Action": [
+                                    "databrew:CreateDataset",
+                                    "databrew:DescribeDataset",
+                                    "databrew:ListDatasets",
+                                    "databrew:UpdateDataset",
+                                    "databrew:DeleteDataset",
+                                    "databrew:CreateProject",
+                                    "databrew:DescribeProject",
+                                    "databrew:ListProjects",
+                                    "databrew:StartProjectSession",
+                                    "databrew:SendProjectSessionAction",
+                                    "databrew:UpdateProject",
+                                    "databrew:DeleteProject",
+                                    "databrew:CreateRecipe",
+                                    "databrew:DescribeRecipe",
+                                    "databrew:ListRecipes",
+                                    "databrew:ListRecipeVersions",
+                                    "databrew:PublishRecipe",
+                                    "databrew:UpdateRecipe",
+                                    "databrew:BatchDeleteRecipeVersion",
+                                    "databrew:DeleteRecipeVersion",
+                                    "databrew:CreateRecipeJob",
+                                    "databrew:CreateProfileJob",
+                                    "databrew:DescribeJob",
+                                    "databrew:DescribeJobRun",
+                                    "databrew:ListJobRuns",
+                                    "databrew:ListJobs",
+                                    "databrew:StartJobRun",
+                                    "databrew:StopJobRun",
+                                    "databrew:UpdateProfileJob",
+                                    "databrew:UpdateRecipeJob",
+                                    "databrew:DeleteJob",
+                                    "databrew:CreateSchedule",
+                                    "databrew:DescribeSchedule",
+                                    "databrew:ListSchedules",
+                                    "databrew:UpdateSchedule",
+                                    "databrew:DeleteSchedule",
+                                    "databrew:CreateRuleset",
+                                    "databrew:DeleteRuleset",
+                                    "databrew:DescribeRuleset",
+                                    "databrew:ListRulesets",
+                                    "databrew:UpdateRuleset",
+                                    "databrew:ListTagsForResource",
+                                    "databrew:TagResource",
+                                    "databrew:UntagResource"
+                                ],
+                                "Resource": [
+                                    "*"
+                                ]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
                                     "appflow:DescribeFlow",
                                     "appflow:DescribeFlowExecutionRecords",
                                     "appflow:ListFlows",
-                                    "databrew:*",
                                     "glue:GetConnection",
                                     "glue:GetConnections",
                                     "glue:GetDatabases",
@@ -29281,6 +29368,7 @@
                                     "kms:ListAliases",
                                     "redshift:DescribeClusters",
                                     "redshift:DescribeClusterSubnetGroups",
+                                    "redshift-data:DescribeStatement",
                                     "redshift-data:ListDatabases",
                                     "redshift-data:ListSchemas",
                                     "redshift-data:ListTables",
@@ -29288,6 +29376,7 @@
                                     "s3:GetBucketCORS",
                                     "s3:GetBucketLocation",
                                     "s3:GetEncryptionConfiguration",
+                                    "s3:GetLifecycleConfiguration",
                                     "secretsmanager:ListSecrets",
                                     "secretsmanager:DescribeSecret",
                                     "sts:GetCallerIdentity",
@@ -29415,9 +29504,9 @@
                             }
                         ]
                     },
-                    "VersionId": "v7",
+                    "VersionId": "v8",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1637264272.0
+                    "CreateDate": 1643999313.0
                 },
                 "AmazonElasticContainerRegistryPublicReadOnly": {
                     "Document": {
@@ -31026,12 +31115,20 @@
                                     "s3:ListAllMyBuckets"
                                 ],
                                 "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "sns:ListTopics",
+                                    "iam:ListRoles"
+                                ],
+                                "Resource": "*"
                             }
                         ]
                     },
-                    "VersionId": "v3",
+                    "VersionId": "v4",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1637970230.0
+                    "CreateDate": 1643751451.0
                 },
                 "AWSWAFConsoleFullAccess": {
                     "Document": {
@@ -33612,7 +33709,7 @@
                                     "ec2:CreateTags",
                                     "ec2:CreateVolume"
                                 ],
-                                "Resource": "*",
+                                "Resource": "arn:aws:ec2:*:*:volume/*",
                                 "Condition": {
                                     "ForAllValues:StringEquals": {
                                         "aws:TagKeys": [
@@ -33720,9 +33817,9 @@
                             }
                         ]
                     },
-                    "VersionId": "v8",
+                    "VersionId": "v9",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1621897502.0
+                    "CreateDate": 1643324480.0
                 },
                 "AmazonAppFlowReadOnlyAccess": {
                     "Document": {
@@ -42048,6 +42145,43 @@
                     "IsDefaultVersion": true,
                     "CreateDate": 1642022464.0
                 },
+                "AmazonInspector2ReadOnlyAccess": {
+                    "Document": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "organizations:ListDelegatedAdministrators",
+                                    "organizations:ListAWSServiceAccessForOrganization",
+                                    "organizations:DescribeOrganizationalUnit",
+                                    "organizations:DescribeAccount",
+                                    "organizations:DescribeOrganization",
+                                    "inspector2:ListAccountPermissions",
+                                    "inspector2:ListMembers",
+                                    "inspector2:ListFilters",
+                                    "inspector2:DescribeOrganizationConfiguration",
+                                    "inspector2:GetMember",
+                                    "inspector2:BatchGetFreeTrialInfo",
+                                    "inspector2:ListUsageTotals",
+                                    "inspector2:ListCoverageStatistics",
+                                    "inspector2:BatchGetAccountStatus",
+                                    "inspector2:ListFindings",
+                                    "inspector2:ListFindingAggregations",
+                                    "inspector2:ListCoverage",
+                                    "inspector2:GetDelegatedAdminAccount",
+                                    "inspector2:GetFindingsReportStatus",
+                                    "inspector2:ListDelegatedAdminAccounts",
+                                    "inspector2:ListTagsForResource"
+                                ],
+                                "Resource": "*"
+                            }
+                        ]
+                    },
+                    "VersionId": "v1",
+                    "IsDefaultVersion": true,
+                    "CreateDate": 1642776314.0
+                },
                 "AmazonQLDBReadOnly": {
                     "Document": {
                         "Version": "2012-10-17",
@@ -49757,7 +49891,8 @@
                                     "ecs:ListTasks",
                                     "eks:ListClusters",
                                     "eks:ListNodegroups",
-                                    "fsx:DescribeFileSystems"
+                                    "fsx:DescribeFileSystems",
+                                    "logs:DescribeLogGroups"
                                 ],
                                 "Resource": "*"
                             },
@@ -49777,9 +49912,9 @@
                             }
                         ]
                     },
-                    "VersionId": "v3",
+                    "VersionId": "v4",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1636046005.0
+                    "CreateDate": 1643133089.0
                 },
                 "AWSControlTowerServiceRolePolicy": {
                     "Document": {
@@ -51880,33 +52015,32 @@
                         "Version": "2012-10-17",
                         "Statement": [
                             {
+                                "Effect": "Allow",
                                 "Action": [
                                     "s3:GetObject",
                                     "s3:GetObjectVersion",
                                     "s3:ListBucket"
                                 ],
-                                "Resource": "arn:aws:s3:::*/CodeDeploy/*",
-                                "Effect": "Allow"
+                                "Resource": "arn:aws:s3:::*/CodeDeploy/*"
                             },
                             {
+                                "Effect": "Allow",
                                 "Action": [
                                     "s3:GetObject",
-                                    "s3:GetObjectVersion",
-                                    "s3:ListBucket"
+                                    "s3:GetObjectVersion"
                                 ],
                                 "Resource": "*",
                                 "Condition": {
                                     "StringEquals": {
                                         "s3:ExistingObjectTag/UseWithCodeDeploy": "true"
                                     }
-                                },
-                                "Effect": "Allow"
+                                }
                             }
                         ]
                     },
-                    "VersionId": "v1",
+                    "VersionId": "v2",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1598291718.0
+                    "CreateDate": 1642714651.0
                 },
                 "AWSElementalMediaTailorFullAccess": {
                     "Document": {
@@ -55545,12 +55679,25 @@
                                     "wafv2:GetLoggingConfiguration"
                                 ],
                                 "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "logs:CreateLogStream",
+                                    "logs:CreateLogGroup"
+                                ],
+                                "Resource": "arn:aws:logs:*:*:log-group:/aws/config/*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": "logs:PutLogEvents",
+                                "Resource": "arn:aws:logs:*:*:log-group:/aws/config/*:log-stream:config-rule-evaluation/*"
                             }
                         ]
                     },
-                    "VersionId": "v8",
+                    "VersionId": "v9",
                     "IsDefaultVersion": true,
-                    "CreateDate": 1631124580.0
+                    "CreateDate": 1642790141.0
                 },
                 "AmazonOpenSearchServiceReadOnlyAccess": {
                     "Document": {

@@ -866,3 +866,24 @@ cloudtrail-storing-to-s3:
     path: custom.cloudtrail_describe_trails
     fields: "{ Name: Name, _region: _region, S3BucketName: S3BucketName}"
   policy: "[? S3BucketName == `null`]"
+
+ec2-use-imdsv2:
+  name: EC2 instances should use IMDSv2
+  description: 'The [Instance Metadata](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html) service allows an EC2 instance to retrieve key information about the instance, or the AWS account where it resides.'
+  vulnerability: 'A compromised EC2 instance could potentially expose sensitive information about the AWS account where the instance is running on, or reveal sensitive information about the EC2 instance itself.  Read more about the [vulnerability](https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/)'
+  remediation: 'Follow [AWS Best Practices](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html#configuring-IMDS-existing-instances) to remediate any misconfigred instances.  **Note that this fix could potentially break any application that is using the service**.'
+  references:
+    - ISO27001:2013 - A.9.1.2
+  created: 2022-02-06
+  updated: 2022-02-06
+  rating: Low
+  links:
+    - https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/
+    - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+  asset:
+    asset:
+    path: ec2.describe_instances
+    flatten: Instances
+    filter: "[?State.Name == 'running']"
+    fields: "{InstanceId : InstanceId , AvailabilityZone : Placement.AvailabilityZone, HttpTokens: MetadataOptions.HttpTokens, Region : _region }"
+  policy: '[? HttpTokens != `required`]'
