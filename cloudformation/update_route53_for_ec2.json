@@ -1,0 +1,158 @@
+{
+    "AWSTemplateFormatVersion"  : "2010-09-09",
+    "Description"               : "AWS Security Info - Update Route53 entry for EC2 instances",
+    "Parameters" : {
+        "SlackWebhook" : {
+            "Type" : "String",
+            "Description" : "Provide a Slack Webhook if you want to get feedback through a Slack channel when an instance starts up."
+        },
+        "HostedZoneId" : {
+            "Type" : "AWS::Route53::HostedZone::Id",
+            "AllowedPattern" : ".+",
+            "Description" : "The Route 53 Hosted Zone that will be updated with an entry for any instance starting up."
+        }
+    },
+    "Resources" : {
+        "myLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+                },
+                "Path": "/",
+                "Policies": [{
+                    "PolicyName" : { "Fn::Sub": "${AWS::StackName}-lambda-policy" },
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            { "Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream" , "logs:PutLogEvents"], "Resource": "arn:aws:logs:*:*:*" },
+                            { "Effect": "Allow", "Action": ["ec2:DescribeInstances"], "Resource" : "*" },
+                            { "Effect": "Allow", "Action": ["route53:ChangeResourceRecordSets", "route53:GetHostedZone"], "Resource" : { "Fn::Join" : [ "", ["arn:aws:route53:::hostedzone/" , { "Ref" : "HostedZoneId"} ] ] } }
+                        ]
+                    }
+                }]
+            }
+        },
+        "myLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Role": { "Fn::GetAtt": [ "myLambdaExecutionRole", "Arn" ] },
+                "Description" : "AWS Security Info - Update Route 53 entries when EC2 starts up",
+                "Code": {
+                    "ZipFile":  { "Fn::Join": ["\n", [
+                        "import boto3",
+                        "import urllib.request",
+                        "import os",
+                        "import json",
+                        "",
+                        "def slack(webHook,message):",
+                        "    if webHook != '':",
+                        "        if 'discord' in webHook:",
+                        "            msg = { 'content' : message }",
+                        "        else:",
+                        "            msg = { 'text' : message }",
+                        "        req = urllib.request.Request(",
+                        "            webHook,",
+                        "            json.dumps(msg).encode('utf-8'),",
+                        "            {",
+                        "                'Content-Type': 'application/json',",
+                        "                'User-Agent' : 'Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11'",
+                        "            }",
+                        "        )",
+                        "        resp = urllib.request.urlopen(req)",
+                        "        return resp.read()",
+                        "",
+                        "def lambda_handler(event, context):",
+                        "    SlackWebhook = os.environ['SlackWebhook']",
+                        "    HostedZoneId = os.environ['HostedZoneId']",
+                        "",
+                        "    # -- find the instance id that was triggered",
+                        "    if event['detail']['state'] == 'running':",
+                        "        DNSName = boto3.client('route53').get_hosted_zone(Id=HostedZoneId)['HostedZone']['Name']",
+                        "",
+                        "        # -- Lookup the EC2 detail",
+                        "        instanceId = event['detail']['instance-id']",
+                        "        ec2 = boto3.client('ec2',region_name = event['region'])",
+                        "        response = ec2.describe_instances(InstanceIds=[instanceId])",
+                        "",
+                        "        for R in response['Reservations']:",
+                        "            for I in R['Instances']:",
+                        "                if 'PublicIpAddress' in I:",
+                        "                    #PublicDnsName = I['PublicDnsName']",
+                        "                    PublicIpAddress = I['PublicIpAddress']",
+                        "                    boto3.client('route53').change_resource_record_sets(",
+                        "                        HostedZoneId=HostedZoneId,",
+                        "                        ChangeBatch={",
+                        "                            'Comment': 'Updated by Lambda',",
+                        "                            'Changes': [",
+                        "                            {",
+                        "                                'Action': 'UPSERT',",
+                        "                                'ResourceRecordSet': {",
+                        "                                    'Name': f'{instanceId}.{DNSName}',",
+                        "                                    'Type': 'A',",
+                        "                                    'SetIdentifier' : instanceId,",
+                        "                                    'TTL': 300,",
+                        "                                    'Weight' : 10,",
+                        "                                    'ResourceRecords': [",
+                        "                                        {",
+                        "                                            'Value': PublicIpAddress",
+                        "                                        },",
+                        "                                    ]",
+                        "",
+                        "                                }",
+                        "                            }",
+                        "                            ]",
+                        "                        }",
+                        "                    )",
+                        "",
+                        "                    slack(SlackWebhook,f'Instance {instanceId}.{DNSName} - updated IP address [{PublicIpAddress}]')",
+                        "",      
+                        "    return {",
+                        "        'statusCode': 200,",
+                        "        'body': json.dumps('Hello from Lambda!')",
+                        "    }"
+                    ]]}
+                },
+                "Runtime": "python3.9",
+                "FunctionName": { "Fn::Sub": "${AWS::StackName}-UpdateRoute53" },
+                "Timeout": 25,
+                "TracingConfig": { "Mode": "Active" },
+                "Environment" : {
+                    "Variables" : {
+                        "HostedZoneId"  : { "Ref"   : "HostedZoneId"},
+                        "SlackWebhook"  : { "Ref"   : "SlackWebhook"}
+                    }
+                }
+            }
+        },
+        "myEventSchedule" : {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "Trigger Lambda when an EC2 instance starts up",
+                "EventPattern" : {
+                    "source": ["aws.ec2"],
+                    "detail-type": ["EC2 Instance State-change Notification"],
+                    "detail": {
+                        "state": ["running"]
+                    }
+                },
+                "State": "ENABLED",
+                "Targets": [{ 
+                    "Arn": { "Fn::GetAtt": [ "myLambdaFunction", "Arn" ] },
+                    "Id" : { "Fn::Sub": "${AWS::StackName}-UpdateRoute53" }
+                } ]
+            }
+        },
+        "myEventPermissions" : {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": { "Ref": "myLambdaFunction" },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": { "Fn::GetAtt": ["myEventSchedule", "Arn"] }
+            }
+        }
+    }
+}
