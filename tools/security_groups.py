@@ -6,8 +6,6 @@ def extract_security_groups(region_name = None):
 
     print('direction;type;GroupId;GroupName;FromPort;ToPort;IpProtocol;range')
     for sg in ec2.describe_security_groups()['SecurityGroups']:
-        #print('-------------------------')
-        #print(sg)
         for direction in ['IpPermissions','IpPermissionsEgress']:
             for rule in sg[direction]:
                 
@@ -21,4 +19,5 @@ def extract_security_groups(region_name = None):
                 for UserIdGroupPairs in rule['UserIdGroupPairs']:
                     print(f"{direction};UserIdGroupPairs;{sg['GroupId']};{sg['GroupName']};{rule.get('FromPort','*')};{rule.get('ToPort','*')};{rule['IpProtocol']};{UserIdGroupPairs.get('GroupId')}")
 
-extract_security_groups('ap-southeast-2')
+#extract_security_groups('ap-southeast-2')  # extract from a specific region
+extract_security_groups()   # extract the default region
