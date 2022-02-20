@@ -1,0 +1,155 @@
+{
+    "AWSTemplateFormatVersion"  : "2010-09-09",
+    "Description"               : "AWS Security Info - Monitor website availability",
+    "Parameters" : {
+        "SlackWebhook" : {
+            "Type" : "String",
+            "Description" : "Provide a Slack or Discord Webhook if you want to get feedback through a Slack channel on the outcome of the scanner."
+        },
+        "cron" : {
+            "Type" : "String",
+            "Default" : "rate(5 minutes)",
+            "Description" : "Specify the schedule at which the event will trigger."
+        },
+        "website" : {
+            "Type" : "String",
+            "Default" : "https://www.google.com",
+            "Description" : "URLs to monitor - seperate multiple URLs with a ;"
+        }
+    },
+    "Resources" : {
+        "myLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+                },
+                "Path": "/",
+                "Policies": [{
+                    "PolicyName" : "LambdaPolicy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            { "Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream" , "logs:PutLogEvents"], "Resource": "arn:aws:logs:*:*:*" },
+                            { "Effect": "Allow", "Action": ["cloudwatch:PutMetricData","ec2:ListInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation" ] , "Resource" : "*" }
+                        ]
+                    }
+                }]
+            }
+        },
+        "myLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Role": { "Fn::GetAtt": [ "myLambdaExecutionRole", "Arn" ] },
+                "Description" : "AWS Security Info - Monitor website availability",
+                "Code": {
+                    "ZipFile":  { "Fn::Join": ["\n", [
+                        "import boto3",
+                        "import urllib.request",
+                        "import os",
+                        "import json",
+                        "import time",
+                        "",
+                        "def webcheck(url):",
+                        "    print(f'URL : {url}')",
+                        "    try:",
+                        "        start = time.time()",
+                        "        req = urllib.request.Request(url)",
+                        "        req.add_header('User-agent', 'Mozilla/5.0 (py11; U; Linux i686) Gecko/20071127 WebCheck/1.0')",
+                        "        resp = urllib.request.urlopen(req, timeout=30)",
+                        "        end = time.time()",
+                        "        duration = (end - start) * 1000",
+                        "        size = len(resp.read())",
+                        "        return [resp.getcode() == 200, duration, size ]",
+                        "    except:",
+                        "        return [ False, 0, 0 ]",
+                        "    return [ False, 0 , 0 ]",
+                        "",
+                        "def slackdiscord(webHook,message):",
+                        "    if webHook != '':",
+                        "        if 'discord' in webHook:",
+                        "            msg = { 'content' : message }",
+                        "        else:",
+                        "            msg = { 'text' : message }",
+                        "        req = urllib.request.Request(",
+                        "            webHook,",
+                        "            json.dumps(msg).encode('utf-8'),",
+                        "            {",
+                        "                'Content-Type': 'application/json',",
+                        "                'User-Agent' : 'Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11'",
+                        "            }",
+                        "        )",
+                        "        resp = urllib.request.urlopen(req)",
+                        "        return resp.read()",
+                        "",
+                        "def write_metric(Namespace,Name,dimension,metric,unit,value):",
+                        "    boto3.client('cloudwatch').put_metric_data(",
+                        "        Namespace=Namespace,",
+                        "            MetricData=[{",
+                        "               'MetricName': metric,",
+                        "                'Dimensions': [{",
+                        "                    'Name': Name,",
+                        "                    'Value': dimension",
+                        "            }],",
+                        "            'Value': value,",
+                        "            'Unit': unit",
+                        "        }]",
+                        "    )",
+                        "",
+                        "def lambda_handler(event, context):",
+                        "    website = os.environ['website']",
+                        "    SlackWebhook = os.environ['SlackWebhook']",
+                        "",
+                        "    for web in website.split(';'):",
+                        "        x = webcheck(web)",
+                        "        if not x[0]:",
+                        "            slackdiscord(SlackWebhook,f'Website {web} is not returning status code 200')",
+                        "            write_metric('AWSSecurityInfo','WebsiteUptime',web,'Availability','Count',0)",
+                        "        else:",
+                        "            write_metric('AWSSecurityInfo','WebsiteUptime',web,'Availability','Count',1)",
+                        "            write_metric('AWSSecurityInfo','WebsiteUptime',web,'ResponseTime','Milliseconds',x[1])",
+                        "            write_metric('AWSSecurityInfo','WebsiteUptime',web,'PayloadSize','Bytes',x[2])",
+                        "",      
+                        "    return {",
+                        "        'statusCode': 200,",
+                        "        'body': json.dumps('Hello from Lambda!')",
+                        "    }"
+                    ]]}
+                },
+                "Runtime": "python3.9",
+                "FunctionName": { "Fn::Sub": "${AWS::StackName}-AWSSecurityTrigger" },
+                "Timeout": 300,
+                "TracingConfig": { "Mode": "Active" },
+                "Environment" : {
+                    "Variables" : {
+                        "website"       : { "Ref"   : "website"},
+                        "SlackWebhook"  : { "Ref"   : "SlackWebhook"}
+                    }
+                }
+            }
+        },
+        "myEventSchedule" : {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "Scheduled event to trigger the Lambda function",
+                "ScheduleExpression" : { "Ref" : "cron" },
+                "State": "ENABLED",
+                "Targets": [{ 
+                    "Arn": { "Fn::GetAtt": [ "myLambdaFunction", "Arn" ] },
+                    "Id" : { "Fn::Sub": "${AWS::StackName}-AWSSecurityTrigger" }
+                } ]
+            }
+        },
+        "myEventPermissions" : {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": { "Ref": "myLambdaFunction" },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": { "Fn::GetAtt": ["myEventSchedule", "Arn"] }
+            }
+        }
+    }
+}

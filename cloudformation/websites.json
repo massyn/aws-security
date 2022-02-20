@@ -1,0 +1,450 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "LAMP Website 2",
+    "Parameters": {
+        "DNSDomain" : {
+            "Description"   : "The domain name where we need to register the DNS (if the domain is in Route53)",
+            "Type"          : "String",
+            "Default"       : "massyn.net"
+        },
+        "DNSHost" : {
+            "Description"   : "The hostname within the domain to use (ie www)",
+            "Type"          : "String",
+            "Default"       : "test"
+        },
+        "Certificate" : {
+            "Description"   : "Would you like to register an SSL certificate as well?",
+            "Type"          : "String",
+            "Default"       : "yes",
+            "AllowedValues" : ["yes", "no"]
+        },
+        "VpcId" : {
+            "Description" : "VPC to use",
+            "Type" : "AWS::EC2::VPC::Id"
+        },
+        "PublicSubnetsELB" : {
+            "Description"   : "Select at least 2 Public Subnets where the ELB will live",
+            "Type"          : "List<AWS::EC2::Subnet::Id>"
+        },
+        "DatabasePort" : {
+            "Description"   : "Database port",
+            "Type"          : "Number",
+            "Default"       : "3306"
+        },
+        "S3Bucket" : {
+			"Type"          : "String",
+            "Description"   : "S3 bucket where the PHP files are stored -- TODO - Remove the parameter",
+            "Default"       : "cloudformation-website"
+        },
+        "EC2ImageId" : {
+            "Description"   : "Select the latest AMI to use for the Web Server",
+            "Type"          : "String",
+            "Default"       : "ami-0bc49f9283d686bab"
+        },
+        "EC2InstanceType" : {
+            "Description"   : "Select the instance type",
+            "Type"          : "String",
+            "Default"       : "t2.micro"
+        },
+        "EC2MaxSize" : {
+            "Description"   : "At most, how many webservers do you want?",
+            "Type"          : "String",
+            "Default"       : "2"
+        },
+        "EC2MinSize" : {
+            "Description"   : "At least, how many webservers do you want?",
+            "Type"          : "String",
+            "Default"       : "2"
+        }
+
+
+    },
+    "Conditions" : {
+        "ConditionHTTP" : {
+            "Fn::Equals" : [
+                {"Ref" : "Certificate"},
+                ""
+            ]
+        },
+        "ConditionHTTPS" : {
+            "Fn::Not" : [{
+               "Fn::Equals" : [
+                  {"Ref" : "Certificate"},
+                  ""
+               ]
+            }]
+        },
+        "ConditionDNS" : {
+            "Fn::Not" : [{
+               "Fn::Equals" : [
+                  {"Ref" : "DNSDomain"},
+                  ""
+               ]
+            }]
+         }
+    },
+    "Resources" : {
+
+
+
+        "SecurityGroupELB" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Security Group connecting the outside world to the load balancer."
+            }
+        },
+        "SecurityGroupOutboundRuleELB": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties":{
+                "IpProtocol"    : "-1",
+                "FromPort"      : 0,
+                "ToPort"        : 65535,
+                "CidrIp"        : "0.0.0.0/0",
+                "GroupId"       : { "Fn::GetAtt"  : [ "SecurityGroupELB", "GroupId" ] }
+            }
+        },
+        "SecurityGroupInboundRuleELB80": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties":{
+                "IpProtocol"    : "tcp",
+                "FromPort"      : 80,
+                "ToPort"        : 80,
+                "CidrIp"        : "0.0.0.0/0",
+                "GroupId"       : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] }
+            }
+        },
+        "SecurityGroupInboundRuleELB443": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Condition" : "ConditionHTTPS",
+            "Properties":{
+                "IpProtocol"    : "tcp",
+                "FromPort"      : 443,
+                "ToPort"        : 443,
+                "CidrIp"        : "0.0.0.0/0",
+                "GroupId"       : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] }
+            }
+        },
+        "SecurityGroupWEB" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Security Group connecting the ELB to the web servers."
+            }
+        },
+        "SecurityGroupOutboundRuleWEB": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "IpProtocol"            : "-1",
+                "FromPort"              : 0,
+                "ToPort"                : 65535,
+                "CidrIp"                : "0.0.0.0/0",
+                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] }
+            }
+        },
+        "SecurityGroupInboundRuleWEB80": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties":{
+                "IpProtocol"            : "tcp",
+                "FromPort"              : 80,
+                "ToPort"                : 80,
+                "SourceSecurityGroupId" : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] },
+                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] }
+            }
+        },
+        "SecurityGroupDB" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Security Group connecting the web server to the database."
+            }
+        },
+        "SecurityGroupOutboundRuleDB": {
+            "Type"          : "AWS::EC2::SecurityGroupEgress",
+            "Properties"    : {
+                "IpProtocol"            : "-1",
+                "FromPort"              : 0,
+                "ToPort"                : 65535,
+                "CidrIp"                : "0.0.0.0/0",
+                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupDB", "GroupId" ] }
+            }
+        },
+        "SecurityGroupInboundRuleDB": {
+            "Type"          : "AWS::EC2::SecurityGroupIngress",
+            "Properties"    : {
+                "IpProtocol"            : "tcp",
+                "FromPort"              : { "Ref" : "DatabasePort"},
+                "ToPort"                : { "Ref" : "DatabasePort"},
+                "SourceSecurityGroupId" : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] },
+                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupDB",  "GroupId" ] }
+            }
+        },
+
+
+
+
+
+
+
+
+        "RoleS3EC2": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM" ],   
+                "AssumeRolePolicyDocument"  : {
+                    "Version"   : "2012-10-17",
+                    "Statement" : [
+                        {
+                            "Effect"    : "Allow",
+                            "Principal" : { "Service": [ "ec2.amazonaws.com" ] },
+                            "Action"    : [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "ReadS3Bucket",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect"    : "Allow",
+                                    "Action"    : "s3:GetObject",
+                                    "Resource"  : { "Fn::Join": [ "", [ "arn:aws:s3:::", {"Ref": "S3Bucket"} ] ] }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "InstanceProfileS3EC2": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties"    : {
+                "Path": "/",
+                "Roles": [ {  "Ref": "RoleS3EC2" } ]
+            }
+        },
+
+        "LaunchConfigurationWEB" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties" : {
+                "ImageId"               : { "Ref" : "EC2ImageId"},
+                "SecurityGroups"        : [ { "Fn::GetAtt" : [ "SecurityGroupWEB", "GroupId" ]} ],
+                "InstanceType"          : { "Ref" : "EC2InstanceType"},
+                "IamInstanceProfile"    : { "Ref":"InstanceProfileS3EC2"} ,
+                "UserData"              : { "Fn::Base64" : { "Fn::Join" : ["",
+                    [
+                        "#cloud-config\n",
+                        "repo_update: true\n",
+                        "repo_upgrade: all\n",
+                        "\n",
+                        "packages:\n",
+                        " - awscli\n",
+                        " - apache2\n",
+                        " - libapache2-mod-auth-plain\n",
+                        " - libapache2-mod-fcgid\n",
+                        " - libapache2-mod-perl2\n",
+                        " - libapache2-mod-php\n",
+                        " - php7.2-mysql\n",
+                        " - php7.2-cgi\n",
+                        " - php7.2-common\n",
+                        " - php7.2-mbstring\n",
+                        " - php7.2-gd\n",
+                        " - php7.2-zip\n",
+                        " - php7.2-curl\n",
+                        " - php7.2-imagick\n",
+                        "\n",
+                        "write_files:\n",
+                        " - path: /tmp/security.conf\n",
+                        "   content: |\n",
+                        "     # Security config written by CloudFormation template\n",
+                        "     ServerTokens Prod\n",
+                        "     ServerSignature Off\n",
+                        "     Header always append X-Frame-Options SAMEORIGIN\n",
+                        "     Header set X-Content-Type-Options nosniff\n",
+                        "     Header set X-XSS-Protection \"1; mode=block\"\n",
+                        "     Header set Strict-Transport-Security \"max-age=31536000; includeSubDomains; preload\"\n",
+                        "     #Header set Content-Security-Policy \"default-src https: unsafe-inline unsafe-eval\"\n",
+                        "     Header set Referrer-Policy: strict-origin\n",
+                        "\n",
+                        "runcmd:\n",
+                        " - sudo a2enmod ssl\n",
+                        " - sudo a2enmod rewrite\n",
+                        " - sudo a2enmod cgi\n",
+                        " - sudo a2enmod cache\n",
+                        " - sudo a2enmod headers\n",
+                        " - mv /tmp/security.conf /etc/apache2/conf-enabled/security.conf\n",
+                        " - sudo service apache2 restart\n",
+                        " - [ sh, -c, \"usermod -a -G www-data ubuntu\" ]\n",
+                        " - [ sh, -c, \"chown -R ubuntu:www-data /var/www\" ]\n",
+                        " - chmod 2775 /var/www\n",
+                        { "Fn::Join" : ["",
+                            [ " - sudo aws s3 sync s3://",
+                                { "Ref" : "S3Bucket" },
+                                "/ /var/www/html/ --delete\n"
+                            ]
+                            ]
+                        }
+                    ]
+                    ]}
+                },
+               "BlockDeviceMappings" : [ {
+                     "DeviceName" : "/dev/sdk",
+                     "Ebs" : {"VolumeSize" : "50"}
+                  }, {
+                     "DeviceName" : "/dev/sdc",
+                     "VirtualName" : "ephemeral0"
+               } ]
+            }
+        },
+
+        "AutoScalingGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+               "LaunchConfigurationName" : { "Ref" : "LaunchConfigurationWEB" },
+               "MinSize" : { "Ref" : "EC2MinSize" },
+               "MaxSize" : { "Ref" : "EC2MaxSize" },
+               "TargetGroupARNs" : [ { "Ref" : "TargetGroup" } ],
+               "VPCZoneIdentifier" : {"Ref" : "PublicSubnetsELB"} 
+            }
+        },
+
+        "SSLCertificate" : {
+            "Type" : "AWS::CertificateManager::Certificate",
+            "Properties" : {
+                "ValidationMethod"      : "DNS",
+                "DomainName"            : { "Fn::Join" : [ ".", [ {"Ref" : "DNSHost"}, {"Ref" : "DNSDomain"} ] ] },
+                "DomainValidationOptions" : [{
+                    "DomainName"        : { "Fn::Join" : [ ".", [ {"Ref" : "DNSHost"}, {"Ref" : "DNSDomain"} ] ] },
+                    "ValidationDomain"  : { "Fn::Join" : [ ".", [ {"Ref" : "DNSHost"}, {"Ref" : "DNSDomain"} ] ] }
+                }]
+            }
+        },
+
+        "LoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties" : {
+                "IpAddressType"     : "ipv4",
+                "Scheme"            : "internet-facing",
+                "SecurityGroups"    : [ { "Fn::GetAtt" : ["SecurityGroupELB" , "GroupId"] } ],
+                "Subnets"           : {"Ref" : "PublicSubnetsELB"} ,
+                "Type"              : "application"
+              }
+        },
+        "HTTPlistener1": {
+            "Type"          : "AWS::ElasticLoadBalancingV2::Listener",
+            "Condition"     : "ConditionHTTP",
+            "Properties"    : {
+                "DefaultActions": [
+                    {
+                        "Type"              : "forward",
+                        "TargetGroupArn"    : { "Ref" : "TargetGroup"}
+                    }
+                ],
+                "LoadBalancerArn"   : { "Ref": "LoadBalancer" },
+                "Port"              : 80,
+                "Protocol"          : "HTTP"
+            }
+        },
+        "HTTPlistener2": {
+            "Type"          : "AWS::ElasticLoadBalancingV2::Listener",
+            "Condition"     : "ConditionHTTPS",
+            "Properties"    : {
+                "DefaultActions": [
+                    {
+                        "Type": "redirect",
+                        "RedirectConfig" : {
+                            "Protocol"      : "HTTPS",
+                            "Port"          : "443",
+                            "Host"          : "#{host}",
+                            "Path"          : "/#{path}",
+                            "Query"         : "#{query}",
+                            "StatusCode"    : "HTTP_301"
+                        }
+                    }
+                ],
+                "LoadBalancerArn"   : { "Ref": "LoadBalancer" },
+                "Port"              : 80,
+                "Protocol"          : "HTTP"
+            }
+        },
+        "HTTPSlistener": {
+            "Type"          : "AWS::ElasticLoadBalancingV2::Listener",
+            "Condition"     : "ConditionHTTPS",
+            "Properties"    : {
+                "Certificates"  : [ { "CertificateArn" : { "Ref" : "SSLCertificate"} } ],
+                "DefaultActions": [
+                    {
+                        "Type"              : "forward",
+                        "TargetGroupArn"    : { "Ref" : "TargetGroup"}
+                    }
+                ],
+                "LoadBalancerArn"   : { "Ref": "LoadBalancer" },
+                "Port"              : 443,
+                "Protocol"          : "HTTPS",
+                "SslPolicy"         : "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+            }
+        },
+        
+        "TargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties" : {
+                "HealthCheckEnabled"            : "true",
+                "HealthCheckIntervalSeconds"    : "60",
+                "HealthCheckPath"               : "/index.php",
+                "HealthCheckProtocol"           : "HTTP",
+                "HealthCheckTimeoutSeconds"     : "30",
+                "HealthyThresholdCount"         : "5",
+                "Port"                          : "80",
+                "Protocol"                      : "HTTP",
+                "VpcId"                         : { "Ref" : "VpcId" },
+                "Matcher"                       : { "HttpCode" : 200 }
+            }
+
+
+        },
+
+
+    
+        "myDNS" : {
+            "Type" : "AWS::Route53::RecordSetGroup",
+            "Condition" : "ConditionDNS",
+            "Properties" : {
+            "HostedZoneName" : {
+                "Fn::Join" : [
+                    ".",
+                    [
+                        {"Ref" : "DNSDomain"},
+                        ""
+                    ]
+                ]
+            },
+            "Comment" : "Zone apex alias targeted to myELB LoadBalancer.",
+            "RecordSets" : [
+                {
+                "Name" : {
+                    "Fn::Join" : [
+                        ".",
+                        [
+                            {"Ref" : "DNSHost"},
+                            {"Ref" : "DNSDomain"}
+                        ]
+                    ]
+                },
+                "Type" : "A",
+                "AliasTarget" : {
+                    "HostedZoneId" : { "Fn::GetAtt" : ["LoadBalancer", "CanonicalHostedZoneID"] },
+                    "DNSName" : { "Fn::GetAtt" : ["LoadBalancer","DNSName"] }
+                }
+                }
+            ]
+            }
+        }
+    },
+    "Outputs" : {
+        "LoadBalancerDNSName" : {
+          "Description": "The DNSName of the load balancer",  
+          "Value" : { "Fn::GetAtt" : [ "LoadBalancer", "DNSName" ]}
+        }
+    }
+
+}
