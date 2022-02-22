@@ -37,9 +37,9 @@
             "Default"       : "cloudformation-website"
         },
         "EC2ImageId" : {
-            "Description"   : "Select the latest AMI to use for the Web Server",
+            "Description"   : "Select the latest AMI to use for the Web Server (we expect Ubuntu)",
             "Type"          : "String",
-            "Default"       : "ami-0bc49f9283d686bab"
+            "Default"       : "ami-0b7dcd6e6fd797935"
         },
         "EC2InstanceType" : {
             "Description"   : "Select the instance type",
@@ -84,106 +84,48 @@
          }
     },
     "Resources" : {
-
-
-
         "SecurityGroupELB" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
-                "GroupDescription" : "Security Group connecting the outside world to the load balancer."
+                "GroupDescription" : "Security Group connecting the outside world to the load balancer.",
+                "VpcId": { "Ref": "VpcId" },
+                "SecurityGroupIngress" : [
+                    { "IpProtocol" : "tcp", "FromPort" : 80 , "ToPort" : 80 , "CidrIp" : "0.0.0.0/0"},
+                    { "IpProtocol" : "tcp", "FromPort" : 443, "ToPort" : 443, "CidrIp" : "0.0.0.0/0"}
+                ],
+                "SecurityGroupEgress" : [
+                    { "IpProtocol"    : "-1", "FromPort"      : 0, "ToPort"        : 65535, "CidrIp"        : "0.0.0.0/0" }
+                ]
             }
         },
-        "SecurityGroupOutboundRuleELB": {
-            "Type": "AWS::EC2::SecurityGroupEgress",
-            "Properties":{
-                "IpProtocol"    : "-1",
-                "FromPort"      : 0,
-                "ToPort"        : 65535,
-                "CidrIp"        : "0.0.0.0/0",
-                "GroupId"       : { "Fn::GetAtt"  : [ "SecurityGroupELB", "GroupId" ] }
-            }
-        },
-        "SecurityGroupInboundRuleELB80": {
-            "Type": "AWS::EC2::SecurityGroupIngress",
-            "Properties":{
-                "IpProtocol"    : "tcp",
-                "FromPort"      : 80,
-                "ToPort"        : 80,
-                "CidrIp"        : "0.0.0.0/0",
-                "GroupId"       : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] }
-            }
-        },
-        "SecurityGroupInboundRuleELB443": {
-            "Type": "AWS::EC2::SecurityGroupIngress",
-            "Condition" : "ConditionHTTPS",
-            "Properties":{
-                "IpProtocol"    : "tcp",
-                "FromPort"      : 443,
-                "ToPort"        : 443,
-                "CidrIp"        : "0.0.0.0/0",
-                "GroupId"       : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] }
-            }
-        },
+
         "SecurityGroupWEB" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
-                "GroupDescription" : "Security Group connecting the ELB to the web servers."
+                "GroupDescription" : "Security Group connecting the ELB to the web servers.",
+                "VpcId": { "Ref": "VpcId" },
+                "SecurityGroupIngress" : [
+                    { "IpProtocol" : "tcp", "FromPort" : 80, "ToPort" : 80, "SourceSecurityGroupId" : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] } }
+                ],
+                "SecurityGroupEgress" : [
+                    { "IpProtocol"    : "-1", "FromPort"      : 0, "ToPort"        : 65535, "CidrIp"        : "0.0.0.0/0" }
+                ]
             }
         },
-        "SecurityGroupOutboundRuleWEB": {
-            "Type": "AWS::EC2::SecurityGroupEgress",
-            "Properties" : {
-                "IpProtocol"            : "-1",
-                "FromPort"              : 0,
-                "ToPort"                : 65535,
-                "CidrIp"                : "0.0.0.0/0",
-                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] }
-            }
-        },
-        "SecurityGroupInboundRuleWEB80": {
-            "Type": "AWS::EC2::SecurityGroupIngress",
-            "Properties":{
-                "IpProtocol"            : "tcp",
-                "FromPort"              : 80,
-                "ToPort"                : 80,
-                "SourceSecurityGroupId" : { "Fn::GetAtt": [ "SecurityGroupELB", "GroupId" ] },
-                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] }
-            }
-        },
+
         "SecurityGroupDB" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
-                "GroupDescription" : "Security Group connecting the web server to the database."
+                "GroupDescription" : "Security Group connecting the web server to the database.",
+                "VpcId": { "Ref": "VpcId" },
+                "SecurityGroupIngress" : [
+                    { "IpProtocol" : "tcp", "FromPort" : { "Ref" : "DatabasePort"}, "ToPort" : { "Ref" : "DatabasePort"}, "SourceSecurityGroupId" : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] } }
+                ],
+                "SecurityGroupEgress" : [
+                    { "IpProtocol"    : "-1", "FromPort"      : 0, "ToPort"        : 65535, "CidrIp"        : "0.0.0.0/0" }
+                ]
             }
         },
-        "SecurityGroupOutboundRuleDB": {
-            "Type"          : "AWS::EC2::SecurityGroupEgress",
-            "Properties"    : {
-                "IpProtocol"            : "-1",
-                "FromPort"              : 0,
-                "ToPort"                : 65535,
-                "CidrIp"                : "0.0.0.0/0",
-                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupDB", "GroupId" ] }
-            }
-        },
-        "SecurityGroupInboundRuleDB": {
-            "Type"          : "AWS::EC2::SecurityGroupIngress",
-            "Properties"    : {
-                "IpProtocol"            : "tcp",
-                "FromPort"              : { "Ref" : "DatabasePort"},
-                "ToPort"                : { "Ref" : "DatabasePort"},
-                "SourceSecurityGroupId" : { "Fn::GetAtt": [ "SecurityGroupWEB", "GroupId" ] },
-                "GroupId"               : { "Fn::GetAtt": [ "SecurityGroupDB",  "GroupId" ] }
-            }
-        },
-
-
-
-
-
-
-
-
         "RoleS3EC2": {
             "Type": "AWS::IAM::Role",
             "Properties": {
@@ -244,14 +186,14 @@
                         " - libapache2-mod-fcgid\n",
                         " - libapache2-mod-perl2\n",
                         " - libapache2-mod-php\n",
-                        " - php7.2-mysql\n",
-                        " - php7.2-cgi\n",
-                        " - php7.2-common\n",
-                        " - php7.2-mbstring\n",
-                        " - php7.2-gd\n",
-                        " - php7.2-zip\n",
-                        " - php7.2-curl\n",
-                        " - php7.2-imagick\n",
+                        " - php7.4-mysql\n",
+                        " - php7.4-cgi\n",
+                        " - php7.4-common\n",
+                        " - php7.4-mbstring\n",
+                        " - php7.4-gd\n",
+                        " - php7.4-zip\n",
+                        " - php7.4-curl\n",
+                        " - php7.4-imagick\n",
                         "\n",
                         "write_files:\n",
                         " - path: /tmp/security.conf\n",
@@ -446,5 +388,4 @@
           "Value" : { "Fn::GetAtt" : [ "LoadBalancer", "DNSName" ]}
         }
     }
-
 }
