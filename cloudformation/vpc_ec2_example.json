@@ -1,0 +1,161 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "LAMP Website 2",
+    "Parameters": {
+        "vpcCidrBlock" : {
+            "Description" : "Provide the full VPC CIDR block range",
+            "Type" : "String",
+            "Default" : "10.0.0.0/16"
+        },
+        "subnetCidrBlock" : {
+            "Description" : "Provide the subnet CIDR block range",
+            "Type" : "String",
+            "Default" : "10.0.0.0/24"
+        },
+        "EC2ImageId" : {
+            "Description"   : "Select the latest AMI to use for the Web Server (Amazon Linux 2)",
+            "Type"          : "String",
+            "Default"       : "ami-0a4e637babb7b0a86"
+        }
+    },
+    "Resources" : {
+        "myVPC" : {
+            "Type" : "AWS::EC2::VPC",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "vpcCidrBlock"},
+                "EnableDnsHostnames" : true,
+                "EnableDnsSupport" : true,
+                "InstanceTenancy" : "default"
+            }
+        },
+        "myIGW" : {
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {}
+        },
+        "myIGWtoVPCattachment" : {
+            "Type" : "AWS::EC2::VPCGatewayAttachment",
+            "DependsOn" : "myVPC",
+            "Properties" : {
+                "InternetGatewayId" : { "Ref" : "myIGW"},
+                "VpcId" : { "Ref" : "myVPC"}
+            }
+        },
+        "myRouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "DependsOn" : "myVPC",
+            "Properties" : {
+                "VpcId" : { "Ref" : "myVPC" }
+            }
+        },
+        "myRoute" : {
+            "Type" : "AWS::EC2::Route",
+            "DependsOn" : "myIGW",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "myRouteTable" },
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "GatewayId" : { "Ref" : "myIGW"}
+            }
+        },
+        "mySubnet" : {
+            "Type" : "AWS::EC2::Subnet",
+            "DependsOn" : "myVPC",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "subnetCidrBlock" },
+                "MapPublicIpOnLaunch" : true,
+                "VpcId" : { "Ref" : "myVPC"}
+            }
+        },
+        "mySubnetRouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : { 
+                "SubnetId" : { "Ref" : "mySubnet" },
+                "RouteTableId" : { "Ref" : "myRouteTable" }
+            }
+        },
+        "mySecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Enable HTTP access via port 80 and SSH on 22, and all outgoing traffic",
+                "SecurityGroupIngress" : [
+                    { "IpProtocol" : "tcp", "FromPort" : 80, "ToPort" : 80, "CidrIp" : "0.0.0.0/0" },
+                    { "IpProtocol" : "tcp", "FromPort" : 22, "ToPort" : 22, "CidrIp" : "0.0.0.0/0" }
+                ],
+                "SecurityGroupEgress" : [
+                    { "IpProtocol" : "-1", "CidrIp" : "0.0.0.0/0" }
+                ],
+                "VpcId": { "Ref": "myVPC"}
+            }
+        },
+        "myEC2Role": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": { "Service": [  "ec2.amazonaws.com" ] },
+                            "Action": [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "ManagedPolicyArns" : [
+                    "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+                ]
+            }
+        },
+        "myEC2InstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [ { "Ref": "myEC2Role" } ]
+            }
+        },
+        "myEC2Instance" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "ImageId" : { "Ref" : "EC2ImageId"},
+                "IamInstanceProfile"    : { "Ref" : "myEC2InstanceProfile"},
+                "InstanceType" : "t2.micro",
+                "NetworkInterfaces": [ {
+                    "AssociatePublicIpAddress": "true",
+                    "DeviceIndex": "0",
+                    "GroupSet": [{ "Ref" : "mySecurityGroup" }],
+                    "SubnetId": { "Ref" : "mySubnet"}
+                } ],
+              
+                "BlockDeviceMappings" : [ {
+                    "DeviceName" : "/dev/sdk",
+                    "Ebs" : {"VolumeSize" : "50"}
+                 }, {
+                    "DeviceName" : "/dev/sdc",
+                    "VirtualName" : "ephemeral0"
+              } ],
+              "UserData"              : { "Fn::Base64" : { "Fn::Join" : ["",
+                [
+                    "#cloud-config\n",
+                    "runcmd:\n",
+                    " - sudo yum update -y\n",
+                    " - sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2\n",
+                    " - sudo yum install -y httpd\n",
+                    " - sudo systemctl start httpd\n",
+                    " - sudo systemctl enable httpd\n",
+                    " - sudo usermod -a -G apache ec2-user\n",
+                    " - sudo chown -R ec2-user:apache /var/www\n",
+                    " - sudo chmod 2775 /var/www\n",
+                    " - find /var/www -type d -exec sudo chmod 2775 {} \\;\n",
+                    " - find /var/www -type f -exec sudo chmod 0664 {} \\;\n",
+                    " - echo \"Hello World\" > /var/www/html/index.php\n"
+                ] ] } }
+            }
+        }
+
+    },
+    "Outputs" : {
+        "PublicIp" : {
+          "Value" : { "Fn::GetAtt" : [ "myEC2Instance", "PublicIp" ]},
+          "Description" : "EC2 public IP address"
+        }
+    }
+}
