@@ -1,6 +1,7 @@
 import boto3
 import requests
 import json
+import argparse
 
 def openPort(**Z):
     # == get my IP address
@@ -30,10 +31,18 @@ def closePort(**Z):
         output = ec2.revoke_security_group_ingress(GroupId = Z['GroupId'], IpPermissions = x['IpPermissions'])
         print(output['Return'])
 
-# ===================== my parameters
-GroupId = 'sg-0da7f476c0e40339c'        # -- modify this parameter to your security group name
-region_name = 'ap-southeast-2'          # -- modify this parameter to the region where you operate
-Port = 22                               # -- Port 22 for Linux, 3389 for Windows.
+def main():
+    parser = argparse.ArgumentParser(description='AWS Bastion Script')
+    parser.add_argument('--GroupId',help='Enter the security group Id', required = True)
+    parser.add_argument('--region',help='Enter the AWS region name', required = True)
+    parser.add_argument('--ports', metavar='N', type=int, nargs='+', help='Provide all ports to be opened')
 
-closePort(region_name = region_name,  GroupId = GroupId)
-openPort(region_name = region_name,  GroupId = GroupId, Port = Port)
+    args = parser.parse_args()
+
+    Port = args.ports
+
+    closePort(region_name = args.region,  GroupId = args.GroupId)
+    for p in Port:
+        openPort(region_name = args.region,  GroupId = args.GroupId, Port = p)
+
+main()
