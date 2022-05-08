@@ -1,0 +1,72 @@
+{
+    "AWSTemplateFormatVersion"  : "2010-09-09",
+    "Description"               : "Lambda Function URL",
+    "Resources" : {
+        "myLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+                },
+                "Path": "/",
+                "Policies": [{
+                    "PolicyName" : "LambdaPolicy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            { "Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream" , "logs:PutLogEvents"], "Resource": "arn:aws:logs:*:*:*" }
+                        ]
+                    }
+                }]
+            }
+        },
+        "myLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Role": { "Fn::GetAtt": [ "myLambdaExecutionRole", "Arn" ] },
+                "Code": {
+                    "ZipFile":  { "Fn::Join": ["\n", [
+                        "import json",
+                        "",
+                        "def lambda_handler(event, context):",
+                        "   REMOTE_ADDR = event['headers']['x-forwarded-for']",
+                        
+                        "   return {",
+                        "      'statusCode': 200,",
+                        "      'headers': { 'Content-Type': 'text/html' },",
+                        "      'body': f\"<html><h1>Result</h1><pre>{REMOTE_ADDR}</pre></html>\"",
+                        "   }"
+                    ]]}
+                },
+                "Runtime": "python3.9",
+                "FunctionName": { "Fn::Sub": "${AWS::StackName}-FunctionCall" },
+                "Timeout": 25,
+                "TracingConfig": { "Mode": "Active" }
+            }
+        },
+        "myLambdaFunctionUrl" : {
+            "Type" : "AWS::Lambda::Url",
+            "Properties" : {
+                "AuthType" : "NONE",
+                "TargetFunctionArn" : { "Ref" : "myLambdaFunction" }
+            }
+        },
+        "myLambdaFunctionUrlPermissions" : {
+            "Type" : "AWS::Lambda::Permission",
+            "Properties" : {
+                "FunctionName" : { "Ref" : "myLambdaFunction" },
+                "FunctionUrlAuthType" : "NONE",
+                "Action" : "lambda:InvokeFunctionUrl",
+                "Principal" : "*"
+            }
+        }
+    },
+    "Outputs" : {
+        "FunctionURL" : {
+          "Value" : { "Fn::GetAtt" : [ "myLambdaFunctionUrl", "FunctionUrl" ]},
+          "Description" : "FunctionUrl"
+        }
+    }
+}
